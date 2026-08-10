@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>陳氏家族</title>
+    <style>
+      :root {
+        --color-ink: #2b2119;
+        --color-ink-soft: #6b5c4c;
+        --color-paper: #fbf8f3;
+        --color-surface: #ffffff;
+        --color-accent: #8c3a2b;
+        --color-accent-dark: #6d2c20;
+        --color-line: #e4dbcd;
+
+        --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
+          sans-serif;
+        --font-serif: "Noto Serif TC", "PingFang TC", "Microsoft JhengHei",
+          serif;
+
+        --text-sm: 0.875rem;
+        --text-base: 1rem;
+        --text-lg: 1.25rem;
+        --text-xl: 1.75rem;
+        --text-2xl: 2.5rem;
+        --text-3xl: 3.5rem;
+
+        --space-1: 0.5rem;
+        --space-2: 1rem;
+        --space-3: 1.5rem;
+        --space-4: 2.5rem;
+        --space-5: 4rem;
+        --space-6: 6rem;
+
+        --radius: 10px;
+        --content-width: 1080px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--color-paper);
+        color: var(--color-ink);
+        font-family: var(--font-sans);
+        font-size: var(--text-base);
+        line-height: 1.8;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .container {
+        width: 100%;
+        max-width: var(--content-width);
+        margin: 0 auto;
+        padding: 0 var(--space-3);
+      }
+
+      /* Hero */
+      .hero {
+        background: linear-gradient(180deg, #f4ece0 0%, var(--color-paper) 100%);
+        border-bottom: 1px solid var(--color-line);
+        padding: var(--space-6) 0 var(--space-5);
+        text-align: center;
+      }
+
+      .hero__title {
+        font-family: var(--font-serif);
+        font-size: var(--text-3xl);
+        letter-spacing: 0.2em;
+        line-height: 1.2;
+        margin-bottom: var(--space-2);
+      }
+
+      .hero__tagline {
+        color: var(--color-ink-soft);
+        font-size: var(--text-lg);
+        margin-bottom: var(--space-4);
+      }
+
+      .hero__cta {
+        background: var(--color-accent);
+        border-radius: var(--radius);
+        color: #fff;
+        display: inline-block;
+        font-size: var(--text-base);
+        letter-spacing: 0.1em;
+        padding: var(--space-1) var(--space-4);
+        text-decoration: none;
+      }
+
+      .hero__cta:hover,
+      .hero__cta:focus {
+        background: var(--color-accent-dark);
+      }
+
+      /* Section shared */
+      .section {
+        padding: var(--space-5) 0;
+      }
+
+      .section__title {
+        font-family: var(--font-serif);
+        font-size: var(--text-xl);
+        letter-spacing: 0.1em;
+        margin-bottom: var(--space-3);
+        text-align: center;
+      }
+
+      /* Introduction */
+      .intro__body {
+        margin: 0 auto;
+        max-width: 42em;
+      }
+
+      .intro__body p + p {
+        margin-top: var(--space-2);
+      }
+
+      /* Statistics */
+      .stats {
+        background: var(--color-surface);
+        border-block: 1px solid var(--color-line);
+        padding: var(--space-4) 0;
+      }
+
+      .stats__list {
+        display: grid;
+        gap: var(--space-3);
+        grid-template-columns: repeat(3, 1fr);
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+      }
+
+      .stats__value {
+        color: var(--color-accent);
+        display: block;
+        font-family: var(--font-serif);
+        font-size: var(--text-2xl);
+        line-height: 1.2;
+      }
+
+      .stats__label {
+        color: var(--color-ink-soft);
+        display: block;
+        font-size: var(--text-sm);
+        letter-spacing: 0.15em;
+      }
+
+      /* Entry cards */
+      .entries__list {
+        display: grid;
+        gap: var(--space-3);
+        grid-template-columns: repeat(3, 1fr);
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius);
+        display: block;
+        height: 100%;
+        padding: var(--space-3);
+        text-decoration: none;
+        transition: border-color 0.15s ease, transform 0.15s ease;
+      }
+
+      .card:hover,
+      .card:focus {
+        border-color: var(--color-accent);
+        transform: translateY(-2px);
+      }
+
+      .card__title {
+        font-family: var(--font-serif);
+        font-size: var(--text-lg);
+        letter-spacing: 0.1em;
+        margin-bottom: var(--space-1);
+      }
+
+      .card__desc {
+        color: var(--color-ink-soft);
+        font-size: var(--text-sm);
+      }
+
+      /* Footer */
+      .site-footer {
+        background: var(--color-surface);
+        border-top: 1px solid var(--color-line);
+        color: var(--color-ink-soft);
+        font-size: var(--text-sm);
+        padding: var(--space-4) 0;
+        text-align: center;
+      }
+
+      .site-footer p + p {
+        margin-top: var(--space-1);
+      }
+
+      /* Narrow viewports */
+      @media (max-width: 768px) {
+        :root {
+          --text-3xl: 2.25rem;
+          --text-2xl: 2rem;
+        }
+
+        .hero {
+          padding: var(--space-5) 0 var(--space-4);
+        }
+
+        .stats__list,
+        .entries__list {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <div class="container">
+        <h1 class="hero__title">陳氏家族</h1>
+        <p class="hero__tagline">
+          記錄一個家族從清末至今的世代脈絡，讓每一位後人都找得到自己的位置。
+        </p>
+        <a class="hero__cta" href="#">瀏覽族譜</a>
+      </div>
+    </header>
+
+    <section class="section intro">
+      <div class="container">
+        <h2 class="section__title">關於陳氏家族</h2>
+        <div class="intro__body">
+          <p>
+            陳氏一支原居福建漳州，清光緒年間渡海來臺，落腳於中部平原務農維生。從第一代開墾的田地起算，至今已傳承五代，族人散居臺灣各地與海外，彼此的聯繫卻隨著時間逐漸稀薄。
+          </p>
+          <p>
+            這個網站是為了把散落在各房的記憶重新接起來——族譜、老照片、口述的故事，都值得有一個不會遺失的地方。我們相信一個家族的歷史不該只存在長輩的記憶裡，也不該只寫在容易泛黃的紙上。
+          </p>
+          <p>
+            如果你手上有先人的照片、族譜抄本，或聽過任何一段還沒被記下的往事，歡迎與我們聯繫。每一筆補充，都會讓這棵樹更完整一些。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="container">
+        <ul class="stats__list">
+          <li>
+            <span class="stats__value">5</span>
+            <span class="stats__label">世代</span>
+          </li>
+          <li>
+            <span class="stats__value">128</span>
+            <span class="stats__label">成員</span>
+          </li>
+          <li>
+            <span class="stats__value">1890</span>
+            <span class="stats__label">最早紀錄</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section entries">
+      <div class="container">
+        <h2 class="section__title">開始探索</h2>
+        <ul class="entries__list">
+          <li>
+            <a class="card" href="#">
+              <h3 class="card__title">族譜圖</h3>
+              <p class="card__desc">
+                以世代樹狀圖檢視五代族人的婚姻與血緣關係，可展開任一分支。
+              </p>
+            </a>
+          </li>
+          <li>
+            <a class="card" href="#">
+              <h3 class="card__title">成員列表</h3>
+              <p class="card__desc">
+                依世代、房別或姓名查找個別族人，檢視生卒年與生平摘要。
+              </p>
+            </a>
+          </li>
+          <li>
+            <a class="card" href="#">
+              <h3 class="card__title">家族相簿</h3>
+              <p class="card__desc">
+                收錄祖厝、婚禮與各年代的合影，附上拍攝年份與人物註記。
+              </p>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>資料補充與聯繫：chen.family.tree@example.com</p>
+        <p>最後更新：2026-08-10</p>
+      </div>
+    </footer>
+  </body>
+</html>

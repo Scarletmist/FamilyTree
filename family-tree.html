@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>族譜圖 — 陳氏家族</title>
+    <style>
+      :root {
+        --color-ink: #2b2119;
+        --color-ink-soft: #6b5c4c;
+        --color-paper: #fbf8f3;
+        --color-surface: #ffffff;
+        --color-accent: #8c3a2b;
+        --color-line: #e4dbcd;
+        --color-connector: #b3a390;
+
+        --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
+          sans-serif;
+        --font-serif: "Noto Serif TC", "PingFang TC", "Microsoft JhengHei",
+          serif;
+
+        --text-sm: 0.875rem;
+        --text-base: 1rem;
+        --text-lg: 1.25rem;
+        --text-xl: 1.75rem;
+
+        --space-1: 0.5rem;
+        --space-2: 1rem;
+        --space-3: 1.5rem;
+        --space-4: 2.5rem;
+        --space-5: 4rem;
+
+        --radius: 10px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--color-paper);
+        color: var(--color-ink);
+        font-family: var(--font-sans);
+        font-size: var(--text-base);
+        line-height: 1.8;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .page-header {
+        background: var(--color-surface);
+        border-bottom: 1px solid var(--color-line);
+        padding: var(--space-3);
+      }
+
+      .page-header__inner {
+        align-items: baseline;
+        display: flex;
+        gap: var(--space-3);
+        margin: 0 auto;
+        max-width: 1200px;
+      }
+
+      .page-header__title {
+        font-family: var(--font-serif);
+        font-size: var(--text-xl);
+        letter-spacing: 0.1em;
+      }
+
+      .page-header__back {
+        color: var(--color-accent);
+        font-size: var(--text-sm);
+        text-decoration: none;
+      }
+
+      .page-header__back:hover {
+        text-decoration: underline;
+      }
+
+      .legend {
+        color: var(--color-ink-soft);
+        display: flex;
+        flex-wrap: wrap;
+        font-size: var(--text-sm);
+        gap: var(--space-3);
+        margin: var(--space-3) auto 0;
+        max-width: 1200px;
+        padding: 0 var(--space-3);
+      }
+
+      .legend__item {
+        align-items: center;
+        display: flex;
+        gap: var(--space-1);
+      }
+
+      .legend__swatch {
+        border-top: 2px solid var(--color-ink-soft);
+        display: inline-block;
+        width: 28px;
+      }
+
+      .legend__swatch--親生 {
+        border-top-style: solid;
+      }
+
+      .legend__swatch--過繼 {
+        border-top-style: dashed;
+      }
+
+      .legend__swatch--養子女 {
+        border-top-style: dashed;
+        border-top-width: 1px;
+      }
+
+      .legend__swatch--義子女 {
+        border-top-style: dotted;
+        border-top-width: 3px;
+      }
+
+      .legend__swatch--契子女 {
+        border-top-style: dotted;
+      }
+
+      .legend__swatch--契手足 {
+        border-top-style: dotted;
+        border-top-width: 1px;
+      }
+
+      /* Tree area */
+      .tree {
+        margin: var(--space-4) auto var(--space-5);
+        max-width: 1200px;
+        overflow-x: auto;
+        padding: 0 var(--space-3);
+      }
+
+      .tree__canvas {
+        position: relative;
+      }
+
+      .tree__connectors {
+        height: 100%;
+        left: 0;
+        pointer-events: none;
+        position: absolute;
+        top: 0;
+        width: 100%;
+      }
+
+      .tree__rows {
+        position: relative;
+        z-index: 1;
+      }
+
+      .generation {
+        align-items: stretch;
+        display: flex;
+        gap: var(--space-3);
+        justify-content: center;
+        margin-bottom: var(--space-5);
+      }
+
+      .generation:last-child {
+        margin-bottom: 0;
+      }
+
+      .person {
+        background: var(--color-surface);
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius);
+        flex: 0 0 auto;
+        padding: var(--space-1) var(--space-2);
+        text-align: center;
+        width: 120px;
+      }
+
+      .person--living {
+        border-color: var(--color-accent);
+      }
+
+      .person__name {
+        font-family: var(--font-serif);
+        font-size: var(--text-lg);
+        line-height: 1.4;
+        white-space: nowrap;
+      }
+
+      .person__years {
+        color: var(--color-ink-soft);
+        font-size: var(--text-sm);
+        line-height: 1.5;
+        white-space: nowrap;
+      }
+
+      .person__living-mark {
+        color: var(--color-accent);
+        font-size: var(--text-sm);
+      }
+
+      .person__branch {
+        background: #f2ece2;
+        border-radius: 4px;
+        color: var(--color-ink-soft);
+        display: inline-block;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        line-height: 1.6;
+        margin-top: 2px;
+        padding: 0 6px;
+        white-space: nowrap;
+      }
+
+      .tree__error {
+        background: var(--color-surface);
+        border: 1px solid var(--color-accent);
+        border-radius: var(--radius);
+        color: var(--color-accent);
+        margin: 0 auto;
+        max-width: 32em;
+        padding: var(--space-3);
+        text-align: center;
+      }
+
+      @media (max-width: 768px) {
+        .page-header__inner {
+          flex-direction: column;
+          gap: var(--space-1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-header">
+      <div class="page-header__inner">
+        <h1 class="page-header__title">陳氏家族族譜圖</h1>
+        <a class="page-header__back" href="index.html">← 回首頁</a>
+      </div>
+    </header>
+
+    <div class="legend">
+      <span class="legend__item"
+        ><span class="legend__swatch legend__swatch--spouse"></span>婚姻</span
+      >
+      <span class="legend__item"
+        ><span class="legend__swatch legend__swatch--親生"></span>親生</span
+      >
+      <span class="legend__item"
+        ><span class="legend__swatch legend__swatch--過繼"></span>過繼</span
+      >
+      <span class="legend__item"
+        ><span class="legend__swatch legend__swatch--養子女"></span>養子女</span
+      >
+      <span class="legend__item"
+        ><span class="legend__swatch legend__swatch--義子女"></span>義子女</span
+      >
+      <span class="legend__item"
+        ><span class="legend__swatch legend__swatch--契子女"></span>契子女</span
+      >
+      <span class="legend__item"
+        ><span class="legend__swatch legend__swatch--契手足"></span>契手足</span
+      >
+      <span class="legend__item legend__item--note"
+        >實線系列入房，虛線系列不入房</span
+      >
+      <span class="legend__item"
+        ><span class="person__living-mark">●</span>在世</span
+      >
+    </div>
+
+    <main class="tree">
+      <div class="tree__canvas" id="tree-canvas"></div>
+    </main>
+
+    <script src="data/family.js"></script>
+    <script src="assets/branch.js"></script>
+    <script src="assets/family-tree.js"></script>
+  </body>
+</html>

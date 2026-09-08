@@ -58,6 +58,18 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
     catch (error) { return [400, { error: error.message }]; }
     return [200, { ...await persist(data), memberId: id }];
   }
+  async function updateFamilyName(body) {
+    const current = await read();
+    if (body?.version !== current.version) return [409, { error: '資料已被其他操作更新，請更新目前資料後確認名稱再儲存。' }];
+    let familyName;
+    try {
+      if (!body || !Object.hasOwn(body, 'familyName')) throw new Error('請填寫家族名稱。');
+      familyName = Model.normalizeFamilyName(body.familyName);
+    } catch (error) { return [400, { error: error.message }]; }
+    if (current.data.familyName === familyName) return [200, current];
+    // Preserve all members, relationships and unknown top-level metadata.
+    return [200, await persist({ ...current.data, familyName })];
+  }
   async function importFamily(body) {
     const current = await read();
     if (body?.version !== current.version) return [409, { error: '目前資料已更新，請按「更新目前資料」確認後再匯入。' }];
@@ -69,7 +81,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
   const assets = new Map([
     ['/', ['family-tree.html', 'text/html']],
     ['/family-tree.html', ['family-tree.html', 'text/html']],
-    ...['family-model.js', 'family-tree.js', 'member-form.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
+    ...['family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'member-form.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
   ]);
   const server = http.createServer(async (req, res) => {
     try {
@@ -89,7 +101,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
       }
       const editMatch = /^\/api\/members\/([a-zA-Z0-9_-]{1,80})$/.exec(url.pathname);
       const isImport = req.method === 'POST' && url.pathname === '/api/family/import';
-      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport) {
+      const isNameUpdate = req.method === 'PUT' && url.pathname === '/api/family/name';
+      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate) {
         if (req.headers.origin !== `http://${req.headers.host}` || req.headers['content-type']?.split(';')[0] !== 'application/json') return reply(res, 403, { error: '只允許從本網站提交表單。' });
         const chunks = []; let bytes = 0;
         for await (const chunk of req) {
@@ -99,7 +112,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
         }
         let body;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return reply(res, 400, { error: 'JSON 格式不正確。' }); }
-        const operation = writes.then(() => isImport ? importFamily(body) : editMatch ? edit(editMatch[1], body) : add(body));
+        const operation = writes.then(() => isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : editMatch ? edit(editMatch[1], body) : add(body));
         writes = operation.catch(() => {});
         const [status, payload] = await operation;
         return reply(res, status, payload);

@@ -2,7 +2,6 @@
 (function () {
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
-  const CHILD_KINDS = ['親生', '過繼', '養子女'];
   // The legend and graph share the same colors, patterns and endpoint symbols.
   const STYLES = {
     spouse: { color: '#aa3d55', width: 6, double: true, label: '婚姻 · 雙線' },
@@ -17,23 +16,10 @@
     師徒: { color: '#1756b0', width: 3, end: 'arrow', label: '師徒 · 師父 → 徒弟' },
     unknown: { color: '#666666', width: 2, dash: '12 2 2 2', label: '未知關係' }
   };
+  const relationshipDetails = FamilyRelationshipDetails.createController();
+  const orderKey = FamilyModel.orderKey;
   let selectedId = null;
   let suppressClick = false;
-  function chineseNumber(n) {
-    const digits = '零一二三四五六七八九';
-    if (n < 10) return digits[n];
-    if (n < 100) return (n < 20 ? '' : digits[Math.floor(n / 10)]) + '十' + (n % 10 ? digits[n % 10] : '');
-    return String(n);
-  }
-  const orderKey = p => FamilyModel.orderKey(p);
-  const ageOrder = (a, b) => FamilyModel.compareOrder(a, b);
-  function siblingRole(sibling, person) {
-    const order = ageOrder(sibling, person);
-    if (!order) return '手足（長幼待確認）';
-    if (!['M', 'F'].includes(sibling.gender)) return order < 0 ? '年長手足' : '年幼手足';
-    const prefix = sibling.siblingOrder === 1 ? '長' : chineseNumber(sibling.siblingOrder);
-    return prefix + (order < 0 ? (sibling.gender === 'M' ? '兄' : '姊') : (sibling.gender === 'M' ? '弟' : '妹'));
-  }
   function element(tag, className, text) {
     const el = document.createElement(tag);
     if (className) el.className = className;
@@ -220,7 +206,7 @@
           node.appendChild(element('span', 'person__location', '所在地：' + (p.location || '未填寫')));
           node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
           node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
-          node.addEventListener('click', () => { selectedId = selectedId === p.id ? null : p.id; showDetails(); });
+          node.addEventListener('click', () => { selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false); showDetails(); });
           nodes.set(p.id, node);
           group.appendChild(node);
         });
@@ -229,9 +215,13 @@
       row.style.marginBottom = (140 + unions.length * 30 + extra.length * 8) + 'px';
       rows.appendChild(row);
     });
-    canvas.style.paddingLeft = (48 + extra.length * 18) + 'px';
+    // Reserve a label rail without changing the existing relationship gutters.
+    const generationGutter = 80;
+    canvas.style.paddingLeft = (generationGutter + 48 + extra.length * 18) + 'px';
     canvas.style.paddingTop = (64 + extra.length * 22) + 'px';
     canvas.appendChild(rows);
+    const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
+    canvas.prepend(generationLayers.backgrounds);
     const svg = svgElement('svg', { class: 'tree__connectors', 'aria-hidden': 'true' });
     svg.id = 'tree-connectors';
     canvas.appendChild(svg);
@@ -301,7 +291,7 @@
       });
     });
     extra.forEach((r, index) => {
-      const a = box(r.from), b = box(r.to), gutter = 18 + index * 18;
+      const a = box(r.from), b = box(r.to), gutter = generationGutter + 18 + index * 18;
       const fromY = a.top - 32 - index * 22, toY = b.top - 32 - index * 22;
       const points = Math.abs(a.top - b.top) < 1
         ? [[a.x - 42, a.top], [a.x - 42, fromY], [b.x - 42, toY], [b.x - 42, b.top]]
@@ -309,54 +299,24 @@
       path(points, r.kind, [r.from, r.to], 'auxiliary');
       label(b.x - 135, toY - 8, r.kind === '師徒' ? '師父 → 徒弟' : r.kind, r.kind, [r.from, r.to]);
     });
+    // Keep the pale generation labels above connector lines, but non-interactive.
+    canvas.appendChild(generationLayers.labels);
     function showDetails() {
       const panel = document.getElementById('relationship-details');
-      panel.replaceChildren();
-      panel.hidden = !selectedId || !byId.has(selectedId);
-      nodes.forEach((node, id) => node.setAttribute('aria-pressed', String(id === selectedId)));
+      const visibleId = selectedId && byId.has(selectedId) ? selectedId : null;
+      nodes.forEach((node, id) => node.setAttribute('aria-pressed', String(id === visibleId)));
       svg.querySelectorAll('[data-people]').forEach(line => {
-        line.style.opacity = selectedId && !line.dataset.people.split(' ').includes(selectedId) ? '0.12' : '1';
+        line.style.opacity = visibleId && !line.dataset.people.split(' ').includes(visibleId) ? '0.12' : '1';
       });
-      if (!selectedId || !byId.has(selectedId)) {
-        panel.appendChild(element('p', '', '點選成員，查看父母、手足長幼與師徒關係，並突顯相關連線。'));
-        return;
-      }
-      const person = byId.get(selectedId);
-      const close = element('button', 'details-close', '×');
-      close.type = 'button';
-      close.setAttribute('aria-label', '關閉關係詳情');
-      close.addEventListener('click', () => { const id = selectedId; selectedId = null; showDetails(); nodes.get(id)?.focus({ preventScroll: true }); });
-      panel.appendChild(close);
-      panel.appendChild(element('h2', '', person.name + '的關係'));
-      panel.appendChild(element('p', '', '所在地：' + (person.location || '未填寫')));
-      panel.appendChild(element('p', '', '職位：' + (person.position || '未填寫')));
-      const edit = element('button', 'plain-button edit-member', '編輯成員與關係');
-      edit.type = 'button';
-      edit.addEventListener('click', () => window.editFamilyMember(person.id));
-      panel.appendChild(edit);
-      const list = element('ul');
-      const add = text => list.appendChild(element('li', '', text));
-      const name = id => byId.get(id).name;
-      unions.filter(u => u.partners.includes(selectedId)).forEach(u => {
-        if (u.married) add('配偶：' + name(u.partners.find(id => id !== selectedId)));
-        childrenOf(u).forEach(d => add(d.kind + '子女：' + name(d.child)));
+      relationshipDetails.render(panel, FAMILY, visibleId, {
+        onEdit: id => window.editFamilyMember(id),
+        onClose: () => {
+          const id = selectedId;
+          selectedId = null;
+          showDetails();
+          nodes.get(id)?.focus({ preventScroll: true });
+        }
       });
-      descents.filter(d => d.child === selectedId).forEach(d => {
-        const u = unionById.get(d.union);
-        add(d.kind + '關係的父母：' + u.partners.map(name).join('、'));
-        if (!CHILD_KINDS.includes(d.kind)) return;
-        const siblings = childrenOf(u).filter(s => CHILD_KINDS.includes(s.kind));
-        siblings.filter(s => s.child !== selectedId).forEach(s => {
-          const sibling = byId.get(s.child), role = siblingRole(sibling, person);
-          add(role + '：' + sibling.name + '（' + s.kind + '；共同父母：' + u.partners.map(name).join('、') + '）');
-        });
-      });
-      extra.forEach(r => {
-        if (r.from === selectedId) add((r.kind === '師徒' ? '徒弟' : r.kind === '手足' ? siblingRole(byId.get(r.to), person) : r.kind) + '：' + name(r.to));
-        if (r.to === selectedId) add((r.kind === '師徒' ? '師父' : r.kind === '手足' ? siblingRole(byId.get(r.from), person) : r.kind) + '：' + name(r.from));
-      });
-      if (!list.children.length) add('尚未記錄關係。');
-      panel.appendChild(list);
     }
     showDetails();
     // On entry or a new family, start at the parents; resizing preserves the user's pan.
@@ -373,6 +333,7 @@
   window.renderFamilyTree = render;
   window.selectFamilyMember = id => {
     selectedId = id;
+    if (id) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false);
     render();
     const node = [...document.querySelectorAll('.person')].find(n => n.dataset.personId === id);
     node?.scrollIntoView({ block: 'center', inline: 'center' });

@@ -6,6 +6,13 @@
   const error = document.getElementById('member-error');
   const status = document.getElementById('save-status');
   const addButton = document.getElementById('add-member');
+  const familyTitle = document.getElementById('family-title');
+  const familyNameButton = document.getElementById('edit-family-name');
+  const nameDialog = document.getElementById('family-name-dialog');
+  const nameForm = document.getElementById('family-name-form');
+  const nameInput = document.getElementById('family-name-input');
+  const nameError = document.getElementById('family-name-error');
+  let nameVersion = null, savingName = false;
   const labels = { parent: '父母', child: '子女', spouse: '配偶', sibling: '手足', swornSibling: '契手足', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
@@ -18,6 +25,10 @@
   function accept(payload) {
     const graph = FamilyModel.build(payload.data);
     snapshot = payload;
+    const familyName = graph.familyName;
+    familyTitle.textContent = familyName + '族譜圖';
+    document.title = '族譜圖 — ' + familyName;
+    familyNameButton.disabled = false;
     window.FAMILY = graph;
     window.renderFamilyTree();
     addButton.disabled = false;
@@ -78,6 +89,50 @@
     setSaving(false);
     dialog.showModal(); document.getElementById('member-name').focus();
   }
+  function setNameSaving(value) {
+    savingName = value;
+    document.getElementById('family-name-fields').disabled = value;
+    ['save-family-name', 'refresh-family-name', 'cancel-family-name', 'close-family-name-dialog'].forEach(id => document.getElementById(id).disabled = value);
+    document.getElementById('save-family-name').textContent = value ? '儲存中…' : '儲存名稱';
+  }
+  familyNameButton.addEventListener('click', () => {
+    if (!snapshot) return;
+    nameVersion = snapshot.version;
+    nameInput.value = FamilyModel.normalizeFamilyName(snapshot.data.familyName);
+    nameError.textContent = '';
+    setNameSaving(false);
+    nameDialog.showModal();
+    nameInput.focus(); nameInput.select();
+  });
+  ['cancel-family-name', 'close-family-name-dialog'].forEach(id => document.getElementById(id).addEventListener('click', () => nameDialog.close()));
+  nameDialog.addEventListener('cancel', event => { if (savingName) event.preventDefault(); });
+  document.getElementById('refresh-family-name').addEventListener('click', async () => {
+    if (savingName) return;
+    nameError.textContent = '';
+    try {
+      await load();
+      nameVersion = snapshot.version;
+      nameError.textContent = '已更新目前資料，請確認名稱後再儲存。輸入內容已保留。';
+    } catch (e) { nameError.textContent = e.message; }
+  });
+  nameForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (savingName || !nameForm.reportValidity()) return;
+    nameError.textContent = '';
+    let familyName;
+    try { familyName = FamilyModel.normalizeFamilyName(nameInput.value); }
+    catch (e) { nameError.textContent = e.message; return; }
+    setNameSaving(true);
+    try {
+      const response = await fetch('/api/family/name', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ familyName, version: nameVersion }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || '儲存名稱失敗，請重試。');
+      accept(payload);
+      nameDialog.close();
+      status.textContent = `已將家族名稱更新為「${familyName}」，並儲存至族譜檔案。`;
+    } catch (e) { nameError.textContent = e.message || '連線中斷，請重試。'; }
+    finally { setNameSaving(false); }
+  });
   addButton.addEventListener('click', () => openMember());
   window.editFamilyMember = openMember;
   ['close-member-dialog', 'cancel-member'].forEach(id => document.getElementById(id).addEventListener('click', () => dialog.close()));

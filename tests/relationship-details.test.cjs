@@ -1,0 +1,153 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const Model = require('../assets/family-model.js');
+const Details = require('../assets/relationship-details.js');
+const demo = require('../data/family.json');
+
+const graph = Model.build(demo);
+const group = (id, type) => Details.buildGroups(graph, id).find(g => g.id === type);
+const entry = (id, type, target) => group(id, type)?.entries.find(e => e.personId === target);
+
+test('groups every relation type without changing the underlying graph', () => {
+  const before = JSON.stringify(demo);
+  const groups = Details.buildGroups(graph, 'p11');
+  assert.deepEqual(groups.map(g => g.id), ['parents', 'spouses', 'children', 'siblings', 'students']);
+  assert.deepEqual(groups.map(g => g.entries.length), [2, 1, 6, 3, 1]);
+  assert.equal(entry('p17', 'teachers', 'p11').name, '陳建國');
+  assert.equal(entry('p11', 'spouses', 'p15').name, '吳雅婷');
+  assert.equal(entry('p11', 'children', 'p17').badges.includes('親生'), true);
+  assert.equal(JSON.stringify(demo), before);
+  assert.deepEqual(Details.buildGroups(graph, 'missing'), []);
+});
+
+test('siblings merge into one category, keep numeric rank, and preserve child kinds', () => {
+  const siblings = group('p11', 'siblings').entries;
+  assert.deepEqual(siblings.map(e => e.personId), ['p7', 'p12', 'p24']);
+  assert.deepEqual(siblings.map(e => e.role), ['二妹', '三弟', '契手足']);
+  assert(siblings[0].badges.includes('親生'));
+  assert(siblings[0].contexts.includes('共同父母：陳文彬、王美雲'));
+  assert.equal(entry('p3', 'children', 'p23').badges[0], '契子女');
+  assert.equal(entry('p3', 'siblings', 'p24'), undefined);
+  assert.equal(Details.siblingRole({ gender: 'M', siblingOrder: 1 }, { siblingOrder: 2 }), '長兄');
+  assert.equal(Details.siblingRole({ gender: 'F', siblingOrder: 2 }, { siblingOrder: 3 }), '二姊');
+  assert.equal(Details.siblingRole({ gender: 'M', siblingOrder: null }, { siblingOrder: 2 }), '手足（長幼待確認）');
+});
+
+test('reverse, explicit, and mixed sibling relations are deduplicated', () => {
+  const person = (id, name, gender, siblingOrder, relationships = []) => ({ id, name, gender, siblingOrder, location: '', position: '', relationships });
+  const data = { schemaVersion: 2, people: [
+    person('P', '父親', 'M', null),
+    person('A', '甲', 'M', 2, [{ type: 'parent', personId: 'P', kind: '親生' }, { type: 'sibling', personId: 'B' }, { type: 'swornSibling', personId: 'B' }]),
+    person('B', '乙', 'F', 1, [{ type: 'parent', personId: 'P', kind: '過繼' }])
+  ] };
+  const mixed = Details.buildGroups(Model.build(data), 'A').find(g => g.id === 'siblings');
+  assert.equal(mixed.entries.length, 1);
+  assert.equal(mixed.entries[0].role, '長姊');
+  assert.deepEqual(mixed.entries[0].badges, ['過繼', '契手足']);
+  assert.deepEqual(mixed.entries[0].contexts, ['共同父母：父親']);
+});
+
+class FakeElement {
+  constructor(tag) {
+    this.tagName = tag; this.children = []; this.dataset = {}; this.attributes = {};
+    this.listeners = {}; this.open = false; this.hidden = false; this.inert = false;
+    this.textContent = ''; this.className = ''; this.parentElement = null;
+    this.classList = { contains: name => this.className.split(/\s+/).includes(name) };
+  }
+  append(...nodes) { nodes.forEach(node => { node.parentElement = this; this.children.push(node); }); }
+  appendChild(node) { this.append(node); return node; }
+  replaceChildren(...nodes) { this.children.forEach(node => { node.parentElement = null; }); this.children = []; this.append(...nodes); }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
+  addEventListener(name, fn) { (this.listeners[name] ||= []).push(fn); }
+  click() { (this.listeners.click || []).forEach(fn => fn({ target: this })); }
+  focus() { global.document.activeElement = this; }
+  contains(node) { for (let current = node; current; current = current.parentElement) if (current === this) return true; return false; }
+  matches(selector) {
+    if (selector === 'details[data-group]') return this.tagName === 'details' && !!this.dataset.group;
+    if (selector.startsWith('.')) return this.classList.contains(selector.slice(1));
+    return this.tagName === selector;
+  }
+  closest(selector) { for (let node = this; node; node = node.parentElement) if (node.matches(selector)) return node; return null; }
+  querySelectorAll(selector) {
+    const nodes = [];
+    const visit = node => { node.children.forEach(child => { if (child.matches(selector)) nodes.push(child); visit(child); }); };
+    visit(this); return nodes;
+  }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+}
+
+test('drawer preserves disclosure state and selected member, and restores keyboard focus', () => {
+  const previous = global.document;
+  global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
+  try {
+    const controller = Details.createController();
+    const panel = new FakeElement('section');
+    let edited = null, closed = false;
+    const options = { onEdit: id => { edited = id; }, onClose: () => { closed = true; } };
+    controller.render(panel, graph, 'p11', options);
+    const content = panel.querySelector('.relationship-details__content');
+    const edit = panel.querySelector('.edit-member');
+    const collapse = panel.querySelector('.details-collapse');
+    const tab = panel.querySelector('.relationship-details__tab');
+    assert.equal(edit.tagName, 'button');
+    assert.equal(edit.type, 'button');
+    assert.equal(content.children[0].children[0], edit, 'Edit icon is the first header control');
+    assert.match(edit.attributes['aria-label'], /編輯陳建國/);
+    assert.equal(edit.children[0].tagName, 'svg');
+    assert.equal(edit.children[0].attributes['aria-hidden'], 'true');
+    edit.click(); assert.equal(edited, 'p11');
+    let groups = panel.querySelectorAll('details[data-group]');
+    assert.deepEqual(groups.map(d => d.dataset.group), ['parents', 'spouses', 'children', 'siblings', 'students']);
+    assert.equal(groups[0].open, true);
+    assert(groups.slice(1).every(d => !d.open));
+    groups.find(d => d.dataset.group === 'siblings').open = true;
+    groups[0].open = false;
+    const siblingList = groups.find(d => d.dataset.group === 'siblings').children[1];
+    assert(siblingList.children.some(li => li.querySelector('.relationship-entry__role')?.textContent === '二妹'));
+    collapse.click();
+    assert.equal(controller.isCollapsed(), true);
+    assert.equal(panel.dataset.memberId, 'p11');
+    assert.equal(panel.dataset.collapsed, 'true');
+    assert.equal(content.hidden, true);
+    assert.equal(content.inert, true);
+    assert.equal(tab.hidden, false);
+    assert.equal(tab.attributes['aria-expanded'], 'false');
+    assert.equal(global.document.activeElement, tab);
+    controller.render(panel, graph, 'p17', options);
+    assert.equal(panel.dataset.collapsed, 'true', 'Changing the displayed member preserves the drawer state');
+    assert.equal(panel.querySelector('.relationship-details__tab').attributes['aria-label'].includes('陳志偉'), true);
+    controller.render(panel, graph, 'p11', options);
+    const restoredTab = panel.querySelector('.relationship-details__tab');
+    assert.equal(global.document.activeElement, restoredTab, 'Redraw restores focus to the new tab');
+    restoredTab.click();
+    assert.equal(controller.isCollapsed(), false);
+    assert.equal(panel.querySelector('.relationship-details__content').hidden, false);
+    assert.equal(panel.querySelector('.relationship-details__tab').hidden, true);
+    assert.equal(global.document.activeElement, panel.querySelector('.details-collapse'));
+    groups = panel.querySelectorAll('details[data-group]');
+    assert.equal(groups.find(d => d.dataset.group === 'siblings').open, true);
+    assert.equal(groups.find(d => d.dataset.group === 'parents').open, false);
+    panel.querySelector('.edit-member').focus();
+    controller.render(panel, graph, 'p11', options);
+    assert.equal(global.document.activeElement, panel.querySelector('.edit-member'));
+    panel.querySelector('.details-close').click();
+    assert.equal(closed, true);
+    controller.render(panel, graph, null, options);
+    assert.equal(panel.hidden, true);
+    assert.equal(panel.children.length, 0);
+  } finally { global.document = previous; }
+});
+
+test('local server serves the new relationship details module', async () => {
+  const { createFamilyServer } = require('../server.cjs');
+  const server = createFamilyServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/assets/relationship-details.js`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /text\/javascript/);
+    assert.match(await response.text(), /FamilyRelationshipDetails/);
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});

@@ -8,7 +8,37 @@
       "location": "",
       "position": "",
       "siblingOrder": null,
-      "relationships": []
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p1"
+        },
+        {
+          "type": "child",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p4",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p6",
+          "kind": "過繼"
+        },
+        {
+          "type": "child",
+          "personId": "p21",
+          "kind": "養子女"
+        },
+        {
+          "type": "child",
+          "personId": "p22",
+          "kind": "義子女"
+        }
+      ]
     },
     {
       "id": "p1",
@@ -18,10 +48,6 @@
       "position": "",
       "siblingOrder": null,
       "relationships": [
-        {
-          "type": "spouse",
-          "personId": "p2"
-        },
         {
           "type": "spouse",
           "personId": "p8"
@@ -53,11 +79,6 @@
           "type": "parent",
           "personId": "p1",
           "kind": "親生"
-        },
-        {
-          "type": "parent",
-          "personId": "p2",
-          "kind": "親生"
         }
       ]
     },
@@ -85,11 +106,6 @@
         {
           "type": "parent",
           "personId": "p1",
-          "kind": "親生"
-        },
-        {
-          "type": "parent",
-          "personId": "p2",
           "kind": "親生"
         }
       ]
@@ -135,11 +151,6 @@
           "type": "parent",
           "personId": "p1",
           "kind": "過繼"
-        },
-        {
-          "type": "parent",
-          "personId": "p2",
-          "kind": "過繼"
         }
       ]
     },
@@ -155,11 +166,6 @@
           "type": "parent",
           "personId": "p1",
           "kind": "養子女"
-        },
-        {
-          "type": "parent",
-          "personId": "p2",
-          "kind": "養子女"
         }
       ]
     },
@@ -174,11 +180,6 @@
         {
           "type": "parent",
           "personId": "p1",
-          "kind": "義子女"
-        },
-        {
-          "type": "parent",
-          "personId": "p2",
           "kind": "義子女"
         }
       ]

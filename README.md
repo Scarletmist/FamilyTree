@@ -32,7 +32,7 @@ node server.cjs
 }
 ```
 
-根物件為 `{ "schemaVersion": 2, "people": [...] }`。
+根物件為 `{ "schemaVersion": 2, "familyName": "陳氏家族", "people": [...] }`。`familyName` 為可選欄位；舊資料未提供時會使用預設名稱，首次編輯後才寫入。
 `location`、`position` 未知時填空字串。`gender` 為 `M`、`F` 或 `U`（未填寫），供兄姊弟妹稱呼使用。
 `siblingOrder` 是 1 至 999 的整數，未知填 `null`；男女合併，包含自己，不再從生卒年推導。
 原有示範成員的所在地、職位未提供，因此保留空白，畫面標示「未填寫」。
@@ -70,12 +70,16 @@ node server.cjs
 取消不會寫入。驗證失敗時保留表單內容；資料版本過期時按「更新資料」再檢查重送。
 
 畫布填滿工具列下的整頁空間，支援水平／垂直捲軸、方向鍵、滑鼠及觸控拖曳。
-點選成員開啟浮動關係面板；已知數字排行會顯示長兄、二姊、四弟、五妹等稱呼。
+點選成員開啟浮動關係面板；關係依父母、配偶、子女、手足、師父、徒弟分類收折，已知數字排行會顯示長兄、二姊、四弟、五妹等稱呼。右上方收合圖示可將面板縮至右側，保留選取人物與連線突顯，點選標籤可再次展開。
 不同關係使用顏色、線型、端點符號與文字區分，圖例可收合；圓點才代表線條相接。
 
 ## 本機 API 與儲存
 
 - `GET /api/family`：回傳 `{ data, version }`，version 為檔案內容雜湊。
+- `PUT /api/family/name`：傳入 `{ familyName, version }`，只更新家族名稱並保留其他資料。
+- `PUT /api/members/:id`：更新指定成員與關係。
+- `GET /api/family/export`：匯出目前 JSON。
+- `POST /api/family/import`：驗證後取代整份族譜，先建立備份。
 - `POST /api/members`：傳入 `{ member, requestId, version }`；requestId 為 UUID，用於避免重試重複新增。
 - 新成員 ID 由 requestId 產生。伺服器驗證參照、數字排行、重複關係與階層，再以暫存檔原子替換 JSON。
 - 儲存請求逐筆處理；舊版本會收到 409，避免多個頁面互相覆蓋。
@@ -84,11 +88,39 @@ node server.cjs
 ## 測試
 
 ```sh
-node --test tests/server.test.cjs
-node tests/relationships.cjs
+npm test
 ```
 
-第一項不需要額外套件。第二項需 Playwright 與 Microsoft Edge；可用 `PLAYWRIGHT_MODULE` 指向既有的 Playwright，
-並用 `BROWSER_CHANNEL` 指定其他已安裝的 Chromium 通道。
-測試使用獨立暫存 JSON，涵蓋實際表單新增、多筆關係、錯誤後保留內容、檔案持久化、重啟、並行儲存、取消、手機表單與拖曳，
-不會把測試成員寫進正式資料。
+執行全部 Node.js 回歸測試，涵蓋關係模型、成員與名稱 API、版本衝突、匯入匯出、分代背景及關係詳情。測試使用獨立暫存 JSON，不修改正式族譜。
+
+```sh
+npm run test:browser
+```
+
+瀏覽器整合測試需要 Python Playwright 與 Chromium（測試腳本預設使用 `/usr/bin/chromium`，可依本機環境調整）。本測試環境限制直接導覽本機網址，因此腳本會從磁碟載入 HTML／JS，並透過 Python 將瀏覽器 API 請求轉送至使用獨立 JSON 的真實 Node 伺服器。涵蓋桌面與手機版的名稱儲存、衝突處理、收合、鍵盤、重繪與既有編輯入口。一般網站執行不需要 Playwright。
+
+舊版 `node tests/relationships.cjs` 是獨立的歷史瀏覽器測試，範例人數斷言尚未同步更新，不列入目前回歸測試指令。
+
+## 家族名稱（schema v2 相容）
+
+族譜根物件可加入 `familyName`，例如：
+
+```json
+{
+  "schemaVersion": 2,
+  "familyName": "陳氏家族",
+  "people": []
+}
+```
+
+舊 JSON 未提供 `familyName` 時顯示「陳氏家族」，不需要轉換版本。點選頁面標題旁的鉛筆圖示可編輯名稱，儲存後同步更新頁面標題與 JSON。名稱必須是非空字串，去除前後空白後最多 80 個字元，不允許控制字元。修改只更新根層名稱，保留成員、關係及其他資料；不需要重新匯入或覆蓋現有 JSON。
+
+`PUT /api/family/name` 接受 `{ "familyName": "新名稱", "version": "目前版本" }`，使用既有同源檢查、寫入佇列、版本衝突回應及原子寫入。舊版本回傳 409，使用「更新目前資料」可保留輸入內容並重新確認。匯出包含已儲存名稱；匯入會取代整份族譜，包含家族名稱，舊版無名稱檔案會回到預設名稱。
+
+## 關係詳情側邊收合
+
+關係詳情右上方有收合圖示，可將面板縮成畫布右側的窄標籤，保留目前選取的人物與連線突顯。點選標籤即可展開；再次點選人物會展開其詳情。收合不等於關閉，原有 × 仍可關閉面板並取消選取。收合狀態在重繪及視窗大小變更後保留，分類收折和手足排行功能不受影響。
+
+## 本次修改檔案
+
+本次補丁以分代背景版本為基礎，包含 `family-tree.html`、`assets/family-model.js`、`assets/family-tree.js`、`assets/member-form.js`、`assets/relationship-details.js`、`server.cjs`、`package.json`、`README.md` 及新增／更新的測試。沒有修改 `data/family.json`、世代背景模組或既有關係儲存邏輯。覆蓋檔案後重新啟動伺服器並強制重新整理瀏覽器，首次修改家族名稱時會自動新增根層 `familyName`。

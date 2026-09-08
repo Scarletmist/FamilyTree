@@ -5,6 +5,14 @@
   else root.FamilyModel = model;
 })(globalThis, function () {
   'use strict';
+  const DEFAULT_FAMILY_NAME = '陳氏家族';
+  function normalizeFamilyName(value) {
+    if (value === undefined) return DEFAULT_FAMILY_NAME;
+    if (typeof value !== 'string') fail('家族名稱格式不正確。');
+    const name = value.trim();
+    if (!name || name.length > 80 || /[\u0000-\u001f\u007f]/u.test(name)) fail('家族名稱須為 1 至 80 個字元，且不能包含控制字元。');
+    return name;
+  }
   const KINDS = ['親生', '過繼', '養子女', '義子女', '契子女'];
   const TYPES = ['parent', 'child', 'spouse', 'sibling', 'swornSibling', 'teacher', 'student'];
   const CHILD_KINDS = ['親生', '過繼', '養子女'];
@@ -57,6 +65,7 @@
   }
   function build(data) {
     if (!data || data.schemaVersion !== 2 || !Array.isArray(data.people)) fail('族譜 JSON 格式不正確。');
+    const familyName = normalizeFamilyName(data.familyName);
     const people = data.people.map(p => ({ ...p }));
     const byId = new Map();
     for (const p of people) {
@@ -145,9 +154,9 @@
     for (const [a, b] of siblings.values()) {
       if (knownOrder(byId.get(a)) && knownOrder(byId.get(b)) && compareOrder(byId.get(a), byId.get(b)) === 0) fail('手足次序重複，請填入其他數字或留空。');
     }
-    return { people, unions: [...groups.values()], descents,
+    return { familyName, people, unions: [...groups.values()], descents,
       bonds: [...sworn.values()].map(members => ({ members, kind: '契手足' })).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
-  return { build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, knownOrder, orderKey, compareOrder };
+  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, knownOrder, orderKey, compareOrder };
 });

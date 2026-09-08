@@ -1,0 +1,9 @@
+{
+  "name": "family-tree",
+  "private": true,
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node --test tests/server.test.cjs"
+  },
+  "engines": { "node": ">=20" }
+}

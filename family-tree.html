@@ -1,290 +1,159 @@
 <!doctype html>
 <html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>族譜圖 — 陳氏家族</title>
-    <style>
-      :root {
-        --color-ink: #2b2119;
-        --color-ink-soft: #6b5c4c;
-        --color-paper: #fbf8f3;
-        --color-surface: #ffffff;
-        --color-accent: #8c3a2b;
-        --color-line: #e4dbcd;
-        --color-connector: #b3a390;
-
-        --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
-          sans-serif;
-        --font-serif: "Noto Serif TC", "PingFang TC", "Microsoft JhengHei",
-          serif;
-
-        --text-sm: 0.875rem;
-        --text-base: 1rem;
-        --text-lg: 1.25rem;
-        --text-xl: 1.75rem;
-
-        --space-1: 0.5rem;
-        --space-2: 1rem;
-        --space-3: 1.5rem;
-        --space-4: 2.5rem;
-        --space-5: 4rem;
-
-        --radius: 10px;
-      }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        background: var(--color-paper);
-        color: var(--color-ink);
-        font-family: var(--font-sans);
-        font-size: var(--text-base);
-        line-height: 1.8;
-      }
-
-      h1,
-      h2,
-      p {
-        margin: 0;
-      }
-
-      a {
-        color: inherit;
-      }
-
-      .page-header {
-        background: var(--color-surface);
-        border-bottom: 1px solid var(--color-line);
-        padding: var(--space-3);
-      }
-
-      .page-header__inner {
-        align-items: baseline;
-        display: flex;
-        gap: var(--space-3);
-        margin: 0 auto;
-        max-width: 1200px;
-      }
-
-      .page-header__title {
-        font-family: var(--font-serif);
-        font-size: var(--text-xl);
-        letter-spacing: 0.1em;
-      }
-
-      .page-header__back {
-        color: var(--color-accent);
-        font-size: var(--text-sm);
-        text-decoration: none;
-      }
-
-      .page-header__back:hover {
-        text-decoration: underline;
-      }
-
-      .legend {
-        color: var(--color-ink-soft);
-        display: flex;
-        flex-wrap: wrap;
-        font-size: var(--text-sm);
-        gap: var(--space-3);
-        margin: var(--space-3) auto 0;
-        max-width: 1200px;
-        padding: 0 var(--space-3);
-      }
-
-      .legend__item {
-        align-items: center;
-        display: flex;
-        gap: var(--space-1);
-      }
-
-      .legend__swatch {
-        border-top: 2px solid var(--color-ink-soft);
-        display: inline-block;
-        width: 28px;
-      }
-
-      .legend__swatch--親生 {
-        border-top-style: solid;
-      }
-
-      .legend__swatch--過繼 {
-        border-top-style: dashed;
-      }
-
-      .legend__swatch--養子女 {
-        border-top-style: dashed;
-        border-top-width: 1px;
-      }
-
-      .legend__swatch--義子女 {
-        border-top-style: dotted;
-        border-top-width: 3px;
-      }
-
-      .legend__swatch--契子女 {
-        border-top-style: dotted;
-      }
-
-      .legend__swatch--契手足 {
-        border-top-style: dotted;
-        border-top-width: 1px;
-      }
-
-      /* Tree area */
-      .tree {
-        margin: var(--space-4) auto var(--space-5);
-        max-width: 1200px;
-        overflow-x: auto;
-        padding: 0 var(--space-3);
-      }
-
-      .tree__canvas {
-        position: relative;
-      }
-
-      .tree__connectors {
-        height: 100%;
-        left: 0;
-        pointer-events: none;
-        position: absolute;
-        top: 0;
-        width: 100%;
-      }
-
-      .tree__rows {
-        position: relative;
-        z-index: 1;
-      }
-
-      .generation {
-        align-items: stretch;
-        display: flex;
-        gap: var(--space-3);
-        justify-content: center;
-        margin-bottom: var(--space-5);
-      }
-
-      .generation:last-child {
-        margin-bottom: 0;
-      }
-
-      .person {
-        background: var(--color-surface);
-        border: 1px solid var(--color-line);
-        border-radius: var(--radius);
-        flex: 0 0 auto;
-        padding: var(--space-1) var(--space-2);
-        text-align: center;
-        width: 120px;
-      }
-
-      .person--living {
-        border-color: var(--color-accent);
-      }
-
-      .person__name {
-        font-family: var(--font-serif);
-        font-size: var(--text-lg);
-        line-height: 1.4;
-        white-space: nowrap;
-      }
-
-      .person__years {
-        color: var(--color-ink-soft);
-        font-size: var(--text-sm);
-        line-height: 1.5;
-        white-space: nowrap;
-      }
-
-      .person__living-mark {
-        color: var(--color-accent);
-        font-size: var(--text-sm);
-      }
-
-      .person__branch {
-        background: #f2ece2;
-        border-radius: 4px;
-        color: var(--color-ink-soft);
-        display: inline-block;
-        font-size: 0.75rem;
-        letter-spacing: 0.05em;
-        line-height: 1.6;
-        margin-top: 2px;
-        padding: 0 6px;
-        white-space: nowrap;
-      }
-
-      .tree__error {
-        background: var(--color-surface);
-        border: 1px solid var(--color-accent);
-        border-radius: var(--radius);
-        color: var(--color-accent);
-        margin: 0 auto;
-        max-width: 32em;
-        padding: var(--space-3);
-        text-align: center;
-      }
-
-      @media (max-width: 768px) {
-        .page-header__inner {
-          flex-direction: column;
-          gap: var(--space-1);
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <header class="page-header">
-      <div class="page-header__inner">
-        <h1 class="page-header__title">陳氏家族族譜圖</h1>
-        <a class="page-header__back" href="index.html">← 回首頁</a>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>族譜圖 — 陳氏家族</title>
+  <style>
+    :root { --color-ink:#2b2119; --color-ink-soft:#6b5c4c; --color-paper:#fbf8f3; --color-surface:#fff; --color-accent:#8c3a2b; --color-line:#e4dbcd; --font-sans:"Noto Sans TC","Microsoft JhengHei",sans-serif; --font-serif:"Noto Serif TC","Microsoft JhengHei",serif; }
+    *,*::before,*::after { box-sizing:border-box; }
+    html,body { margin:0; height:100%; overflow:hidden; }
+    body { height:100dvh; display:flex; flex-direction:column; background:var(--color-paper); color:var(--color-ink); font-family:var(--font-sans); line-height:1.6; }
+    h1,h2,p { margin:0; }
+    button,select { font:inherit; color:inherit; }
+    a { color:var(--color-accent); }
+    .page-header { flex:none; background:white; border-bottom:1px solid var(--color-line); padding:12px 24px; }
+    .page-header__inner { display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; }
+    .page-header__title { font:600 1.4rem var(--font-serif); letter-spacing:.08em; }
+    .tree-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-left:auto; }
+    select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px; background:white; max-width:260px; }
+    .legend-panel { flex:none; background:white; padding:8px 24px; border-bottom:1px solid var(--color-line); }
+    .legend-panel summary { cursor:pointer; color:var(--color-ink-soft); font-size:.8rem; }
+    .legend { display:flex; flex-wrap:wrap; gap:8px 22px; margin-top:8px; font-size:.8rem; }
+    .legend__item { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+    .legend__item svg { width:64px; height:24px; overflow:visible; }
+    .workspace { position:relative; flex:1; min-height:0; min-width:0; }
+    .tree { width:100%; height:100%; overflow:scroll; scrollbar-gutter:stable; scrollbar-color:#a89782 #eee7dc; cursor:grab; touch-action:none; overscroll-behavior:contain; background-image:radial-gradient(#d8cebd 1px,transparent 1px); background-size:24px 24px; }
+    .tree::-webkit-scrollbar { width:14px; height:14px; }
+    .tree::-webkit-scrollbar-track,.tree::-webkit-scrollbar-corner { background:#eee7dc; }
+    .tree::-webkit-scrollbar-thumb { background:#a89782; border:3px solid #eee7dc; border-radius:8px; }
+    .tree.is-dragging,.tree.is-dragging * { cursor:grabbing !important; user-select:none; }
+    .tree:focus-visible { outline:2px solid #286e86; outline-offset:-3px; }
+    .tree__canvas { position:relative; width:max-content; min-width:100%; min-height:100%; padding:80px 64px 64px; }
+    .tree__connectors { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .tree__rows { position:relative; z-index:1; }
+    .generation { display:flex; justify-content:center; align-items:stretch; gap:48px; }
+    .generation:last-child { margin-bottom:0 !important; }
+    .couple-group { display:flex; gap:24px; align-items:stretch; }
+    .person { flex:none; width:176px; min-height:108px; padding:12px 16px; background:white; border:1px solid var(--color-line); border-radius:10px; cursor:pointer; }
+    .person > span { display:block; }
+    .person__name { font:1.25rem/1.4 var(--font-serif); white-space:nowrap; }
+    .person__location,.person__position { font-size:.875rem; color:var(--color-ink-soft); overflow-wrap:anywhere; }
+    .person__order { margin-top:6px; font-size:.75rem; color:var(--color-ink-soft); }
+    .person[aria-pressed="true"] { outline:3px solid var(--color-accent); outline-offset:3px; }
+    .person:focus-visible { outline:3px solid #286e86; outline-offset:3px; }
+    .relationship-details { position:absolute; z-index:3; right:32px; top:16px; width:330px; max-height:calc(100% - 32px); overflow:auto; padding:20px; border:1px solid var(--color-line); border-radius:12px; background:white; box-shadow:0 8px 30px #2b211920; }
+    .relationship-details[hidden] { display:none; }
+    .relationship-details h2 { font-size:1.1rem; padding-right:32px; }
+    .relationship-details ul { padding-left:20px; margin:12px 0 0; font-size:.875rem; }
+    .relationship-details li + li { margin-top:8px; }
+    .edit-member { margin-top:12px; }
+    .details-close { position:absolute; top:12px; right:12px; width:30px; height:30px; border:0; border-radius:6px; background:#f2ece2; cursor:pointer; }
+    .tree__error { padding:24px; color:var(--color-accent); }
+    .relation-label { font:600 12px var(--font-sans); paint-order:stroke; stroke:var(--color-paper); stroke-width:5px; stroke-linejoin:round; }
+    .primary-button { background:var(--color-accent); color:white; border:0; padding:7px 14px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+    button:disabled { opacity:.55; cursor:wait; }
+    .save-status { position:absolute; z-index:4; left:16px; bottom:24px; padding:8px 14px; background:white; border:1px solid var(--color-line); border-radius:6px; font-size:.875rem; }
+    .save-status:empty { display:none; }
+    dialog { width:min(760px,calc(100vw - 24px)); max-height:calc(100dvh - 32px); overflow:auto; border:1px solid var(--color-line); border-radius:12px; padding:24px; color:var(--color-ink); }
+    dialog::backdrop { background:#2b211980; }
+    .dialog-header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+    .dialog-header h2 { font-size:1.25rem; }
+    .plain-button { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px; background:white; cursor:pointer; }
+    .form-fields { margin:0; padding:0; border:0; min-width:0; }
+    .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .field-grid label { display:flex; flex-direction:column; gap:4px; font-size:.875rem; }
+    dialog input,dialog select { width:100%; max-width:none; font:inherit; padding:8px; border:1px solid #c5b8a6; border-radius:6px; background:white; }
+    .form-note { margin:12px 0; color:var(--color-ink-soft); font-size:.8rem; }
+    .relation-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; align-items:end; gap:8px; padding:12px; margin:10px 0; background:#f6f2eb; border-radius:8px; }
+    .relation-row label { display:block; font-size:.8rem; min-width:0; }
+    .relation-preview { grid-column:1/-1; font-size:.8rem; color:var(--color-ink-soft); }
+    .relation-kind-field[hidden] { display:none; }
+    .form-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+    .form-error { color:#a12b24; white-space:pre-wrap; margin-top:12px; }
+    @media(max-width:600px) {
+      .tree-controls { flex-wrap:wrap; }
+      .field-grid { grid-template-columns:1fr; }
+      .relation-row { grid-template-columns:1fr; }
+      dialog { padding:16px; }
+    }
+    @media(max-width:600px) {
+      .page-header { padding:10px 12px; }
+      .page-header__title { font-size:1.1rem; }
+      .tree-controls { margin-left:0; width:100%; font-size:.8rem; }
+      select { max-width:calc(100vw - 100px); }
+      .legend-panel { padding:6px 12px; }
+      .legend { gap:4px 12px; max-height:92px; overflow:auto; }
+      .relationship-details { width:calc(100% - 40px); right:24px; top:auto; bottom:24px; max-height:35%; padding:14px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header__inner">
+      <h1 class="page-header__title">陳氏家族族譜圖</h1>
+      <div class="tree-controls">
+        <label for="family-filter">顯示範圍</label>
+        <select id="family-filter"><option value="">所有關係</option></select>
+        <button type="button" id="add-member" class="primary-button" disabled>＋ 新增成員</button>
+        <button type="button" id="import-json" class="plain-button" disabled>匯入 JSON</button>
+        <button type="button" id="export-json" class="plain-button" disabled>匯出 JSON</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden />
       </div>
-    </header>
-
-    <div class="legend">
-      <span class="legend__item"
-        ><span class="legend__swatch legend__swatch--spouse"></span>婚姻</span
-      >
-      <span class="legend__item"
-        ><span class="legend__swatch legend__swatch--親生"></span>親生</span
-      >
-      <span class="legend__item"
-        ><span class="legend__swatch legend__swatch--過繼"></span>過繼</span
-      >
-      <span class="legend__item"
-        ><span class="legend__swatch legend__swatch--養子女"></span>養子女</span
-      >
-      <span class="legend__item"
-        ><span class="legend__swatch legend__swatch--義子女"></span>義子女</span
-      >
-      <span class="legend__item"
-        ><span class="legend__swatch legend__swatch--契子女"></span>契子女</span
-      >
-      <span class="legend__item"
-        ><span class="legend__swatch legend__swatch--契手足"></span>契手足</span
-      >
-      <span class="legend__item legend__item--note"
-        >實線系列入房，虛線系列不入房</span
-      >
-      <span class="legend__item"
-        ><span class="person__living-mark">●</span>在世</span
-      >
     </div>
-
-    <main class="tree">
+  </header>
+  <details class="legend-panel" open>
+    <summary>關係圖例 · 捲軸／按住拖曳移動畫布 · 點選人物查看關係</summary>
+    <div class="legend" id="relationship-legend"></div>
+  </details>
+  <div class="workspace">
+    <main class="tree" tabindex="0" aria-label="族譜關係圖，可用捲軸、方向鍵或按住拖曳移動">
       <div class="tree__canvas" id="tree-canvas"></div>
     </main>
-
-    <script src="data/family.js"></script>
-    <script src="assets/branch.js"></script>
-    <script src="assets/family-tree.js"></script>
-  </body>
+    <section class="relationship-details" id="relationship-details" aria-live="polite" hidden></section>
+    <p id="save-status" class="save-status" role="status"></p>
+  </div>
+  <dialog id="member-dialog" aria-labelledby="member-dialog-title">
+    <div class="dialog-header">
+      <h2 id="member-dialog-title">新增成員</h2>
+      <button type="button" id="close-member-dialog" class="plain-button" aria-label="關閉成員表單">×</button>
+    </div>
+    <form id="member-form">
+      <fieldset class="form-fields" id="member-fields">
+        <div class="field-grid">
+          <label>姓名（必填）<input id="member-name" name="name" required maxlength="80" autocomplete="off" /></label>
+          <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：臺中市" /></label>
+          <label>職位<input id="member-position" name="position" maxlength="120" placeholder="例如：教師、工程師" /></label>
+          <label>性別（用於兄姊弟妹稱呼）<select id="member-gender" name="gender"><option value="U">未填寫</option><option value="M">男</option><option value="F">女</option></select></label>
+          <label>手足次序<input id="member-order" name="siblingOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
+        </div>
+        <p class="form-note">手足次序以同一組父母的所有子女排序，男女合併，例如 1、2、3。所在地、職位與次序可留空。</p>
+        <h3>與現有成員的關係</h3>
+        <p class="form-note">選擇「現有成員是這位成員的誰」。可新增、修改或移除多筆關係。僅新增手足關係不會自動推定其父母，父母請另行填寫。</p>
+        <div id="member-relations"></div>
+        <button type="button" id="add-relation" class="plain-button">＋ 新增一筆關係</button>
+      </fieldset>
+      <p id="member-error" class="form-error" role="alert"></p>
+      <div class="form-actions">
+        <button type="button" id="refresh-family" class="plain-button">更新資料</button>
+        <button type="button" id="cancel-member" class="plain-button">取消</button>
+        <button type="submit" id="save-member" class="primary-button">儲存成員</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="import-dialog" aria-labelledby="import-title">
+    <div class="dialog-header"><h2 id="import-title">匯入族譜 JSON</h2></div>
+    <p id="import-summary"></p>
+    <p class="form-note">匯入會取代目前全部成員與關係。匯入前會自動保留上一份資料備份。</p>
+    <p id="import-error" class="form-error" role="alert"></p>
+    <div class="form-actions">
+      <button type="button" id="refresh-import" class="plain-button">更新目前資料</button>
+      <button type="button" id="cancel-import" class="plain-button">取消</button>
+      <button type="button" id="confirm-import" class="primary-button">取代並匯入</button>
+    </div>
+  </dialog>
+  <script src="assets/family-model.js"></script>
+  <script src="assets/family-tree.js"></script>
+  <script src="assets/member-form.js"></script>
+</body>
 </html>

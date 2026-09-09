@@ -75,8 +75,41 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     const stale = await page.evaluate(async () => (await (await FamilyRepository.request('/api/family')).json()).version);
     await other.evaluate(async () => { const saved = await (await FamilyRepository.request('/api/family')).json(); await FamilyRepository.request('/api/family/name', { method: 'PUT', body: JSON.stringify({ version: saved.version, familyName: '新名稱' }) }); });
     assert.equal(await page.evaluate(async version => (await FamilyRepository.request('/api/family/name', { method: 'PUT', body: JSON.stringify({ version, familyName: '舊分頁' }) })).status, stale), 409);
+    // Start with only A/B, then fill their fathers in through the real forms.
+    const cousinData = { schemaVersion: 2, people: [{ ...p('A'), gender: 'M' }, { ...p('B'), gender: 'F' }] };
+    await page.reload(); await page.waitForFunction(() => window.FAMILY);
+    await page.locator('#import-file').setInputFiles({ name: 'cousins.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(cousinData)) });
+    await page.click('#confirm-import'); await page.waitForFunction(() => FAMILY.people.length === 2);
+    async function choose(selector, label) {
+      await page.locator(selector).locator('..').locator('.select-trigger').click();
+      await page.locator('.select-dropdown:popover-open input').fill(label);
+      await page.locator('.select-dropdown:popover-open').getByRole('option', { name: label, exact: true }).click();
+    }
+    async function relation(target, type) {
+      await page.click('#add-relation');
+      await choose('.relation-row:last-child .relation-target', target);
+      await choose('.relation-row:last-child .relation-type', type);
+    }
+    async function save() { await page.click('#save-member'); await page.waitForFunction(() => !document.getElementById('member-dialog').open); }
+    await page.evaluate(() => window.editFamilyMember('B'));
+    await relation('A', '堂兄弟姊妹（直接設定）');
+    await choose('.relation-cousin-seniority', '對方比此成員年長');
+    assert.match(await page.locator('.relation-preview').textContent(), /A是B的堂兄/);
+    await save();
+    assert.equal(await page.locator('.person').count(), 2);
+    assert.match(await page.locator('[data-group=cousins]').textContent(), /堂兄/);
+    await page.click('#add-member'); await page.fill('#member-name', 'C'); await choose('#member-gender', '男');
+    await relation('A', '子女'); await save();
+    await page.click('#add-member'); await page.fill('#member-name', 'D'); await choose('#member-gender', '男');
+    await relation('B', '子女'); await relation('C', '手足'); await save();
+    await choose('#relationship-a', 'A'); await choose('#relationship-b', 'B');
+    await page.click('#relationship-search [type=submit]');
+    assert.match(await page.locator('#relationship-summary h2').textContent(), /A 為 B 的堂兄/);
+    assert.deepEqual((await page.locator('.person__name').allTextContents()).sort(), ['A', 'B', 'C', 'D']);
+    const savedCousin = await page.evaluate(() => FamilyModel.relationshipsFor(FAMILY, 'B').find(r => r.type === 'tangCousin'));
+    assert.equal(savedCousin.seniority, 'older');
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.evaluate(() => window.editFamilyMember('F'));
+    await page.evaluate(() => window.editFamilyMember('B'));
     assert.equal(await page.locator('#member-dialog').evaluate(n => n.scrollWidth <= n.clientWidth), true);
     await page.screenshot({ path: path.join(dir, 'form-mobile.png') });
     assert.deepEqual(errors, []);

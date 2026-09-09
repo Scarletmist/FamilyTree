@@ -9,7 +9,7 @@
   else root.FamilyKinship = api;
 })(globalThis, function (Model) {
   'use strict';
-  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', teacher: 'student', student: 'teacher' };
+  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', teacher: 'student', student: 'teacher' };
   function create(config) {
   if (config?.schemaVersion !== 1 || !Array.isArray(config.rules) || !config.labels || !config.direct || !config.notes || !config.display || !config.numerals || !Array.isArray(config.familyTypes) || !Array.isArray(config.familyKinds)) throw new Error('稱謂設定檔格式不正確');
   for (const key of ['self', 'fallbackTerm', 'chainSeparator', 'nonBiologicalPrefix', 'nonBiologicalSeparator', 'nonBiologicalSuffix']) if (typeof config.display[key] !== 'string') throw new Error('稱謂設定缺少顯示文字：' + key);
@@ -71,7 +71,7 @@
     const kinds = [...new Set(original.map(e => e.kind).filter(k => k && k !== '親生'))];
     if (kinds.length && original.length > 1) { title += config.display.nonBiologicalPrefix + kinds.join(config.display.nonBiologicalSeparator) + config.display.nonBiologicalSuffix; notes.push(config.notes.nonBiological); }
     if (context.target.gender === 'U') notes.push(config.notes.unknownGender);
-    return { title, notes: [...new Set(notes.filter(Boolean))], confidence };
+    return { title, notes: [...new Set(notes.filter(Boolean))], confidence, cousinType: rule?.cousinType };
   }
   function indexGraph(graph) {
     const byId = new Map(graph.people.map(p => [p.id, p]));
@@ -127,6 +127,16 @@
     const direct = adjacency.get(bId).filter(e => e.to === aId);
     for (const edge of direct) if (!result.paths.some(p => p.edges.length === 1 && p.edges[0].key === edge.key)) result.paths.push({ nodes: [bId, aId], edges: [edge], familyRoute: false });
     const paths = result.paths.map(p => ({ ...p, ...describe(p, byId) }));
+    for (const path of paths) if (path.cousinType && path.edges.length > 1) {
+      const recorded = direct.find(e => e.type === path.cousinType && ['older', 'younger'].includes(e.seniority));
+      if (recorded) {
+        const suffix = path.title.indexOf(config.display.nonBiologicalPrefix);
+        path.title = term(recorded, byId) + (suffix < 0 ? '' : path.title.slice(suffix));
+        path.notes = path.notes.filter(note => note !== config.notes.cousinAge);
+        path.notes.push(config.notes.recordedCousinAge);
+      }
+      if (direct.some(e => Model.isCousin(e.type) && e.type !== path.cousinType)) path.notes.push(config.notes.cousinMismatch);
+    }
     paths.sort((a, b) => Number(b.familyRoute) - Number(a.familyRoute) || b.confidence - a.confidence || a.edges.length - b.edges.length);
     return { status: 'connected', paths, truncated: result.truncated };
   }

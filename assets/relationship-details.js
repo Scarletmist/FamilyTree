@@ -14,6 +14,7 @@
     { id: 'children', title: '子女' },
     { id: 'grandchildren', title: '孫子女（直接設定）' },
     { id: 'siblings', title: '手足' },
+    { id: 'cousins', title: '堂表兄弟姊妹（直接設定）' },
     { id: 'fellowDisciples', title: '師兄弟姊妹' },
     { id: 'teachers', title: '師父' },
     { id: 'students', title: '徒弟' }
@@ -78,6 +79,7 @@
     for (const bond of graph.bonds || []) {
       if (!bond.members.includes(personId)) continue;
       const other = bond.members.find(id => id !== personId);
+      if (['堂親', '表親'].includes(bond.kind)) { add('cousins', other, { context: '直接記錄，可再補上父母與父母間的手足關係。' }); continue; }
       if (bond.kind === '師兄弟姊妹') { add('fellowDisciples', other); continue; }
       add('siblings', other, { ordinary: bond.kind === '手足', sworn: bond.kind === '契手足' });
     }
@@ -93,6 +95,7 @@
         const target = byId.get(entry.personId);
         let role = '';
         const badges = [...entry.kinds];
+        if (category.id === 'cousins') role = FamilyModel.relationshipsFor(graph, personId).filter(r => r.personId === entry.personId && FamilyModel.isCousin(r.type)).map(r => FamilyModel.cousinRole(target, r.type, r.seniority)).join('、');
         if (category.id === 'fellowDisciples') {
           role = FamilyModel.fellowRole(target, person);
           if (FamilyModel.knownDiscipleOrder(target)) badges.push('師門序：' + target.discipleOrder);

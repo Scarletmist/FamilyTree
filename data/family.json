@@ -444,10 +444,33 @@
       "siblingOrder": null,
       "relationships": [
         {
-          "type": "fellowDisciple",
-          "personId": "p9"
+          "type": "biaoCousin",
+          "personId": "p24",
+          "seniority": "older"
         }
       ],
+      "discipleOrder": null,
+      "notes": ""
+    },
+    {
+      "id": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+      "name": "測試B",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": null,
+      "relationships": [],
+      "discipleOrder": null,
+      "notes": ""
+    },
+    {
+      "id": "p-15db0d6b-44e1-48f2-a81f-3c76e1134fbe",
+      "name": "測試C",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": null,
+      "relationships": [],
       "discipleOrder": null,
       "notes": ""
     }

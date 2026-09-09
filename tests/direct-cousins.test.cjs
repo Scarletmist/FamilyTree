@@ -1,0 +1,46 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const Model = require('../assets/family-model');
+const Details = require('../assets/relationship-details');
+const Kinship = require('../assets/kinship').create(require('../data/kinship-terms.json'));
+const p = (id, gender = 'M', relationships = []) => ({ id, name: id, gender, location: '', position: '', siblingOrder: null, relationships });
+const parent = personId => ({ type: 'parent', personId, kind: '親生' });
+for (const [type, prefix] of [['tangCousin', '堂'], ['biaoCousin', '表']]) test(`${prefix} relatives can be recorded directly, reversed and edited without inventing parents`, () => {
+  const data = { schemaVersion: 2, people: [p('A'), p('B', 'F', [{ type, personId: 'A', seniority: 'older' }])] };
+  const graph = Model.build(data);
+  assert.equal(graph.descents.length, 0); assert.equal(graph.people[0].gen, graph.people[1].gen);
+  assert.equal(Kinship.query(graph, 'A', 'B').paths[0].title, prefix + '兄');
+  assert.equal(Kinship.query(graph, 'B', 'A').paths[0].title, prefix + '妹');
+  assert.equal(Details.buildGroups(graph, 'A')[0].entries[0].role, prefix + '妹');
+  const reverse = Model.relationshipsFor(data, 'A');
+  assert.deepEqual(reverse, [{ type, personId: 'B', seniority: 'younger' }]);
+  const edited = Model.replaceMember(data, { ...data.people[0], relationships: reverse });
+  assert.equal(Kinship.query(Model.build(edited), 'A', 'B').paths[0].title, prefix + '兄');
+  assert.equal(Model.build(Model.replaceMember(edited, { ...edited.people[0], relationships: [] })).bonds.length, 0);
+});
+test('later fathers and their sibling relation coexist with direct cousin and known age', () => {
+  let data = { schemaVersion: 2, people: [p('A'), p('B', 'F', [{ type: 'tangCousin', personId: 'A', seniority: 'older' }])] };
+  data.people.push(p('C'), p('D', 'M', [{ type: 'sibling', personId: 'C' }]));
+  data = Model.replaceMember(data, { ...data.people[0], relationships: [...Model.relationshipsFor(data, 'A'), parent('C')] });
+  data = Model.replaceMember(data, { ...data.people[1], relationships: [...Model.relationshipsFor(data, 'B'), parent('D')] });
+  const graph = Model.build(data), result = Kinship.query(graph, 'A', 'B');
+  assert.deepEqual(result.paths[0].nodes, ['B', 'D', 'C', 'A']);
+  assert.equal(result.paths[0].title, '堂兄');
+  assert.ok(result.paths.some(path => path.edges.length === 1 && path.title === '堂兄'));
+  assert.equal(Kinship.project(graph, result.paths[0]).people.length, 4);
+  assert.equal(graph.descents.length, 2);
+  assert.equal(graph.people.find(p => p.id === 'A').gen, graph.people.find(p => p.id === 'B').gen);
+  assert.ok(Model.relationshipsFor(data, 'A').some(r => r.type === 'tangCousin'));
+  data.people.find(p => p.id === 'C').gender = 'F';
+  const mismatch = Kinship.query(Model.build(data), 'A', 'B');
+  assert.equal(mismatch.paths[0].title, '表兄弟');
+  assert.ok(mismatch.paths[0].notes.some(note => note.includes('類型不同')));
+  assert.ok(mismatch.paths.some(path => path.title === '堂兄'));
+});
+test('unknown age ignores family ranks; inconsistent reciprocal ages are rejected', () => {
+  const data = { schemaVersion: 2, people: [{ ...p('A'), siblingOrder: 1 }, { ...p('B', 'F', [{ type: 'tangCousin', personId: 'A' }]), siblingOrder: 3 }] };
+  assert.equal(Kinship.query(Model.build(data), 'A', 'B').paths[0].title, '堂兄弟');
+  data.people[0].relationships = [{ type: 'tangCousin', personId: 'B', seniority: 'older' }];
+  data.people[1].relationships[0].seniority = 'older';
+  assert.throws(() => Model.build(data), /堂表親的長幼/);
+});

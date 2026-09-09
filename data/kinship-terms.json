@@ -62,6 +62,12 @@
     },
     "fellowDisciple": {
       "ref": "fellowDisciple"
+    },
+    "tangCousin": {
+      "ref": "tangCousin"
+    },
+    "biaoCousin": {
+      "ref": "biaoCousin"
     }
   },
   "labels": {
@@ -321,6 +327,64 @@
             "M": "師兄弟",
             "F": "師姊妹",
             "default": "師兄弟姊妹"
+          }
+        }
+      }
+    },
+    "tangCousin": {
+      "select": "edge.seniority",
+      "cases": {
+        "older": {
+          "select": "target.gender",
+          "cases": {
+            "M": "堂兄",
+            "F": "堂姊",
+            "default": "堂年長手足"
+          }
+        },
+        "younger": {
+          "select": "target.gender",
+          "cases": {
+            "M": "堂弟",
+            "F": "堂妹",
+            "default": "堂年幼手足"
+          }
+        },
+        "default": {
+          "select": "target.gender",
+          "cases": {
+            "M": "堂兄弟",
+            "F": "堂姊妹",
+            "default": "堂兄弟姊妹"
+          }
+        }
+      }
+    },
+    "biaoCousin": {
+      "select": "edge.seniority",
+      "cases": {
+        "older": {
+          "select": "target.gender",
+          "cases": {
+            "M": "表兄",
+            "F": "表姊",
+            "default": "表年長手足"
+          }
+        },
+        "younger": {
+          "select": "target.gender",
+          "cases": {
+            "M": "表弟",
+            "F": "表妹",
+            "default": "表年幼手足"
+          }
+        },
+        "default": {
+          "select": "target.gender",
+          "cases": {
+            "M": "表兄弟",
+            "F": "表姊妹",
+            "default": "表兄弟姊妹"
           }
         }
       }
@@ -587,7 +651,8 @@
       },
       "notes": [
         "cousinAge"
-      ]
+      ],
+      "cousinType": "tangCousin"
     },
     {
       "id": "maternal-cousins",
@@ -602,7 +667,8 @@
       },
       "notes": [
         "cousinAge"
-      ]
+      ],
+      "cousinType": "biaoCousin"
     },
     {
       "id": "paternal-aunt-cousins",
@@ -617,7 +683,8 @@
       },
       "notes": [
         "cousinAge"
-      ]
+      ],
+      "cousinType": "biaoCousin"
     },
     {
       "id": "unspecified-cousins",
@@ -1010,6 +1077,32 @@
           "key": "fellowOrder"
         }
       ]
+    },
+    {
+      "id": "direct-tangCousin",
+      "patterns": [
+        "tangCousin"
+      ],
+      "when": {},
+      "label": {
+        "ref": "tangCousin"
+      },
+      "notes": [
+        "directCousin"
+      ]
+    },
+    {
+      "id": "direct-biaoCousin",
+      "patterns": [
+        "biaoCousin"
+      ],
+      "when": {},
+      "label": {
+        "ref": "biaoCousin"
+      },
+      "notes": [
+        "directCousin"
+      ]
     }
   ],
   "notes": {
@@ -1021,7 +1114,10 @@
     "fallback": "此路徑無法唯一對應慣用稱謂，改以已記錄的逐段關係說明。",
     "nonBiological": "此稱呼依所記錄的關係推導，不表示兩人具有血緣關係。",
     "unknownGender": "成員性別未填寫，使用不區分性別的稱呼。",
-    "fellowOrder": "師門次序未完整填寫，無法區分師兄、師姊、師弟或師妹。"
+    "fellowOrder": "師門次序未完整填寫，無法區分師兄、師姊、師弟或師妹。",
+    "directCousin": "此為直接記錄的堂表親關係；可保留此記錄，日後再補上父母及父母間的親屬關係，不會自動新增中間成員。",
+    "recordedCousinAge": "堂表親長幼依兩人直接記錄的長幼設定，不從各自家庭的手足次序推定。",
+    "cousinMismatch": "此詳細路徑與直接記錄的堂／表類型不同，兩者均保留，請確認資料。"
   },
   "display": {
     "self": "本人",

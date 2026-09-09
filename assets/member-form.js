@@ -27,7 +27,7 @@
   const nameInput = document.getElementById('family-name-input');
   const nameError = document.getElementById('family-name-error');
   let nameVersion = null, savingName = false;
-  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
+  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接設定）', biaoCousin: '表兄弟姊妹（直接設定）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
   function updateTargets(select) {
@@ -71,19 +71,22 @@
     Object.entries(labels).forEach(([value, text]) => type.appendChild(option(value, text)));
     const kind = field('親子／祖孫類型', 'relation-kind'); FamilyModel.KINDS.forEach(value => kind.appendChild(option(value, value)));
     kind.parentElement.className = 'relation-kind-field';
+    const seniority = field('對方的長幼', 'relation-cousin-seniority'); seniority.parentElement.className = 'relation-cousin-field';
+    seniority.append(option('unknown', '未確認'), option('older', '對方比此成員年長'), option('younger', '對方比此成員年幼'));
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'plain-button remove-relation'; remove.textContent = '移除';
     remove.addEventListener('click', () => row.remove()); row.appendChild(remove);
     const preview = document.createElement('p'); preview.className = 'relation-preview'; row.appendChild(preview);
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
       kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
+      seniority.closest('label').hidden = !FamilyModel.isCousin(type.value); seniority.disabled = !FamilyModel.isCousin(type.value);
       const person = snapshot.data.people.find(p => p.id === target.value);
-      const role = person && type.value === 'fellowDisciple' ? FamilyModel.fellowRole(person, { discipleOrder: Number(document.getElementById('member-disciple-order').value) || null }) : labels[type.value];
+      const role = person && FamilyModel.isCousin(type.value) ? FamilyModel.cousinRole(person, type.value, seniority.value) : person && type.value === 'fellowDisciple' ? FamilyModel.fellowRole(person, { discipleOrder: Number(document.getElementById('member-disciple-order').value) || null }) : labels[type.value];
       preview.textContent = person && type.value ? `${person.name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${role}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
     }
     row.addEventListener('change', update);
     row.updatePreview = update;
-    if (initial) { target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind; }
+    if (initial) { target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind; seniority.value = initial.seniority || 'unknown'; }
     relations.appendChild(row); update(); if (!initial) target.focus();
   }
   function setSaving(value) {
@@ -181,6 +184,7 @@
       relationships: [...relations.children].map(row => {
         const type = row.querySelector('.relation-type').value;
         const r = { type, personId: row.querySelector('.relation-target').value };
+        if (FamilyModel.isCousin(type) && row.querySelector('.relation-cousin-seniority').value !== 'unknown') r.seniority = row.querySelector('.relation-cousin-seniority').value;
         if (FamilyModel.isDescent(type)) r.kind = row.querySelector('.relation-kind').value;
         return r;
       })

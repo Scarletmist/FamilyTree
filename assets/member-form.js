@@ -5,6 +5,9 @@
   const relations = document.getElementById('member-relations');
   const error = document.getElementById('member-error');
   const status = document.getElementById('save-status');
+  const backupStatus = document.getElementById('backup-status');
+  const backup = FamilyStorage.create(window, FamilyModel.build);
+  let restoredBackup = false;
   const addButton = document.getElementById('add-member');
   const familyTitle = document.getElementById('family-title');
   const familyNameButton = document.getElementById('edit-family-name');
@@ -13,7 +16,7 @@
   const nameInput = document.getElementById('family-name-input');
   const nameError = document.getElementById('family-name-error');
   let nameVersion = null, savingName = false;
-  const labels = { parent: '父母', child: '子女', spouse: '配偶', sibling: '手足', swornSibling: '契手足', teacher: '師父', student: '徒弟' };
+  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
   function updateTargets(select) {
@@ -22,17 +25,20 @@
     snapshot.data.people.filter(p => p.id !== editingId).forEach(p => select.appendChild(option(p.id, p.name + (p.location ? ' · ' + p.location : ''))));
     select.value = [...select.options].some(o => o.value === previous) ? previous : '';
   }
-  function accept(payload) {
+  function accept(payload, restored = false) {
     const graph = FamilyModel.build(payload.data);
     snapshot = payload;
+    restoredBackup = restored;
+    const storage = restored ? null : backup.save(payload);
+    backupStatus.textContent = restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
     const familyName = graph.familyName;
     familyTitle.textContent = familyName + '族譜圖';
     document.title = '族譜圖 — ' + familyName;
-    familyNameButton.disabled = false;
+    familyNameButton.disabled = restored;
     window.FAMILY = graph;
     window.renderFamilyTree();
-    addButton.disabled = false;
-    document.getElementById('import-json').disabled = false;
+    addButton.disabled = restored;
+    document.getElementById('import-json').disabled = restored;
     document.getElementById('export-json').disabled = false;
   }
   async function load() {
@@ -51,13 +57,13 @@
     const target = field('現有成員', 'relation-target'); updateTargets(target);
     const type = field('是這位成員的', 'relation-type'); type.appendChild(option('', '選擇關係'));
     Object.entries(labels).forEach(([value, text]) => type.appendChild(option(value, text)));
-    const kind = field('親子類型', 'relation-kind'); FamilyModel.KINDS.forEach(value => kind.appendChild(option(value, value)));
+    const kind = field('親子／祖孫類型', 'relation-kind'); FamilyModel.KINDS.forEach(value => kind.appendChild(option(value, value)));
     kind.parentElement.className = 'relation-kind-field';
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'plain-button remove-relation'; remove.textContent = '移除';
     remove.addEventListener('click', () => row.remove()); row.appendChild(remove);
     const preview = document.createElement('p'); preview.className = 'relation-preview'; row.appendChild(preview);
     function update() {
-      const isParent = ['parent', 'child'].includes(type.value);
+      const isParent = FamilyModel.isDescent(type.value);
       kind.parentElement.hidden = !isParent; kind.disabled = !isParent;
       const name = snapshot.data.people.find(p => p.id === target.value)?.name;
       preview.textContent = name && type.value ? `${name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${labels[type.value]}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
@@ -81,6 +87,7 @@
     FamilyModel.relationshipsFor(snapshot.data, editingId).forEach(addRelation);
   }
   function openMember(id = null) {
+    if (restoredBackup) { status.textContent = '目前為瀏覽器備份，請重新連線並重新整理後再編輯。'; return; }
     editingId = id;
     form.reset(); relations.replaceChildren(); error.textContent = ''; status.textContent = ''; requestId = crypto.randomUUID();
     document.getElementById('member-dialog-title').textContent = editingId ? '編輯成員與關係' : '新增成員';
@@ -158,7 +165,7 @@
       relationships: [...relations.children].map(row => {
         const type = row.querySelector('.relation-type').value;
         const r = { type, personId: row.querySelector('.relation-target').value };
-        if (['parent', 'child'].includes(type)) r.kind = row.querySelector('.relation-kind').value;
+        if (FamilyModel.isDescent(type)) r.kind = row.querySelector('.relation-kind').value;
         return r;
       })
     };
@@ -220,7 +227,7 @@
     const button = document.getElementById('export-json'); button.disabled = true;
     try {
       // Export the latest persisted JSON, including changes from other open pages.
-      const response = await fetch('/api/family/export', { cache: 'no-store' });
+      const response = restoredBackup ? new Response(JSON.stringify(snapshot.data, null, 2), { headers: { 'Content-Type': 'application/json' } }) : await fetch('/api/family/export', { cache: 'no-store' });
       if (!response.ok) throw new Error((await response.json()).error || '匯出失敗。');
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a'); link.href = url; link.download = 'family.json';
@@ -231,6 +238,8 @@
     finally { button.disabled = false; }
   });
   load().catch(e => {
+    const cached = backup.read();
+    if (cached) { accept(cached, true); return; }
     const canvas = document.getElementById('tree-canvas');
     canvas.replaceChildren();
     const message = document.createElement('p'); message.className = 'tree__error';

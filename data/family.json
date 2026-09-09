@@ -437,12 +437,18 @@
     },
     {
       "id": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
-      "name": "天官",
-      "location": "新竹天公壇",
-      "position": "天官大帝",
+      "name": "測試",
+      "location": "測試",
+      "position": "測試",
       "gender": "M",
       "siblingOrder": null,
-      "relationships": []
+      "relationships": [
+        {
+          "type": "grandchild",
+          "personId": "p24",
+          "kind": "契子女"
+        }
+      ]
     }
   ]
 }

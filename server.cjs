@@ -81,7 +81,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
   const assets = new Map([
     ['/', ['family-tree.html', 'text/html']],
     ['/family-tree.html', ['family-tree.html', 'text/html']],
-    ...['family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'member-form.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
+    ...['family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'family-storage.js', 'member-form.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
   ]);
   const server = http.createServer(async (req, res) => {
     try {

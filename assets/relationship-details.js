@@ -9,8 +9,10 @@
   const CHILD_KINDS = new Set(['親生', '過繼', '養子女']);
   const CATEGORIES = [
     { id: 'parents', title: '父母' },
+    { id: 'grandparents', title: '祖父母（直接設定）' },
     { id: 'spouses', title: '配偶' },
     { id: 'children', title: '子女' },
+    { id: 'grandchildren', title: '孫子女（直接設定）' },
     { id: 'siblings', title: '手足' },
     { id: 'teachers', title: '師父' },
     { id: 'students', title: '徒弟' }
@@ -58,17 +60,18 @@
     for (const descent of descents) {
       const union = unions.get(descent.union);
       if (!union) continue;
-      const context = '共同父母：' + parentNames(union);
+      const grand = descent.generations === 2;
+      const context = (grand ? '共同祖父母：' : '共同父母：') + parentNames(union);
       if (descent.child === personId) {
-        union.partners.forEach(id => add('parents', id, { kind: descent.kind, context: union.partners.length > 1 ? context : '' }));
+        union.partners.forEach(id => add(grand ? 'grandparents' : 'parents', id, { kind: descent.kind, context: union.partners.length > 1 ? context : '' }));
         // Only these parent-child kinds imply ordinary siblings, as in the original model.
-        if (CHILD_KINDS.has(descent.kind)) {
-          descents.filter(d => d.union === union.id && CHILD_KINDS.has(d.kind) && d.child !== personId)
+        if (!grand && CHILD_KINDS.has(descent.kind)) {
+          descents.filter(d => d.union === union.id && d.generations !== 2 && CHILD_KINDS.has(d.kind) && d.child !== personId)
             .forEach(d => add('siblings', d.child, { kind: d.kind, ordinary: true, context }));
         }
       }
       if (union.partners.includes(personId)) {
-        add('children', descent.child, { kind: descent.kind, context: union.partners.length > 1 ? context : '' });
+        add(grand ? 'grandchildren' : 'children', descent.child, { kind: descent.kind, context: union.partners.length > 1 ? context : '' });
       }
     }
     for (const bond of graph.bonds || []) {
@@ -85,6 +88,10 @@
         const target = byId.get(entry.personId);
         let role = '';
         const badges = [...entry.kinds];
+        if (['grandparents', 'grandchildren'].includes(category.id)) {
+          const noun = category.id === 'grandparents' ? ({ M: '祖父', F: '祖母', U: '祖父母' })[target.gender] : ({ M: '孫子', F: '孫女', U: '孫子女' })[target.gender];
+          role = [...entry.kinds].map(kind => ({ 親生: '親生', 過繼: '過繼', 養子女: '養', 義子女: '義', 契子女: '契' })[kind] + noun).join('、');
+        }
         if (category.id === 'siblings') {
           role = entry.ordinary ? siblingRole(target, person) : '契手足';
           if (entry.sworn && entry.ordinary) badges.push('契手足');
@@ -174,7 +181,7 @@
       const header = element('div', 'relationship-details__header');
       const edit = iconButton('edit-member', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
       edit.addEventListener('click', () => onEdit?.(person.id));
-      const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M15 18 9 12l6-6');
+      const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
       collapse.setAttribute('aria-controls', content.id);
       collapse.addEventListener('click', () => setCollapsed(panel, true, { focus: true }));
       const close = iconButton('details-close', '關閉關係詳情', 'M18 6 6 18 M6 6l12 12');

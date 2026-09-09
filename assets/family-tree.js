@@ -140,7 +140,7 @@
     const byId = new Map(people.map(p => [p.id, p]));
     const unions = (FAMILY.unions || []).filter(u => {
       if (focus && u.id !== focus.id) return false;
-      const valid = Array.isArray(u.partners) && u.partners.length >= 1 && u.partners.length <= 2 && new Set(u.partners).size === u.partners.length && u.partners.every(id => byId.has(id));
+      const valid = Array.isArray(u.partners) && u.partners.length >= 1 && u.partners.length <= 4 && new Set(u.partners).size === u.partners.length && u.partners.every(id => byId.has(id));
       if (!valid) console.warn('略過無效婚姻', u.id);
       return valid;
     });
@@ -160,7 +160,15 @@
         if (!valid) console.warn('略過無效關係', r);
         return valid;
       });
-    const generations = [...new Set(people.map(p => p.gen))].sort((a, b) => a - b);
+    const occupiedGenerations = people.map(p => p.gen);
+    const firstGeneration = Math.min(...occupiedGenerations), lastGeneration = Math.max(...occupiedGenerations);
+    const generations = people.length ? Array.from({ length: lastGeneration - firstGeneration + 1 }, (_, i) => firstGeneration + i) : [];
+    // A skipped generation can contain cards directly under the ancestor anchor.
+    // Give each such family its own lane outside every generation's card area.
+    const crossGenerationUnions = unions.filter(u => childrenOf(u).some(d => byId.get(d.child).gen - byId.get(u.partners[0]).gen > 1));
+    const lowerLanes = 22 + Math.max(0, unions.length - 1) * 16;
+    const upperLanes = Math.max(58 + Math.max(0, unions.length - 1) * 18, 32 + Math.max(0, extra.length - 1) * 22);
+    const rowGap = Math.max(140 + unions.length * 30 + extra.length * 8, lowerLanes + upperLanes + 48);
     const rows = element('div', 'tree__rows');
     const nodes = new Map();
     // Spouse blocks stay together. Sibling blocks use parent-pair order, then numeric order.
@@ -195,6 +203,7 @@
       blocks.sort((a, b) => { const x = key(a), y = key(b); return (x[0] - y[0]) || (x[1] - y[1]) || 0; });
       const row = element('div', 'generation');
       row.dataset.gen = gen;
+      if (!blocks.length) row.style.minHeight = '120px';
       blocks.forEach(block => {
         const group = element('div', 'couple-group');
         block.forEach(p => {
@@ -212,12 +221,12 @@
         });
         row.appendChild(group);
       });
-      row.style.marginBottom = (140 + unions.length * 30 + extra.length * 8) + 'px';
+      row.style.marginBottom = rowGap + 'px';
       rows.appendChild(row);
     });
     // Reserve a label rail without changing the existing relationship gutters.
     const generationGutter = 80;
-    canvas.style.paddingLeft = (generationGutter + 48 + extra.length * 18) + 'px';
+    canvas.style.paddingLeft = (generationGutter + 48 + (extra.length + crossGenerationUnions.length) * 18) + 'px';
     canvas.style.paddingTop = (64 + extra.length * 22) + 'px';
     canvas.appendChild(rows);
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
@@ -261,31 +270,38 @@
       svg.appendChild(dot);
     }
     unions.forEach((u, index) => {
-      const a = box(u.partners[0]), b = u.partners[1] ? box(u.partners[1]) : a;
-      const marriageY = Math.max(a.bottom, b.bottom) + 22 + index * 16;
-      const anchor = (a.x + b.x) / 2;
+      const origins = u.partners.map(box), a = origins[0];
+      const marriageY = Math.max(...origins.map(p => p.bottom)) + 22 + index * 16;
+      const anchor = (Math.min(...origins.map(p => p.x)) + Math.max(...origins.map(p => p.x))) / 2;
       const kids = childrenOf(u);
       const familyIds = u.partners.concat(kids.map(d => d.child));
       // Join both parents below their cards; the child stem starts ON this line.
       if (u.partners.length === 1) {
         path([[a.x, a.bottom], [a.x, marriageY]], 'family', familyIds, 'parent-origin', u.id);
       } else {
-        path([[a.x, a.bottom], [a.x, marriageY], [b.x, marriageY], [b.x, b.bottom]], u.married ? 'spouse' : 'family', familyIds, 'marriage', u.id);
-        label(anchor + 8, marriageY - 8, u.married ? '婚姻' : '共同父母', u.married ? 'spouse' : 'family', familyIds);
+        const originXs = origins.map(p => p.x);
+        path([[Math.min(...originXs), marriageY], [Math.max(...originXs), marriageY]], u.married ? 'spouse' : 'family', familyIds, 'marriage', u.id);
+        origins.forEach(p => path([[p.x, p.bottom], [p.x, marriageY]], u.married ? 'spouse' : 'family', familyIds, 'parent-origin', u.id));
+        label(anchor + 8, marriageY - 8, u.married ? '婚姻' : kids.every(d => d.generations === 2) ? '共同祖父母' : '共同父母', u.married ? 'spouse' : 'family', familyIds);
       }
       if (kids.length) junction(anchor, marriageY, familyIds);
       [...new Set(kids.map(d => byId.get(d.child).gen))].forEach(gen => {
         const group = kids.filter(d => byId.get(d.child).gen === gen);
         const boxes = group.map(d => box(d.child));
         const barY = Math.min(...boxes.map(c => c.top)) - 58 - index * 18;
-        const xs = boxes.map(c => c.x).concat(anchor);
-        path([[anchor, marriageY], [anchor, barY]], 'family', familyIds, 'parent-stem', u.id);
+        const crossesGeneration = gen - byId.get(u.partners[0]).gen > 1;
+        const stemX = crossesGeneration ? generationGutter + 18 + (extra.length + crossGenerationUnions.indexOf(u)) * 18 : anchor;
+        const xs = boxes.map(c => c.x).concat(stemX);
+        const stem = crossesGeneration
+          ? [[anchor, marriageY], [stemX, marriageY], [stemX, barY]]
+          : [[anchor, marriageY], [anchor, barY]];
+        path(stem, 'family', familyIds, 'parent-stem', u.id);
         path([[Math.min(...xs), barY], [Math.max(...xs), barY]], 'family', familyIds, 'sibling-bar', u.id);
-        junction(anchor, barY, familyIds);
+        junction(stemX, barY, familyIds);
         group.forEach(d => {
           const c = box(d.child);
           path([[c.x, barY], [c.x, c.top]], d.kind, familyIds, 'child', u.id);
-          label(c.x + 10, c.top - 14, d.kind, d.kind, familyIds);
+          label(c.x + 10, c.top - 14, d.kind + (d.generations === 2 ? '（祖孫）' : ''), d.kind, familyIds);
           junction(c.x, barY, familyIds);
         });
       });

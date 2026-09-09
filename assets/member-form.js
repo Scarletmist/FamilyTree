@@ -6,6 +6,17 @@
   const error = document.getElementById('member-error');
   const status = document.getElementById('save-status');
   const backupStatus = document.getElementById('backup-status');
+  // Every new message gets its own ten seconds, including repeated messages.
+  for (const element of [status, backupStatus]) {
+    let timer;
+    const refresh = () => {
+      clearTimeout(timer);
+      element.hidden = !element.textContent.trim();
+      if (!element.hidden) timer = setTimeout(() => { element.hidden = true; }, 10000);
+    };
+    new MutationObserver(refresh).observe(element, { childList: true, characterData: true, subtree: true });
+    refresh();
+  }
   const backup = FamilyStorage.create(window, FamilyModel.build);
   let restoredBackup = false;
   const addButton = document.getElementById('add-member');
@@ -22,7 +33,8 @@
   function updateTargets(select) {
     const previous = select.value;
     select.replaceChildren(option('', '選擇現有成員'));
-    snapshot.data.people.filter(p => p.id !== editingId).forEach(p => select.appendChild(option(p.id, p.name + (p.location ? ' · ' + p.location : ''))));
+    const names = FamilyModel.memberOptionLabels(snapshot.data.people);
+    snapshot.data.people.filter(p => p.id !== editingId).forEach(p => select.appendChild(option(p.id, names.get(p.id))));
     select.value = [...select.options].some(o => o.value === previous) ? previous : '';
   }
   function accept(payload, restored = false) {
@@ -64,7 +76,7 @@
     const preview = document.createElement('p'); preview.className = 'relation-preview'; row.appendChild(preview);
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
-      kind.parentElement.hidden = !isParent; kind.disabled = !isParent;
+      kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
       const name = snapshot.data.people.find(p => p.id === target.value)?.name;
       preview.textContent = name && type.value ? `${name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${labels[type.value]}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
     }

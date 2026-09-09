@@ -113,8 +113,10 @@
     .family-name-dialog .form-error { line-height:1.6; }
     dialog input,dialog select { width:100%; max-width:none; font:inherit; padding:8px; border:1px solid #c5b8a6; border-radius:6px; background:white; }
     .form-note { margin:12px 0; color:var(--color-ink-soft); font-size:.8rem; }
-    .relation-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; align-items:end; gap:8px; padding:12px; margin:10px 0; background:#f6f2eb; border-radius:8px; }
-    .relation-row label { display:block; font-size:.8rem; min-width:0; }
+    .relation-row { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:8px; padding:12px; margin:10px 0; background:#f6f2eb; border-radius:8px; }
+    .relation-row label { display:flex; flex-direction:column; gap:6px; font-size:.8rem; min-width:0; }
+    .relation-row .remove-relation { grid-column:4; }
+    .relation-row .searchable-select, .field-grid .searchable-select { display:flex; width:100%; }
     .relation-preview { grid-column:1/-1; font-size:.8rem; color:var(--color-ink-soft); }
     .relation-kind-field[hidden] { display:none; }
     .form-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
@@ -123,6 +125,7 @@
       .tree-controls { flex-wrap:wrap; }
       .field-grid { grid-template-columns:1fr; }
       .relation-row { grid-template-columns:1fr; }
+      .relation-row .remove-relation { grid-column:1; justify-self:end; }
       dialog { padding:16px; }
     }
     @media(max-width:600px) {
@@ -140,6 +143,42 @@
       .page-header__identity { flex:1 1 auto; }
       .page-header__title { min-width:0; overflow-wrap:anywhere; }
     }
+  .relationship-search { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 16px; background:#fffaf2; border-bottom:1px solid #d8cbb8; }
+    .relationship-search label { display:flex; gap:6px; align-items:center; }
+    .relationship-search select { max-width:220px; padding:7px; }
+    .relationship-summary { position:absolute; top:12px; left:16px; z-index:5; width:min(370px, calc(100% - 32px)); max-height:35%; overflow:auto; padding:14px; box-sizing:border-box; background:#fffdf7; border:1px solid #bba17a; border-radius:10px; box-shadow:0 4px 18px #0002; font-size:13px; }
+    .relationship-summary h2 { font-size:17px; margin:0 0 8px; }
+    .relationship-summary p { margin:6px 0; }
+    .relationship-summary select { width:100%; }
+    .person.pair-a { outline:3px solid #b35425; }
+    .person.pair-b { box-shadow:0 0 0 6px #326d9a; }
+    @media(max-width:600px) { .relationship-search {gap:5px;padding:6px;} .relationship-search select {max-width:145px;} }
+  .searchable-select { position:relative; display:inline-flex; flex-direction:column; min-width:0; max-width:100%; }
+    .select-native { position:absolute; width:1px!important; height:1px; opacity:0; pointer-events:none; clip-path:inset(50%); }
+    .select-trigger { width:100%; min-height:38px; padding:8px 28px 8px 10px; text-align:left; font:inherit; color:inherit; border:1px solid #c5b8a6; border-radius:6px; background:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .select-trigger::after { content:'▾'; position:absolute; right:10px; }
+    .select-trigger:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+    .select-dropdown { position:fixed; inset:auto; margin:0; padding:8px; box-sizing:border-box; border:1px solid #c5b8a6; border-radius:8px; background:white; color:#342b23; box-shadow:0 6px 24px #0003; overflow:auto; }
+    .select-dropdown:popover-open { display:flex; flex-direction:column; gap:6px; }
+    .select-dropdown .select-search { flex:none; width:100%; box-sizing:border-box; font:inherit; padding:8px; border:1px solid #c5b8a6; border-radius:5px; }
+    .select-options { overflow:auto; min-height:0; }
+    .select-options [role=option] { padding:9px; cursor:pointer; overflow-wrap:anywhere; }
+    .select-options [role=option]:hover, .select-options .is-active { background:#f3e8d8; }
+    .select-options [aria-selected=true] { font-weight:600; color:#8b3928; }
+    .searchable-select input { width:100%; min-width:0; box-sizing:border-box; font:inherit; padding:7px; border:1px solid #c5b8a6; border-radius:6px; }
+    .relationship-search .searchable-select { width:200px; }
+    .relationship-search .searchable-select select { width:100%; }
+    .relationship-summary .searchable-select { display:flex; }
+    .select-search-status { font-size:12px; color:#8a3d25; }
+    .select-search-status:empty { display:none; }
+    .kinship-source { display:block; margin-top:8px; font-size:11px; line-height:1.5; }
+    .member-list-scroll { overflow:auto; }
+    .member-list-table { width:100%; border-collapse:collapse; text-align:left; }
+    .member-list-table th, .member-list-table td { padding:10px; border-bottom:1px solid #d8cbb8; overflow-wrap:anywhere; }
+    .member-list-table th { white-space:nowrap; background:#f5f0e8; }
+    .member-list-unlinked { background:#fff0c7; color:#714b16; }
+    .unlinked-badge { display:block; font-size:11px; margin-top:3px; }
+    @media(max-width:600px) { .relationship-search .searchable-select { width:140px; } }
   </style>
 </head>
 <body>
@@ -154,6 +193,7 @@
       <div class="tree-controls">
         <label for="family-filter">顯示範圍</label>
         <select id="family-filter"><option value="">所有關係</option></select>
+        <button type="button" id="show-member-list" class="plain-button">所有成員</button>
         <button type="button" id="add-member" class="primary-button" disabled>＋ 新增成員</button>
         <button type="button" id="import-json" class="plain-button" disabled>匯入 JSON</button>
         <button type="button" id="export-json" class="plain-button" disabled>匯出 JSON</button>
@@ -161,11 +201,20 @@
       </div>
     </div>
   </header>
+  <form id="relationship-search" class="relationship-search" aria-label="查詢兩人成員關係">
+    <label><select id="relationship-a" required aria-label="成員 A"><option value="">請選擇成員</option></select></label>
+    <label><select id="relationship-b" required aria-label="成員 B"><option value="">請選擇成員</option></select></label>
+    <button type="submit" class="primary-button" disabled>查詢兩人關係</button>
+    <button type="button" id="relationship-swap" class="plain-button">交換 A／B</button>
+    <button type="button" id="relationship-reset" class="plain-button">顯示全部</button>
+    <span id="kinship-status" role="status"></span><button type="button" id="kinship-retry" hidden>重試載入設定</button>
+  </form>
   <details class="legend-panel" open>
     <summary>關係圖例 · 捲軸／按住拖曳移動畫布 · 點選人物查看關係</summary>
     <div class="legend" id="relationship-legend"></div>
   </details>
   <div class="workspace">
+    <section id="relationship-summary" class="relationship-summary" aria-live="polite" aria-label="兩人關係結果" hidden></section>
     <main class="tree" tabindex="0" aria-label="族譜關係圖，可用捲軸、方向鍵或按住拖曳移動">
       <div class="tree__canvas" id="tree-canvas"></div>
     </main>
@@ -173,6 +222,11 @@
     <p id="save-status" class="save-status" role="status"></p>
     <p id="backup-status" role="status" style="position:absolute;bottom:0;left:16px;z-index:4;margin:0;font-size:12px;background:white;max-width:calc(100% - 32px)"></p>
   </div>
+  <dialog id="member-list-dialog" aria-labelledby="member-list-title">
+    <div class="dialog-header"><h2 id="member-list-title">所有成員</h2><button type="button" id="close-member-list" class="plain-button" aria-label="關閉成員清單">×</button></div>
+    <p id="member-list-count"></p>
+    <div class="member-list-scroll"><table class="member-list-table"><thead><tr><th scope="col">姓名</th><th scope="col">所在地</th><th scope="col">職位</th><th scope="col">代別</th></tr></thead><tbody id="member-list-body"></tbody></table></div>
+  </dialog>
   <dialog id="family-name-dialog" class="family-name-dialog" aria-labelledby="family-name-dialog-title">
     <div class="dialog-header">
       <h2 id="family-name-dialog-title">編輯家族名稱</h2>
@@ -235,8 +289,11 @@
   <script src="assets/family-model.js"></script>
   <script src="assets/relationship-details.js"></script>
   <script src="assets/generation-bands.js"></script>
+  <script src="assets/kinship.js"></script>
+  <script src="assets/relationship-search.js"></script>
   <script src="assets/family-tree.js"></script>
   <script src="assets/family-storage.js"></script>
   <script src="assets/member-form.js"></script>
+  <script src="assets/member-tools.js"></script>
 </body>
 </html>

@@ -444,9 +444,8 @@
       "siblingOrder": null,
       "relationships": [
         {
-          "type": "grandchild",
-          "personId": "p24",
-          "kind": "契子女"
+          "type": "student",
+          "personId": "p3"
         }
       ]
     }

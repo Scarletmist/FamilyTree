@@ -20,6 +20,11 @@
   const knownOrder = p => Number.isInteger(p.siblingOrder) && p.siblingOrder > 0;
   const orderKey = p => knownOrder(p) ? p.siblingOrder : Infinity;
   const compareOrder = (a, b) => knownOrder(a) && knownOrder(b) ? a.siblingOrder - b.siblingOrder : 0;
+  function memberOptionLabels(people) {
+    const counts = new Map();
+    people.forEach(person => { const name = person.name.trim(); counts.set(name, (counts.get(name) || 0) + 1); });
+    return new Map(people.map(person => [person.id, person.name + (counts.get(person.name.trim()) > 1 ? '（' + (person.location.trim() || '所在地未填寫') + '）' : '')]));
+  }
   const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', teacher: 'student', student: 'teacher' };
   // Editing shows all direct relations, even when the source record lives on the other person.
   function relationshipsFor(data, id) {
@@ -116,15 +121,40 @@
       const min = Math.min(...component.map(id => levels.get(id)));
       component.forEach(id => { byId.get(id).gen = levels.get(id) - min + 1; });
     }
-    // An otherwise unconnected mentor/student is displayed alongside their known contact.
-    for (let i = 0; i < people.length; i++) {
-      let changed = false;
-      for (const m of mentors.values()) {
-        for (const [a, b] of [[m.teacher, m.student], [m.student, m.teacher]]) {
-          if (!adjacency.get(a).length && byId.get(a).gen < byId.get(b).gen) { byId.get(a).gen = byId.get(b).gen; changed = true; }
-        }
+    // Mentorship supplies display placement only when a member has no family/peer
+    // anchor. An unanchored teacher goes one row above the student. Preserve all
+    // established family offsets and never turn mentorship into a parent edge.
+    const contacts = new Map(people.map(p => [p.id, []]));
+    for (const m of mentors.values()) {
+      const freeTeacher = !adjacency.get(m.teacher).length;
+      if (!freeTeacher && adjacency.get(m.student).length) continue;
+      const offset = freeTeacher ? 1 : 0;
+      contacts.get(m.teacher).push([m.student, offset]);
+      contacts.get(m.student).push([m.teacher, -offset]);
+    }
+    const placed = new Set(people.filter(p => adjacency.get(p.id).length).map(p => p.id));
+    const queue = [...placed].sort((a, b) => byId.get(a).gen - byId.get(b).gen || a.localeCompare(b));
+    function placeContacts() {
+      for (let i = 0; i < queue.length; i++) for (const [next, offset] of contacts.get(queue[i])) {
+        if (placed.has(next)) continue;
+        byId.get(next).gen = byId.get(queue[i]).gen + offset;
+        placed.add(next); queue.push(next);
       }
-      if (!changed) break;
+      queue.length = 0;
+    }
+    placeContacts();
+    for (const p of people) if (!placed.has(p.id)) { placed.add(p.id); queue.push(p.id); placeContacts(); }
+    // If a student was in generation 1, shift only its connected display group
+    // together so the new teacher can occupy generation 1 without a generation 0.
+    const visited = new Set();
+    for (const p of people) {
+      if (visited.has(p.id)) continue;
+      const component = [p.id]; visited.add(p.id);
+      for (let i = 0; i < component.length; i++) for (const [next] of [...adjacency.get(component[i]), ...contacts.get(component[i])]) {
+        if (!visited.has(next)) { visited.add(next); component.push(next); }
+      }
+      const shift = Math.max(0, 1 - Math.min(...component.map(id => byId.get(id).gen)));
+      if (shift) component.forEach(id => { byId.get(id).gen += shift; });
     }
     const groups = new Map();
     function family(ids) {
@@ -161,5 +191,5 @@
       bonds: [...sworn.values()].map(members => ({ members, kind: '契手足' })).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
-  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, knownOrder, orderKey, compareOrder };
+  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, knownOrder, orderKey, compareOrder, memberOptionLabels };
 });

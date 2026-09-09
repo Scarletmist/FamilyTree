@@ -17,6 +17,7 @@
     unknown: { color: '#666666', width: 2, dash: '12 2 2 2', label: '未知關係' }
   };
   const relationshipDetails = FamilyRelationshipDetails.createController();
+  const relationshipSearch = FamilyRelationshipSearch.createController({ onChange: () => { selectedId = null; render(); } });
   const orderKey = FamilyModel.orderKey;
   let selectedId = null;
   let suppressClick = false;
@@ -116,6 +117,8 @@
       canvas.appendChild(element('p', 'tree__error', '正在載入族譜…'));
       return;
     }
+    const queryView = relationshipSearch.update(FAMILY);
+    const graph = queryView.graph;
     const familySelect = document.getElementById('family-filter');
     if (familySelect) {
       const previous = familySelect.value;
@@ -134,26 +137,26 @@
         familySelect.dataset.bound = 'true';
       }
     }
-    const focus = (FAMILY.unions || []).find(u => u.id === familySelect?.value);
-    const focusedIds = focus ? new Set(focus.partners.concat((FAMILY.descents || []).filter(d => d.union === focus.id).map(d => d.child))) : null;
-    const people = FAMILY.people.filter(p => !focusedIds || focusedIds.has(p.id));
+    const focus = !queryView.active && (graph.unions || []).find(u => u.id === familySelect?.value);
+    const focusedIds = focus ? new Set(focus.partners.concat((graph.descents || []).filter(d => d.union === focus.id).map(d => d.child))) : null;
+    const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id));
     const byId = new Map(people.map(p => [p.id, p]));
-    const unions = (FAMILY.unions || []).filter(u => {
+    const unions = (graph.unions || []).filter(u => {
       if (focus && u.id !== focus.id) return false;
       const valid = Array.isArray(u.partners) && u.partners.length >= 1 && u.partners.length <= 4 && new Set(u.partners).size === u.partners.length && u.partners.every(id => byId.has(id));
       if (!valid) console.warn('略過無效婚姻', u.id);
       return valid;
     });
     const unionById = new Map(unions.map(u => [u.id, u]));
-    const descents = (FAMILY.descents || []).filter(d => {
+    const descents = (graph.descents || []).filter(d => {
       if (focus && d.union !== focus.id) return false;
       const valid = byId.has(d.child) && unionById.has(d.union);
       if (!valid) console.warn('略過無效親子關係', d);
       return valid;
     });
     const childrenOf = u => descents.filter(d => d.union === u.id).sort((a, b) => orderKey(byId.get(a.child)) - orderKey(byId.get(b.child)));
-    const extra = (FAMILY.bonds || []).map(b => ({ from: b.members?.[0], to: b.members?.[1], kind: b.kind }))
-      .concat((FAMILY.mentorships || []).map(m => ({ from: m.teacher, to: m.student, kind: '師徒' })))
+    const extra = (graph.bonds || []).map(b => ({ from: b.members?.[0], to: b.members?.[1], kind: b.kind }))
+      .concat((graph.mentorships || []).map(m => ({ from: m.teacher, to: m.student, kind: '師徒' })))
       .filter(r => {
         if (focus && (!byId.has(r.from) || !byId.has(r.to))) return false;
         const valid = byId.has(r.from) && byId.has(r.to) && r.from !== r.to;
@@ -192,7 +195,7 @@
         links.sort((a, b) => unions.indexOf(unionById.get(a.union)) - unions.indexOf(unionById.get(b.union)));
         if (links.length) return [unions.indexOf(unionById.get(links[0].union)), orderKey(byId.get(links[0].child))];
         // Explicit siblings can be ordered together without inventing missing parent edges.
-        for (const bond of FAMILY.bonds || []) {
+        for (const bond of graph.bonds || []) {
           if (bond.kind !== '手足' || !bond.members.some(id => block.some(p => p.id === id))) continue;
           const other = bond.members.find(id => !block.some(p => p.id === id));
           const parentLink = descents.find(d => d.child === other);
@@ -209,6 +212,8 @@
         block.forEach(p => {
           const node = element('button', 'person');
           node.type = 'button';
+          if (queryView.active && p.id === queryView.aId) node.classList.add('pair-a');
+          if (queryView.active && p.id === queryView.bId) node.classList.add('pair-b');
           node.dataset.personId = p.id;
           node.setAttribute('aria-pressed', String(selectedId === p.id));
           node.appendChild(element('span', 'person__name', p.name));
@@ -227,7 +232,7 @@
     // Reserve a label rail without changing the existing relationship gutters.
     const generationGutter = 80;
     canvas.style.paddingLeft = (generationGutter + 48 + (extra.length + crossGenerationUnions.length) * 18) + 'px';
-    canvas.style.paddingTop = (64 + extra.length * 22) + 'px';
+    canvas.style.paddingTop = (64 + (queryView.active ? document.getElementById('relationship-summary').offsetHeight : 0) + extra.length * 22) + 'px';
     canvas.appendChild(rows);
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
     canvas.prepend(generationLayers.backgrounds);
@@ -337,7 +342,7 @@
     showDetails();
     // On entry or a new family, start at the parents; resizing preserves the user's pan.
     const viewport = canvas.parentElement;
-    const scope = focus ? focus.id : '__all__';
+    const scope = queryView.active ? 'query:' + queryView.scope : focus ? focus.id : '__all__';
     if (viewport.dataset.scope !== scope && people.length) {
       const topPeople = people.filter(p => p.gen === generations[0]).map(p => box(p.id));
       const center = (Math.min(...topPeople.map(p => p.x)) + Math.max(...topPeople.map(p => p.x))) / 2;

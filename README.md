@@ -1,5 +1,21 @@
 # 族譜網站
 
+## 兩人關係查詢與稱謂設定
+
+選擇 A 與 B，按「查詢兩人關係」。B 是稱呼基準，結果顯示「A 為 B 的……」。畫布僅顯示所選路徑上的成員與連線，例如堂親會保留兩人的父親，以及資料中用來連接父親的共同祖先。「交換 A／B」可查看反向稱呼，「顯示全部」可回到完整族譜；查詢不會改寫成員 JSON。
+
+稱謂及規則儲存在 `data/kinship-terms.json`。網頁啟動時自動讀取此檔案，修改後重新整理即可生效，無需修改 JavaScript。載入或格式錯誤時會顯示重試按鈕，原有族譜仍可使用。稱謂依據[教育部《國語辭典簡編本》親朋稱呼表](https://dict.concised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0)，來源網址與查核日期也記錄於設定檔。
+
+- `direct`：單一關係的稱呼；`labels`：可重用的稱謂運算式。
+- `rules`：依順序比對，第一條符合者生效。`patterns` 由 B 走向 A，例如 `parent/sibling/child` 表示父母的手足的子女；`when` 的各條件須同時成立。經同一父母的 `parent/child` 會在判讀時折合為 `sibling`，畫布仍保留實際父母。
+- `label` 可為文字，或 `{ "ref": "稱謂鍵" }`、`{ "select": "target.gender", "cases": { "M": "…", "F": "…", "default": "…" } }`、`{ "join": [運算式, "文字"] }`、`{ "field": "target.rankPrefix" }`。程式以固定運算器處理，不執行設定檔內的程式碼。
+- 條件欄位有 `target.gender`、`target.orderToBase`、`target.rankPrefix`、`steps.0.gender` 等；`steps` 從 0 起算，指每段路徑抵達的成員。`orderToBase` 與 `orderToPrevious` 分別比較基準成員及上一段成員的手足序，值為 -1（年長）、1（年幼）、0（未知）。這些次序僅適合已知手足，不能用於堂表親跨家庭比較。
+- `notes`、`display`、`numerals` 控制補充提示、顯示文字與次序數字；`familyTypes`、`familyKinds` 控制優先搜尋的親屬關係範圍。
+
+支援直系、手足、堂表親、伯叔姑舅姨、姪甥及常見姻親稱呼，另保留契手足、師徒與同門關係。未知性別或長幼會使用合併稱呼並提示；直接記錄的祖孫關係不會憑空補上父母或推定父系／母系。無適用稱謂時，顯示逐段關係。優先搜尋親屬路徑，無親屬路徑才搜尋其他關係；多條等長路徑最多列出 12 條，並保留直接記錄的其他關係供切換。
+
+驗證：`node --test tests/*.test.cjs`；有 Playwright 時可執行 `node tests/browser-kinship.cjs`，以 `PLAYWRIGHT_MODULE` 指定模組位置，`PLAYWRIGHT_CHANNEL` 指定瀏覽器（預設 msedge）。
+
 ## 啟動
 
 需要 Node.js 20 或更新版本，無需安裝第三方套件。在此資料夾執行：

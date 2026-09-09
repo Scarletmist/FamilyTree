@@ -1,0 +1,970 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-TW",
+  "description": "臺灣常用親屬稱謂。路徑由 B（基準）走向 A（被稱呼者）；規則依順序比對。",
+  "sources": [
+    {
+      "title": "教育部《國語辭典簡編本》親朋稱呼表",
+      "url": "https://dict.concised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0",
+      "checkedOn": "2026-09-09"
+    },
+    {
+      "title": "教育部《重編國語辭典修訂本》親朋稱呼表",
+      "url": "https://dict.revised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0&ver=5",
+      "checkedOn": "2026-09-09"
+    }
+  ],
+  "familyTypes": [
+    "parent",
+    "child",
+    "grandparent",
+    "grandchild",
+    "spouse",
+    "sibling"
+  ],
+  "familyKinds": [
+    "親生",
+    "過繼",
+    "養子女"
+  ],
+  "numerals": {
+    "digits": "零一二三四五六七八九",
+    "eldest": "長",
+    "tens": "十"
+  },
+  "direct": {
+    "parent": {
+      "ref": "parent"
+    },
+    "child": {
+      "ref": "child"
+    },
+    "grandparent": {
+      "ref": "grandparent"
+    },
+    "grandchild": {
+      "ref": "grandchild"
+    },
+    "spouse": {
+      "ref": "spouse"
+    },
+    "sibling": {
+      "ref": "sibling"
+    },
+    "swornSibling": {
+      "ref": "swornSibling"
+    },
+    "teacher": {
+      "ref": "teacher"
+    },
+    "student": {
+      "ref": "student"
+    }
+  },
+  "labels": {
+    "parent": {
+      "select": "edge.kind",
+      "cases": {
+        "養子女": {
+          "select": "target.gender",
+          "cases": {
+            "M": "養父",
+            "F": "養母",
+            "default": "養父母"
+          }
+        },
+        "義子女": {
+          "select": "target.gender",
+          "cases": {
+            "M": "義父",
+            "F": "義母",
+            "default": "義父母"
+          }
+        },
+        "契子女": {
+          "select": "target.gender",
+          "cases": {
+            "M": "契父",
+            "F": "契母",
+            "default": "契父母"
+          }
+        },
+        "過繼": {
+          "join": [
+            "過繼",
+            {
+              "select": "target.gender",
+              "cases": {
+                "M": "父親",
+                "F": "母親",
+                "default": "父母"
+              }
+            }
+          ]
+        },
+        "default": {
+          "select": "target.gender",
+          "cases": {
+            "M": "父親",
+            "F": "母親",
+            "default": "父母"
+          }
+        }
+      }
+    },
+    "child": {
+      "select": "edge.kind",
+      "cases": {
+        "養子女": {
+          "select": "target.gender",
+          "cases": {
+            "M": "養子",
+            "F": "養女",
+            "default": "養子女"
+          }
+        },
+        "義子女": {
+          "select": "target.gender",
+          "cases": {
+            "M": "義子",
+            "F": "義女",
+            "default": "義子女"
+          }
+        },
+        "契子女": {
+          "select": "target.gender",
+          "cases": {
+            "M": "契子",
+            "F": "契女",
+            "default": "契子女"
+          }
+        },
+        "過繼": {
+          "join": [
+            "過繼",
+            {
+              "select": "target.gender",
+              "cases": {
+                "M": "兒子",
+                "F": "女兒",
+                "default": "子女"
+              }
+            }
+          ]
+        },
+        "default": {
+          "select": "target.gender",
+          "cases": {
+            "M": "兒子",
+            "F": "女兒",
+            "default": "子女"
+          }
+        }
+      }
+    },
+    "grandparent": {
+      "select": "target.gender",
+      "cases": {
+        "M": "祖父／外祖父",
+        "F": "祖母／外祖母",
+        "default": "祖父母／外祖父母"
+      }
+    },
+    "grandchild": {
+      "select": "target.gender",
+      "cases": {
+        "M": "孫子／外孫",
+        "F": "孫女／外孫女",
+        "default": "孫子女／外孫子女"
+      }
+    },
+    "spouse": {
+      "select": "target.gender",
+      "cases": {
+        "M": "丈夫",
+        "F": "妻子",
+        "default": "配偶"
+      }
+    },
+    "sibling": {
+      "select": "target.orderToBase",
+      "cases": {
+        "0": {
+          "select": "target.gender",
+          "cases": {
+            "M": "兄弟",
+            "F": "姊妹",
+            "default": "手足"
+          }
+        },
+        "1": {
+          "select": "target.gender",
+          "cases": {
+            "M": {
+              "join": [
+                {
+                  "field": "target.rankPrefix"
+                },
+                "弟"
+              ]
+            },
+            "F": {
+              "join": [
+                {
+                  "field": "target.rankPrefix"
+                },
+                "妹"
+              ]
+            },
+            "default": "年幼手足"
+          }
+        },
+        "-1": {
+          "select": "target.gender",
+          "cases": {
+            "M": {
+              "join": [
+                {
+                  "field": "target.rankPrefix"
+                },
+                "兄"
+              ]
+            },
+            "F": {
+              "join": [
+                {
+                  "field": "target.rankPrefix"
+                },
+                "姊"
+              ]
+            },
+            "default": "年長手足"
+          }
+        }
+      }
+    },
+    "swornSibling": "契手足",
+    "teacher": "師父",
+    "student": "徒弟",
+    "paternalUncle": {
+      "select": "target.gender",
+      "cases": {
+        "M": {
+          "select": "steps.1.orderToPrevious",
+          "cases": {
+            "0": "伯父／叔父",
+            "1": "叔父",
+            "-1": "伯父"
+          }
+        },
+        "F": "姑姑",
+        "default": "父親的手足"
+      }
+    },
+    "maternalUncle": {
+      "select": "target.gender",
+      "cases": {
+        "M": "舅舅",
+        "F": "阿姨",
+        "default": "母親的手足"
+      }
+    },
+    "cousinTang": {
+      "select": "target.gender",
+      "cases": {
+        "M": "堂兄弟",
+        "F": "堂姊妹",
+        "default": "堂兄弟姊妹"
+      }
+    },
+    "cousinBiao": {
+      "select": "target.gender",
+      "cases": {
+        "M": "表兄弟",
+        "F": "表姊妹",
+        "default": "表兄弟姊妹"
+      }
+    },
+    "cousinUnknown": {
+      "select": "target.gender",
+      "cases": {
+        "M": "堂／表兄弟",
+        "F": "堂／表姊妹",
+        "default": "堂／表兄弟姊妹"
+      }
+    }
+  },
+  "rules": [
+    {
+      "id": "siblings",
+      "patterns": [
+        "sibling"
+      ],
+      "when": {},
+      "label": {
+        "ref": "sibling"
+      },
+      "notes": [
+        {
+          "when": {
+            "target.orderToBase": 0
+          },
+          "key": "unknownAge"
+        }
+      ]
+    },
+    {
+      "id": "direct-grandparents",
+      "patterns": [
+        "grandparent"
+      ],
+      "when": {},
+      "label": {
+        "ref": "grandparent"
+      },
+      "notes": [
+        "unknownSide"
+      ]
+    },
+    {
+      "id": "direct-grandchildren",
+      "patterns": [
+        "grandchild"
+      ],
+      "when": {},
+      "label": {
+        "ref": "grandchild"
+      },
+      "notes": [
+        "unknownSide"
+      ]
+    },
+    {
+      "id": "paternal-grandparents",
+      "patterns": [
+        "parent/parent"
+      ],
+      "when": {
+        "steps.0.gender": "M"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "祖父",
+          "F": "祖母",
+          "default": "祖父母"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "maternal-grandparents",
+      "patterns": [
+        "parent/parent"
+      ],
+      "when": {
+        "steps.0.gender": "F"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "外祖父",
+          "F": "外祖母",
+          "default": "外祖父母"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "unspecified-grandparents",
+      "patterns": [
+        "parent/parent"
+      ],
+      "when": {},
+      "label": {
+        "ref": "grandparent"
+      },
+      "notes": [
+        "unknownSide"
+      ]
+    },
+    {
+      "id": "sons-children",
+      "patterns": [
+        "child/child"
+      ],
+      "when": {
+        "steps.0.gender": "M"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "孫子",
+          "F": "孫女",
+          "default": "孫子女"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "daughters-children",
+      "patterns": [
+        "child/child"
+      ],
+      "when": {
+        "steps.0.gender": "F"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "外孫",
+          "F": "外孫女",
+          "default": "外孫子女"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "unspecified-grandchildren",
+      "patterns": [
+        "child/child"
+      ],
+      "when": {},
+      "label": {
+        "ref": "grandchild"
+      },
+      "notes": [
+        "unknownSide"
+      ]
+    },
+    {
+      "id": "paternal-aunts-uncles",
+      "patterns": [
+        "parent/sibling"
+      ],
+      "when": {
+        "steps.0.gender": "M"
+      },
+      "label": {
+        "ref": "paternalUncle"
+      },
+      "notes": [
+        {
+          "when": {
+            "target.gender": "M",
+            "steps.1.orderToPrevious": 0
+          },
+          "key": "uncleAge"
+        }
+      ]
+    },
+    {
+      "id": "maternal-aunts-uncles",
+      "patterns": [
+        "parent/sibling"
+      ],
+      "when": {
+        "steps.0.gender": "F"
+      },
+      "label": {
+        "ref": "maternalUncle"
+      },
+      "notes": []
+    },
+    {
+      "id": "unspecified-aunts-uncles",
+      "patterns": [
+        "parent/sibling"
+      ],
+      "when": {},
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "父母的兄弟",
+          "F": "父母的姊妹",
+          "default": "父母的手足"
+        }
+      },
+      "notes": [
+        "unknownSide"
+      ]
+    },
+    {
+      "id": "brothers-children",
+      "patterns": [
+        "sibling/child"
+      ],
+      "when": {
+        "steps.0.gender": "M"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "姪子",
+          "F": "姪女",
+          "default": "姪子女"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "sisters-children",
+      "patterns": [
+        "sibling/child"
+      ],
+      "when": {
+        "steps.0.gender": "F"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "外甥",
+          "F": "外甥女",
+          "default": "外甥子女"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "unspecified-nephews",
+      "patterns": [
+        "sibling/child"
+      ],
+      "when": {},
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "手足的兒子",
+          "F": "手足的女兒",
+          "default": "手足的子女"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "paternal-parallel-cousins",
+      "patterns": [
+        "parent/sibling/child"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "steps.1.gender": "M"
+      },
+      "label": {
+        "ref": "cousinTang"
+      },
+      "notes": [
+        "cousinAge"
+      ]
+    },
+    {
+      "id": "maternal-cousins",
+      "patterns": [
+        "parent/sibling/child"
+      ],
+      "when": {
+        "steps.0.gender": "F"
+      },
+      "label": {
+        "ref": "cousinBiao"
+      },
+      "notes": [
+        "cousinAge"
+      ]
+    },
+    {
+      "id": "paternal-aunt-cousins",
+      "patterns": [
+        "parent/sibling/child"
+      ],
+      "when": {
+        "steps.1.gender": "F"
+      },
+      "label": {
+        "ref": "cousinBiao"
+      },
+      "notes": [
+        "cousinAge"
+      ]
+    },
+    {
+      "id": "unspecified-cousins",
+      "patterns": [
+        "parent/sibling/child"
+      ],
+      "when": {},
+      "label": {
+        "ref": "cousinUnknown"
+      },
+      "notes": [
+        "cousinAge",
+        "unknownSide"
+      ]
+    },
+    {
+      "id": "husbands-parents",
+      "patterns": [
+        "spouse/parent"
+      ],
+      "when": {
+        "steps.0.gender": "M"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "公公",
+          "F": "婆婆",
+          "default": "公婆"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "wifes-parents",
+      "patterns": [
+        "spouse/parent"
+      ],
+      "when": {
+        "steps.0.gender": "F"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "岳父",
+          "F": "岳母",
+          "default": "岳父母"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "unspecified-spouse-parents",
+      "patterns": [
+        "spouse/parent"
+      ],
+      "when": {},
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "配偶的父親",
+          "F": "配偶的母親",
+          "default": "配偶的父母"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "sons-wife",
+      "patterns": [
+        "child/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "target.gender": "F"
+      },
+      "label": "媳婦",
+      "notes": []
+    },
+    {
+      "id": "daughters-husband",
+      "patterns": [
+        "child/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "F",
+        "target.gender": "M"
+      },
+      "label": "女婿",
+      "notes": []
+    },
+    {
+      "id": "brothers-wife",
+      "patterns": [
+        "sibling/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "target.gender": "F"
+      },
+      "label": {
+        "select": "steps.0.orderToBase",
+        "cases": {
+          "0": "兄弟的妻子",
+          "1": "弟媳",
+          "-1": "嫂嫂"
+        }
+      },
+      "notes": [
+        {
+          "when": {
+            "steps.0.orderToBase": 0
+          },
+          "key": "unknownAge"
+        }
+      ]
+    },
+    {
+      "id": "sisters-husband",
+      "patterns": [
+        "sibling/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "F",
+        "target.gender": "M"
+      },
+      "label": {
+        "select": "steps.0.orderToBase",
+        "cases": {
+          "0": "姊妹的丈夫",
+          "1": "妹夫",
+          "-1": "姊夫"
+        }
+      },
+      "notes": [
+        {
+          "when": {
+            "steps.0.orderToBase": 0
+          },
+          "key": "unknownAge"
+        }
+      ]
+    },
+    {
+      "id": "paternal-uncles-wife",
+      "patterns": [
+        "parent/sibling/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "steps.1.gender": "M",
+        "target.gender": "F"
+      },
+      "label": {
+        "select": "steps.1.orderToPrevious",
+        "cases": {
+          "0": "伯母／嬸嬸",
+          "1": "嬸嬸",
+          "-1": "伯母"
+        }
+      },
+      "notes": [
+        {
+          "when": {
+            "steps.1.orderToPrevious": 0
+          },
+          "key": "uncleAge"
+        }
+      ]
+    },
+    {
+      "id": "paternal-aunts-husband",
+      "patterns": [
+        "parent/sibling/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "steps.1.gender": "F",
+        "target.gender": "M"
+      },
+      "label": "姑丈",
+      "notes": []
+    },
+    {
+      "id": "maternal-uncles-wife",
+      "patterns": [
+        "parent/sibling/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "F",
+        "steps.1.gender": "M",
+        "target.gender": "F"
+      },
+      "label": "舅媽",
+      "notes": []
+    },
+    {
+      "id": "maternal-aunts-husband",
+      "patterns": [
+        "parent/sibling/spouse"
+      ],
+      "when": {
+        "steps.0.gender": "F",
+        "steps.1.gender": "F",
+        "target.gender": "M"
+      },
+      "label": "姨丈",
+      "notes": []
+    },
+    {
+      "id": "husbands-brothers",
+      "patterns": [
+        "spouse/sibling"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "target.gender": "M"
+      },
+      "label": {
+        "select": "steps.1.orderToPrevious",
+        "cases": {
+          "0": "丈夫的兄弟",
+          "1": "小叔",
+          "-1": "大伯"
+        }
+      },
+      "notes": [
+        {
+          "when": {
+            "steps.1.orderToPrevious": 0
+          },
+          "key": "unknownAge"
+        }
+      ]
+    },
+    {
+      "id": "husbands-sisters",
+      "patterns": [
+        "spouse/sibling"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "target.gender": "F"
+      },
+      "label": {
+        "select": "steps.1.orderToPrevious",
+        "cases": {
+          "0": "丈夫的姊妹",
+          "1": "小姑",
+          "-1": "大姑"
+        }
+      },
+      "notes": [
+        {
+          "when": {
+            "steps.1.orderToPrevious": 0
+          },
+          "key": "unknownAge"
+        }
+      ]
+    },
+    {
+      "id": "wifes-brothers",
+      "patterns": [
+        "spouse/sibling"
+      ],
+      "when": {
+        "steps.0.gender": "F",
+        "target.gender": "M"
+      },
+      "label": {
+        "select": "steps.1.orderToPrevious",
+        "cases": {
+          "0": "妻子的兄弟",
+          "1": "內弟（妻弟）",
+          "-1": "內兄（妻兄）"
+        }
+      },
+      "notes": [
+        {
+          "when": {
+            "steps.1.orderToPrevious": 0
+          },
+          "key": "unknownAge"
+        }
+      ]
+    },
+    {
+      "id": "wifes-sisters",
+      "patterns": [
+        "spouse/sibling"
+      ],
+      "when": {
+        "steps.0.gender": "F",
+        "target.gender": "F"
+      },
+      "label": {
+        "select": "steps.1.orderToPrevious",
+        "cases": {
+          "0": "妻子的姊妹",
+          "1": "妻妹",
+          "-1": "妻姊"
+        }
+      },
+      "notes": [
+        {
+          "when": {
+            "steps.1.orderToPrevious": 0
+          },
+          "key": "unknownAge"
+        }
+      ]
+    },
+    {
+      "id": "fellow-students",
+      "patterns": [
+        "teacher/student"
+      ],
+      "when": {},
+      "label": "同門",
+      "notes": [
+        "fellowStudents"
+      ]
+    },
+    {
+      "id": "paternal-great-grandparents",
+      "patterns": [
+        "parent/parent/parent"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "steps.1.gender": "M"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "曾祖父",
+          "F": "曾祖母",
+          "default": "曾祖父母"
+        }
+      },
+      "notes": []
+    },
+    {
+      "id": "sons-grandchildren",
+      "patterns": [
+        "child/child/child"
+      ],
+      "when": {
+        "steps.0.gender": "M",
+        "steps.1.gender": "M"
+      },
+      "label": {
+        "select": "target.gender",
+        "cases": {
+          "M": "曾孫",
+          "F": "曾孫女",
+          "default": "曾孫子女"
+        }
+      },
+      "notes": []
+    }
+  ],
+  "notes": {
+    "unknownAge": "未記錄可比較的長幼資料，因此不區分兄／弟或姊／妹。",
+    "unknownSide": "中間父母或其性別記錄不足，無法確定父系、母系或堂表關係。",
+    "uncleAge": "父親與其兄弟的長幼資料不足，無法區分伯父或叔父。",
+    "cousinAge": "堂表親各自在家庭內的手足次序不能跨家庭比較，因此不推定兩人的長幼。",
+    "fellowStudents": "僅能確認共同師父，不以家族手足次序推定師門長幼。",
+    "fallback": "此路徑無法唯一對應慣用稱謂，改以已記錄的逐段關係說明。",
+    "nonBiological": "此稱呼依所記錄的關係推導，不表示兩人具有血緣關係。",
+    "unknownGender": "成員性別未填寫，使用不區分性別的稱呼。"
+  },
+  "display": {
+    "self": "本人",
+    "fallbackTerm": "關係對象",
+    "chainSeparator": "的",
+    "nonBiologicalPrefix": "（含",
+    "nonBiologicalSeparator": "、",
+    "nonBiologicalSuffix": "關係）"
+  }
+}

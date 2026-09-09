@@ -21,6 +21,15 @@
   const relationshipSearch = FamilyRelationshipSearch.createController({ onChange: () => { selectedId = null; render(); } });
   const orderKey = FamilyModel.orderKey;
   let selectedId = null;
+  let hideCanvasNames = false;
+  const nameToggle = document.getElementById('toggle-canvas-names');
+  nameToggle.addEventListener('click', () => {
+    hideCanvasNames = !hideCanvasNames;
+    nameToggle.setAttribute('aria-pressed', String(hideCanvasNames));
+    const label = hideCanvasNames ? '顯示族譜姓名' : '隱藏族譜姓名';
+    nameToggle.setAttribute('aria-label', label); nameToggle.title = label;
+    render();
+  });
   let suppressClick = false;
   function element(tag, className, text) {
     const el = document.createElement(tag);
@@ -140,7 +149,13 @@
     }
     const focus = !queryView.active && (graph.unions || []).find(u => u.id === familySelect?.value);
     const focusedIds = focus ? new Set(focus.partners.concat((graph.descents || []).filter(d => d.union === focus.id).map(d => d.child))) : null;
-    const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id));
+    // Inspect the full dataset, including inverse relationships. A member does
+    // not become "unconnected" merely because a filter hides their relatives.
+    const connectedIds = new Set();
+    FAMILY.people.forEach(p => p.relationships.forEach(r => { connectedIds.add(p.id); connectedIds.add(r.personId); }));
+    const uncertainGeneration = Math.max(0, ...FAMILY.people.filter(p => connectedIds.has(p.id)).map(p => p.gen)) + 1;
+    const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id))
+      .map(p => connectedIds.has(p.id) ? p : { ...p, gen: uncertainGeneration });
     if (!people.length) {
       canvas.appendChild(element('p', 'tree__error', '尚未新增成員，請點選「新增成員」或匯入族譜 JSON。'));
       document.getElementById('relationship-details').hidden = true;
@@ -169,9 +184,10 @@
         if (!valid) console.warn('略過無效關係', r);
         return valid;
       });
-    const occupiedGenerations = people.map(p => p.gen);
+    const occupiedGenerations = people.filter(p => connectedIds.has(p.id)).map(p => p.gen);
     const firstGeneration = Math.min(...occupiedGenerations), lastGeneration = Math.max(...occupiedGenerations);
-    const generations = people.length ? Array.from({ length: lastGeneration - firstGeneration + 1 }, (_, i) => firstGeneration + i) : [];
+    const generations = occupiedGenerations.length ? Array.from({ length: lastGeneration - firstGeneration + 1 }, (_, i) => firstGeneration + i) : [];
+    if (people.some(p => !connectedIds.has(p.id))) generations.push(uncertainGeneration);
     // A skipped generation can contain cards directly under the ancestor anchor.
     // Give each such family its own lane outside every generation's card area.
     const crossGenerationUnions = unions.filter(u => childrenOf(u).some(d => byId.get(d.child).gen - byId.get(u.partners[0]).gen > 1));
@@ -212,6 +228,7 @@
       blocks.sort((a, b) => { const x = key(a), y = key(b); return (x[0] - y[0]) || (x[1] - y[1]) || 0; });
       const row = element('div', 'generation');
       row.dataset.gen = gen;
+      if (gen === uncertainGeneration) row.dataset.uncertain = 'true';
       if (!blocks.length) row.style.minHeight = '120px';
       blocks.forEach(block => {
         const group = element('div', 'couple-group');
@@ -223,7 +240,7 @@
           if (queryView.active && p.id === queryView.bId) node.classList.add('pair-b');
           node.dataset.personId = p.id;
           node.setAttribute('aria-pressed', String(selectedId === p.id));
-          node.appendChild(element('span', 'person__name', p.name));
+          node.appendChild(element('span', 'person__name', hideCanvasNames ? 'OOO' : p.name));
           node.appendChild(element('span', 'person__location', '所在地：' + (p.location || '未填寫')));
           node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
           node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));

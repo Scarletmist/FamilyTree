@@ -182,6 +182,9 @@
     .member-notes__text { white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; }
     .member-notes-field { display:flex; flex-direction:column; gap:6px; margin:14px 0; }
     dialog textarea { width:100%; box-sizing:border-box; font:inherit; padding:8px; border:1px solid #c5b8a6; border-radius:6px; resize:vertical; }
+    .canvas-display-controls { display:inline-flex; align-items:center; gap:8px; }
+    .mosaic-button { display:inline-flex; align-items:center; justify-content:center; min-width:40px; min-height:38px; }
+    .mosaic-button[aria-pressed="true"] { background:#8b3928; color:white; border-color:#8b3928; }
   </style>
 </head>
 <body>
@@ -209,7 +212,15 @@
     <label><select id="relationship-b" required aria-label="成員 B"><option value="">請選擇成員</option></select></label>
     <button type="submit" class="primary-button" disabled>查詢兩人關係</button>
     <button type="button" id="relationship-swap" class="plain-button">交換 A／B</button>
-    <button type="button" id="relationship-reset" class="plain-button">顯示全部</button>
+    <span class="canvas-display-controls">
+      <button type="button" id="relationship-reset" class="plain-button">顯示全部</button>
+      <button type="button" id="toggle-canvas-names" class="plain-button mosaic-button" aria-label="隱藏畫布姓名" title="隱藏畫布姓名" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M2 2h6v6H2zM16 2h6v6h-6zM9 9h6v6H9zM2 16h6v6H2zM16 16h6v6h-6z" />
+          <path opacity=".35" d="M9 2h6v6H9zM2 9h6v6H2zM16 9h6v6h-6zM9 16h6v6H9z" />
+        </svg>
+      </button>
+    </span>
     <span id="kinship-status" role="status"></span><button type="button" id="kinship-retry" hidden>重試載入設定</button>
   </form>
   <details class="legend-panel" open>

@@ -444,10 +444,12 @@
       "siblingOrder": null,
       "relationships": [
         {
-          "type": "student",
-          "personId": "p3"
+          "type": "fellowDisciple",
+          "personId": "p9"
         }
-      ]
+      ],
+      "discipleOrder": null,
+      "notes": ""
     }
   ]
 }

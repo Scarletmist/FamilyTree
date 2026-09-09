@@ -18,7 +18,7 @@
       const end = next
         ? Math.max(start, Math.min(height, (row.bottom + next.top) / 2))
         : height;
-      bands.push({ gen: row.gen, top: start, height: end - start });
+      bands.push({ gen: row.gen, top: start, height: end - start, ...(row.uncertain ? { uncertain: true } : {}) });
       start = end;
     });
     return bands;
@@ -28,7 +28,7 @@
     const origin = canvas.getBoundingClientRect();
     const measured = rows.map(row => {
       const rect = row.getBoundingClientRect();
-      return { gen: Number(row.dataset.gen), top: rect.top - origin.top, bottom: rect.bottom - origin.top };
+      return { gen: Number(row.dataset.gen), top: rect.top - origin.top, bottom: rect.bottom - origin.top, uncertain: row.dataset.uncertain === 'true' };
     });
     const bands = calculate(measured, origin.height);
     const backgrounds = document.createElement('div');
@@ -43,17 +43,19 @@
       const background = document.createElement('div');
       background.className = 'tree__generation-band';
       background.dataset.gen = String(band.gen);
+      if (band.uncertain) background.dataset.uncertain = 'true';
       background.dataset.tone = String(tone);
       Object.assign(background.style, position);
       backgrounds.appendChild(background);
       const track = document.createElement('div');
       track.className = 'tree__generation-label-track';
       track.dataset.gen = String(band.gen);
+      if (band.uncertain) track.dataset.uncertain = 'true';
       track.dataset.tone = String(tone);
       Object.assign(track.style, position);
       const label = document.createElement('span');
       label.className = 'tree__generation-label';
-      label.textContent = `第${band.gen}代`;
+      label.textContent = band.uncertain ? '未確定' : `第${band.gen}代`;
       track.appendChild(label);
       labels.appendChild(track);
     }

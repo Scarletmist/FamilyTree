@@ -34,9 +34,12 @@ const person = (id, relationships = []) => ({ id, name: id, gender: 'M', locatio
       await page.locator('.select-dropdown:popover-open [role=option]').filter({ hasText: text }).first().click();
     }
     assert.match(await row.locator('.relation-preview').textContent(), /祖父母.*契子女/);
+    await page.fill('#member-disciple-order', '3');
+    await page.fill('#member-notes', '開發版備註\n保留換行');
     await page.locator('#save-member').click();
     await page.waitForFunction(() => !document.getElementById('member-dialog').open);
     assert.match(await page.locator('[data-group="grandparents"]').textContent(), /契祖父/);
+    assert.equal(JSON.parse(await fs.readFile(dataFile, 'utf8')).people.find(p => p.id === 'C').notes, '開發版備註\n保留換行');
     assert.match(await page.locator('#backup-status').textContent(), /Cookie/);
     const state = await context.storageState();
     await context.close();
@@ -55,6 +58,8 @@ const person = (id, relationships = []) => ({ id, name: id, gender: 'M', locatio
     const download = await downloadEvent;
     const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
     assert(exported.people.find(p => p.id === 'C').relationships.some(r => r.type === 'grandparent'));
+    assert.equal(exported.people.find(p => p.id === 'C').discipleOrder, 3);
+    assert.equal(exported.people.find(p => p.id === 'C').notes, '開發版備註\n保留換行');
     await page.unroute('**/api/family');
     const current = await (await fetch(base + '/api/family')).json();
     current.data.notes = '大族譜'.repeat(3000);

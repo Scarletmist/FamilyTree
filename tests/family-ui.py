@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = json.loads((ROOT / 'data/family.json').read_text())
 HTML = re.sub(r'<script src="assets/[^"\n]+"></script>', '', (ROOT / 'family-tree.html').read_text())
-ASSETS = ['family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js', 'relationship-search.js', 'family-tree.js', 'family-storage.js', 'member-form.js', 'member-tools.js']
+ASSETS = ['family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js', 'relationship-search.js', 'family-tree.js', 'family-storage.js', 'family-repository.js', 'member-form.js', 'member-tools.js']
 
 with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
     data_file = Path(temp) / 'family.json'
@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
         base = f'http://127.0.0.1:{port}'
         def request(route, method='GET', body=None):
             headers = {'Origin': base, 'Content-Type': 'application/json'}
-            req = urllib.request.Request(base + route, data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
+            req = urllib.request.Request(base + '/' + route.lstrip('/'), data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
             try:
                 with urllib.request.urlopen(req, timeout=10) as response:
                     return {'status': response.status, 'payload': json.loads(response.read())}

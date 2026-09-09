@@ -5,12 +5,12 @@
   "sources": [
     {
       "title": "教育部《國語辭典簡編本》親朋稱呼表",
-      "url": "https://dict.concised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0",
+      "url": "https://dict.concised.moe.edu.tw/appendix.jsp?ID=12",
       "checkedOn": "2026-09-09"
     },
     {
       "title": "教育部《重編國語辭典修訂本》親朋稱呼表",
-      "url": "https://dict.revised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0&ver=5",
+      "url": "https://dict.revised.moe.edu.tw/appendix.jsp?ID=12",
       "checkedOn": "2026-09-09"
     }
   ],
@@ -59,6 +59,9 @@
     },
     "student": {
       "ref": "student"
+    },
+    "fellowDisciple": {
+      "ref": "fellowDisciple"
     }
   },
   "labels": {
@@ -291,6 +294,35 @@
         "M": "堂／表兄弟",
         "F": "堂／表姊妹",
         "default": "堂／表兄弟姊妹"
+      }
+    },
+    "fellowDisciple": {
+      "select": "target.discipleOrderToBase",
+      "cases": {
+        "1": {
+          "select": "target.gender",
+          "cases": {
+            "M": "師弟",
+            "F": "師妹",
+            "default": "年幼同門"
+          }
+        },
+        "-1": {
+          "select": "target.gender",
+          "cases": {
+            "M": "師兄",
+            "F": "師姊",
+            "default": "年長同門"
+          }
+        },
+        "default": {
+          "select": "target.gender",
+          "cases": {
+            "M": "師兄弟",
+            "F": "師姊妹",
+            "default": "師兄弟姊妹"
+          }
+        }
       }
     }
   },
@@ -905,9 +937,22 @@
         "teacher/student"
       ],
       "when": {},
-      "label": "同門",
+      "label": {
+        "select": "target.discipleOrderToBase",
+        "cases": {
+          "0": "同門",
+          "default": {
+            "ref": "fellowDisciple"
+          }
+        }
+      },
       "notes": [
-        "fellowStudents"
+        {
+          "when": {
+            "target.discipleOrderToBase": 0
+          },
+          "key": "fellowOrder"
+        }
       ]
     },
     {
@@ -947,6 +992,24 @@
         }
       },
       "notes": []
+    },
+    {
+      "id": "fellow-disciples",
+      "patterns": [
+        "fellowDisciple"
+      ],
+      "when": {},
+      "label": {
+        "ref": "fellowDisciple"
+      },
+      "notes": [
+        {
+          "when": {
+            "target.discipleOrderToBase": 0
+          },
+          "key": "fellowOrder"
+        }
+      ]
     }
   ],
   "notes": {
@@ -957,7 +1020,8 @@
     "fellowStudents": "僅能確認共同師父，不以家族手足次序推定師門長幼。",
     "fallback": "此路徑無法唯一對應慣用稱謂，改以已記錄的逐段關係說明。",
     "nonBiological": "此稱呼依所記錄的關係推導，不表示兩人具有血緣關係。",
-    "unknownGender": "成員性別未填寫，使用不區分性別的稱呼。"
+    "unknownGender": "成員性別未填寫，使用不區分性別的稱呼。",
+    "fellowOrder": "師門次序未完整填寫，無法區分師兄、師姊、師弟或師妹。"
   },
   "display": {
     "self": "本人",

@@ -11,7 +11,7 @@
     async function load() {
       submit.disabled = true; retry.hidden = true; status.textContent = '正在載入稱謂設定…';
       try {
-        const response = await fetch('/data/kinship-terms.json', { cache: 'no-store' });
+        const response = await fetch('data/kinship-terms.json', { cache: 'no-store' });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         config = await response.json(); engine = FamilyKinship.create(config);
         status.textContent = ''; submit.disabled = !graph; onChange();

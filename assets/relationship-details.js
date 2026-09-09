@@ -14,6 +14,7 @@
     { id: 'children', title: '子女' },
     { id: 'grandchildren', title: '孫子女（直接設定）' },
     { id: 'siblings', title: '手足' },
+    { id: 'fellowDisciples', title: '師兄弟姊妹' },
     { id: 'teachers', title: '師父' },
     { id: 'students', title: '徒弟' }
   ];
@@ -77,17 +78,25 @@
     for (const bond of graph.bonds || []) {
       if (!bond.members.includes(personId)) continue;
       const other = bond.members.find(id => id !== personId);
+      if (bond.kind === '師兄弟姊妹') { add('fellowDisciples', other); continue; }
       add('siblings', other, { ordinary: bond.kind === '手足', sworn: bond.kind === '契手足' });
     }
     for (const mentorship of graph.mentorships || []) {
       if (mentorship.teacher === personId) add('students', mentorship.student);
-      if (mentorship.student === personId) add('teachers', mentorship.teacher);
+      if (mentorship.student === personId) {
+        add('teachers', mentorship.teacher);
+        (graph.mentorships || []).filter(m => m.teacher === mentorship.teacher).forEach(m => add('fellowDisciples', m.student, { context: '師父：' + byId.get(m.teacher).name }));
+      }
     }
     return CATEGORIES.map(category => {
       const entries = [...groups.get(category.id).values()].map(entry => {
         const target = byId.get(entry.personId);
         let role = '';
         const badges = [...entry.kinds];
+        if (category.id === 'fellowDisciples') {
+          role = FamilyModel.fellowRole(target, person);
+          if (FamilyModel.knownDiscipleOrder(target)) badges.push('師門序：' + target.discipleOrder);
+        }
         if (['grandparents', 'grandchildren'].includes(category.id)) {
           const noun = category.id === 'grandparents' ? ({ M: '祖父', F: '祖母', U: '祖父母' })[target.gender] : ({ M: '孫子', F: '孫女', U: '孫子女' })[target.gender];
           role = [...entry.kinds].map(kind => ({ 親生: '親生', 過繼: '過繼', 養子女: '養', 義子女: '義', 契子女: '契' })[kind] + noun).join('、');
@@ -99,6 +108,7 @@
         return { ...entry, role, badges, contexts: [...entry.contexts], kinds: [...entry.kinds],
           ordinary: entry.ordinary, sworn: entry.sworn };
       });
+      if (category.id === 'fellowDisciples') entries.sort((a, b) => (byId.get(a.personId).discipleOrder ?? Infinity) - (byId.get(b.personId).discipleOrder ?? Infinity) || a.name.localeCompare(b.name, 'zh-Hant'));
       if (category.id === 'siblings') {
         entries.sort((a, b) => {
           const left = byId.get(a.personId), right = byId.get(b.personId);
@@ -193,7 +203,14 @@
       const profile = element('div', 'relationship-details__profile');
       profile.appendChild(element('p', '', '所在地：' + (person.location || '未填寫')));
       profile.appendChild(element('p', '', '職位：' + (person.position || '未填寫')));
+      profile.appendChild(element('p', '', '師門次序：' + (person.discipleOrder ?? '未填寫')));
       content.appendChild(profile);
+      if (person.notes) {
+        const notes = element('details', 'relationship-group member-notes'); notes.dataset.group = 'notes';
+        notes.open = openStates.get(person.id)?.get('notes') ?? true;
+        notes.append(element('summary', 'relationship-group__summary', '備註說明'), element('p', 'member-notes__text', person.notes));
+        content.append(notes);
+      }
       const groups = buildGroups(graph, person.id);
       if (!groups.length) {
         content.appendChild(element('p', 'relationship-details__empty', '尚未記錄關係。'));

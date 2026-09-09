@@ -1,5 +1,23 @@
 # 族譜網站
 
+## 靜態建置與 GitHub Pages
+
+執行 `node build.cjs`（或 `npm run build`）產生 `dist/`，首頁為 `dist/index.html`，也保留 `family-tree.html` 入口。不需安裝套件。建置只複製指定的前端程式及稱謂設定檔，**不包含 `data/family.json`、本機伺服器或任何開發成員資料**。
+
+靜態網站首次開啟為空白族譜，可直接新增成員或匯入自己的 JSON。新增、修改、家族名稱與匯入內容儲存在該網站路徑的 localStorage，重新整理仍保留；資料不會上傳 GitHub，也不會在不同裝置間同步。請使用 JSON 匯出／匯入搬移或備份資料；清除瀏覽器網站資料也會清除族譜。匯入前的資料另保留於同一 localStorage 鍵的 `:before-import` 備份。兩個分頁同時修改時會檢查版本，過期表單需先重新載入。
+
+已提供 `.github/workflows/pages.yml`，只在手動執行時發佈：
+
+1. 將程式放進 GitHub repository，至 Settings → Pages 將 Source 設為 GitHub Actions。
+2. 在 Actions 選擇 **Publish GitHub Pages**，按 **Run workflow**。
+3. 工作流程會執行測試、建置並上傳 `dist/`，部署完成後提供網站網址。
+
+資源採相對路徑，支援 `https://帳號.github.io/專案名稱/`。設定方式參照 [GitHub Pages 官方工作流程文件](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。目前僅建立建置與部署設定，未替 repository 開啟 Pages 或執行遠端發佈。
+
+`assets/family-repository.js` 統一處理儲存：開發版呼叫本機 API，建置版透過 HTML 的 `family-storage-mode=browser` 設定使用瀏覽器儲存。請透過 HTTP 靜態伺服器預覽 `dist/`，不要直接雙擊 HTML。
+
+靜態整合測試：`node tests/browser-static.cjs`（需 Playwright，可用 `PLAYWRIGHT_MODULE` 指定位置）。測試涵蓋專案子路徑、空白起始、備註、新增修改、匯入匯出、重新載入及跨分頁版本衝突。
+
 ## 兩人關係查詢與稱謂設定
 
 選擇 A 與 B，按「查詢兩人關係」。B 是稱呼基準，結果顯示「A 為 B 的……」。畫布僅顯示所選路徑上的成員與連線，例如堂親會保留兩人的父親，以及資料中用來連接父親的共同祖先。「交換 A／B」可查看反向稱呼，「顯示全部」可回到完整族譜；查詢不會改寫成員 JSON。
@@ -16,7 +34,7 @@
 
 驗證：`node --test tests/*.test.cjs`；有 Playwright 時可執行 `node tests/browser-kinship.cjs`，以 `PLAYWRIGHT_MODULE` 指定模組位置，`PLAYWRIGHT_CHANNEL` 指定瀏覽器（預設 msedge）。
 
-## 啟動
+## 開發模式啟動
 
 需要 Node.js 20 或更新版本，無需安裝第三方套件。在此資料夾執行：
 
@@ -30,7 +48,7 @@ node server.cjs
 
 ## JSON 資料
 
-唯一的資料來源是 `data/family.json`。每位成員包含自己的關係清單：
+`data/family.json` 僅供本機開發模式使用；靜態發佈版使用瀏覽器儲存或匯入的 JSON。每位成員包含自己的關係清單：
 
 ```json
 {
@@ -38,8 +56,10 @@ node server.cjs
   "name": "範例成員",
   "location": "臺中市",
   "position": "教師",
+  "notes": "可填寫多行備註說明",
   "gender": "F",
   "siblingOrder": 7,
+  "discipleOrder": 2,
   "relationships": [
     { "type": "parent", "personId": "p11", "kind": "親生" },
     { "type": "parent", "personId": "p15", "kind": "親生" },
@@ -50,6 +70,7 @@ node server.cjs
 
 根物件為 `{ "schemaVersion": 2, "familyName": "陳氏家族", "people": [...] }`。`familyName` 為可選欄位；舊資料未提供時會使用預設名稱，首次編輯後才寫入。
 `location`、`position` 未知時填空字串。`gender` 為 `M`、`F` 或 `U`（未填寫），供兄姊弟妹稱呼使用。
+`notes` 為可選的備註說明，最多 5000 字，舊 JSON 不必補填。滑鼠停在人物卡片時顯示原文；關係詳情中亦提供可收折的「備註說明」，保留換行並以純文字呈現。
 `siblingOrder` 是 1 至 999 的整數，未知填 `null`；男女合併，包含自己，不再從生卒年推導。
 原有示範成員的所在地、職位未提供，因此保留空白，畫面標示「未填寫」。
 
@@ -66,6 +87,7 @@ node server.cjs
 | spouse | 配偶 |
 | sibling | 手足 |
 | swornSibling | 契手足 |
+| fellowDisciple | 師兄弟姊妹 |
 | teacher | 師父 |
 | student | 徒弟 |
 
@@ -74,20 +96,23 @@ node server.cjs
 直接祖孫關係相差兩代，詳情會在雙方分別列出「祖父母（直接設定）」與「孫子女（直接設定）」，並依性別顯示契祖父、契祖母、契孫子等稱呼。共同祖父母不會自動推導為手足。
 例如 `teacher` 表示對方是我的師父，箭頭由對方指向我。
 每筆關係只需記在一方，另一方的關係資訊由程式反向讀取，不需要手動重複儲存。
+`fellowDisciple` 以雙端方形虛線顯示。若成員除了師兄弟姊妹外沒有其他關係，就跟隨同門放在同代；有其他關係的成員保留既有代別。多位同門已有不同代別時，優先依代別較早者安置未定代別成員，不強制改動已知代別。不用家族手足序推定師門長幼，也不憑空新增共同師父。
+
+新增／編輯成員時填寫 `discipleOrder`（師門次序）：1 至 999 的整數，男女合併排序，數字越小代表師門排行越前；未知可省略或填 `null`。已記錄同門關係或共同師父的成員，依此欄位比較並依性別顯示師兄、師姊、師弟、師妹。任一方未知時不推定長幼，與家族 `siblingOrder` 分開。透過同門關係或共同師父連接的同一師門內，不可重複已知次序；不同師門可以使用相同數字。舊的關係 `seniority` 欄位不再用於判讀，不會自動推算為數字；重新編輯該關係時改用成員的師門次序。
 直接填手足關係不會自動假設其父母；要掛在共同父母下，請填入各位父母。
 共同父母不會自動視為配偶，婚姻須另外填寫。
 
-## 顯示與新增
+## 顯示與新增（本機開發模式）
 
 每次成功載入、儲存成員／關係、修改家族名稱或匯入 JSON 後，會自動備份完整 JSON 到目前瀏覽器，無需先匯出。較小的備份使用有效期一年的 Cookie；超過 3,500 個編碼字元或 Cookie 被停用時，改用 localStorage，避免 Cookie 大小與 HTTP 標頭限制。備份讀取期限同為一年，下方狀態列會顯示實際儲存方式或失敗提示。
 
 重新開啟時優先載入伺服器的最新檔案；若 API 無法載入，會驗證並還原瀏覽器備份，供檢視與匯出，重新連線並重新整理後可繼續編輯。瀏覽器備份不會自動覆寫伺服器資料。備份依瀏覽器、網站來源與連接埠隔離，清除網站資料或私密瀏覽結束可能移除備份。表單尚未按「儲存」的輸入不包含在完整 JSON 備份中。
 
 階層由關係推導，不另存 `gen`：父母在上一層，子女在下一層；配偶、手足與契手足同層。
-因此周文彥會與陳建國同層。師徒不決定族譜輩分；僅有師徒關係的獨立成員先放在對方同層。
+因此周文彥會與陳建國同層。沒有親屬或手足關係可判定代別的師父，放在徒弟上一代；若需要，相關群組一起往下移以避免第 0 代。此為顯示位置，不會建立父子關係。師父與徒弟兩方已有親屬代別時，以親屬關係為準。
 若表單關係造成階層矛盾或循環，伺服器會拒絕儲存並提示修正。
 
-點選「新增成員」填姓名、所在地、職位、性別與數字次序，再加入任意多筆關係。
+點選「新增成員」填姓名、所在地、職位、性別、手足次序、師門次序與備註說明，再加入任意多筆關係。
 姓名必填；其他基本欄位可留空，關係也可暫不填寫。每筆關係可獨立移除。
 表單會用句子提示「誰是新成員的誰」，避免將師徒或親子方向填反。
 儲存成功後會寫入 JSON、更新畫布並顯示新成員，重新整理或重啟伺服器後仍保留。
@@ -145,6 +170,6 @@ npm run test:browser
 
 關係詳情右上方有收合圖示，可將面板縮成畫布右側的窄標籤，保留目前選取的人物與連線突顯。點選標籤即可展開；再次點選人物會展開其詳情。收合不等於關閉，原有 × 仍可關閉面板並取消選取。收合狀態在重繪及視窗大小變更後保留，分類收折和手足排行功能不受影響。
 
-## 本次修改檔案
+## 主要模組
 
-本次補丁以分代背景版本為基礎，包含 `family-tree.html`、`assets/family-model.js`、`assets/family-tree.js`、`assets/member-form.js`、`assets/relationship-details.js`、`server.cjs`、`package.json`、`README.md` 及新增／更新的測試。沒有修改 `data/family.json`、世代背景模組或既有關係儲存邏輯。覆蓋檔案後重新啟動伺服器並強制重新整理瀏覽器，首次修改家族名稱時會自動新增根層 `familyName`。
+`family-model.js` 負責資料驗證與代別，`family-repository.js` 負責開發／靜態儲存，`family-tree.js` 負責畫布，`relationship-details.js` 負責可收折的關係與備註，`kinship.js` 搭配稱謂 JSON 判讀關係。`build.cjs` 產生靜態發佈目錄。

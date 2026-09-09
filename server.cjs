@@ -32,6 +32,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
   function memberInput(input, id) {
     const p = { id, name: input?.name, location: input?.location, position: input?.position,
       gender: input?.gender, siblingOrder: input?.siblingOrder, relationships: input?.relationships };
+    if (input?.discipleOrder !== undefined) p.discipleOrder = input.discipleOrder;
+    if (input?.notes !== undefined) p.notes = input.notes;
     Model.validateMember(p);
     p.name = p.name.trim(); p.location = p.location.trim(); p.position = p.position.trim();
     return p;
@@ -82,7 +84,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
     ['/', ['family-tree.html', 'text/html']],
     ['/data/kinship-terms.json', ['data/kinship-terms.json', 'application/json']],
     ['/family-tree.html', ['family-tree.html', 'text/html']],
-    ...['member-tools.js', 'kinship.js', 'relationship-search.js', 'family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'family-storage.js', 'member-form.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
+    ...['family-repository.js', 'member-tools.js', 'kinship.js', 'relationship-search.js', 'family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'family-storage.js', 'member-form.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
   ]);
   const server = http.createServer(async (req, res) => {
     try {

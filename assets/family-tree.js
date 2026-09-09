@@ -13,6 +13,7 @@
     契子女: { color: '#187e80', width: 3, dash: '1 6', end: 'circle', label: '契子女 · 點線空心圓' },
     手足: { color: '#59616c', width: 2, both: true, end: 'circle', label: '手足 · 雙端空心圓' },
     契手足: { color: '#765138', width: 2.5, dash: '8 4 2 4', end: 'diamond', both: true, label: '契手足 · 雙端菱形' },
+    師兄弟姊妹: { color: '#247c86', width: 2.5, dash: '5 4', both: true, end: 'square', label: '師兄弟姊妹 · 雙端方形虛線' },
     師徒: { color: '#1756b0', width: 3, end: 'arrow', label: '師徒 · 師父 → 徒弟' },
     unknown: { color: '#666666', width: 2, dash: '12 2 2 2', label: '未知關係' }
   };
@@ -140,6 +141,11 @@
     const focus = !queryView.active && (graph.unions || []).find(u => u.id === familySelect?.value);
     const focusedIds = focus ? new Set(focus.partners.concat((graph.descents || []).filter(d => d.union === focus.id).map(d => d.child))) : null;
     const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id));
+    if (!people.length) {
+      canvas.appendChild(element('p', 'tree__error', '尚未新增成員，請點選「新增成員」或匯入族譜 JSON。'));
+      document.getElementById('relationship-details').hidden = true;
+      return;
+    }
     const byId = new Map(people.map(p => [p.id, p]));
     const unions = (graph.unions || []).filter(u => {
       if (focus && u.id !== focus.id) return false;
@@ -212,6 +218,7 @@
         block.forEach(p => {
           const node = element('button', 'person');
           node.type = 'button';
+          if (p.notes) node.title = p.notes;
           if (queryView.active && p.id === queryView.aId) node.classList.add('pair-a');
           if (queryView.active && p.id === queryView.bId) node.classList.add('pair-b');
           node.dataset.personId = p.id;
@@ -220,6 +227,7 @@
           node.appendChild(element('span', 'person__location', '所在地：' + (p.location || '未填寫')));
           node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
           node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
+          if (FamilyModel.knownDiscipleOrder(p)) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
           node.addEventListener('click', () => { selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false); showDetails(); });
           nodes.set(p.id, node);
           group.appendChild(node);

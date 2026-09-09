@@ -9,7 +9,7 @@
   else root.FamilyKinship = api;
 })(globalThis, function (Model) {
   'use strict';
-  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', teacher: 'student', student: 'teacher' };
+  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', teacher: 'student', student: 'teacher' };
   function create(config) {
   if (config?.schemaVersion !== 1 || !Array.isArray(config.rules) || !config.labels || !config.direct || !config.notes || !config.display || !config.numerals || !Array.isArray(config.familyTypes) || !Array.isArray(config.familyKinds)) throw new Error('稱謂設定檔格式不正確');
   for (const key of ['self', 'fallbackTerm', 'chainSeparator', 'nonBiologicalPrefix', 'nonBiologicalSeparator', 'nonBiologicalSuffix']) if (typeof config.display[key] !== 'string') throw new Error('稱謂設定缺少顯示文字：' + key);
@@ -50,8 +50,8 @@
   }
   function contextFor(steps, byId) {
     const base = byId.get(steps[0].from);
-    const stepsContext = steps.map((edge, i) => { const p = byId.get(edge.to); return { gender: p.gender, rankPrefix: rank(p.siblingOrder), orderToBase: Math.sign(Model.compareOrder(p, base)), orderToPrevious: Math.sign(Model.compareOrder(p, i ? byId.get(steps[i - 1].to) : base)) }; });
-    return { edge: steps.at(-1), target: stepsContext.at(-1), steps: stepsContext };
+    const stepsContext = steps.map((edge, i) => { const p = byId.get(edge.to); return { gender: p.gender, discipleOrderToBase: Math.sign(Model.compareDiscipleOrder(p, base)), rankPrefix: rank(p.siblingOrder), orderToBase: Math.sign(Model.compareOrder(p, base)), orderToPrevious: Math.sign(Model.compareOrder(p, i ? byId.get(steps[i - 1].to) : base)) }; });
+    return { edge: { ...steps.at(-1), seniority: steps.at(-1).seniority || 'unknown' }, target: stepsContext.at(-1), steps: stepsContext };
   }
   function term(edge, byId) { return evaluate(config.direct[edge.type] ?? config.display.fallbackTerm, contextFor([edge], byId)); }
   function describe(path, byId) {
@@ -77,14 +77,14 @@
     const byId = new Map(graph.people.map(p => [p.id, p]));
     const adjacency = new Map(graph.people.map(p => [p.id, []]));
     const seen = new Set();
-    for (const p of graph.people) for (const r of p.relationships || []) {
+    for (const p of graph.people) for (const r of Model.relationshipsFor(graph, p.id)) {
       if (!byId.has(r.personId) || !INVERSE[r.type]) continue;
       const key = p.id < r.personId ? [p.id, r.personId, r.type, r.kind || ''].join('|') : [r.personId, p.id, INVERSE[r.type], r.kind || ''].join('|');
       if (seen.has(key)) continue;
       seen.add(key);
-      const forward = { from: p.id, to: r.personId, type: r.type, key, ...(r.kind ? { kind: r.kind } : {}) };
+      const forward = { from: p.id, to: r.personId, type: r.type, key, ...(r.kind ? { kind: r.kind } : {}), ...(r.seniority ? { seniority: r.seniority } : {}) };
       adjacency.get(p.id).push(forward);
-      adjacency.get(r.personId).push({ ...forward, from: r.personId, to: p.id, type: INVERSE[r.type] });
+      adjacency.get(r.personId).push({ ...forward, from: r.personId, to: p.id, type: INVERSE[r.type], ...(r.seniority ? { seniority: Model.inverseSeniority(r.seniority) } : {}) });
     }
     const priority = type => ['parent', 'grandparent', 'sibling', 'spouse', 'child', 'grandchild'].indexOf(type);
     adjacency.forEach(edges => edges.sort((a, b) => priority(a.type) - priority(b.type) || ({ M: 0, F: 1, U: 2 }[byId.get(a.to).gender] - { M: 0, F: 1, U: 2 }[byId.get(b.to).gender]) || a.to.localeCompare(b.to)));
@@ -132,7 +132,7 @@
   }
   function project(graph, path, isolatedIds = []) {
     const ids = new Set(path ? path.nodes : isolatedIds), relations = new Map([...ids].map(id => [id, []]));
-    for (const edge of path?.edges || []) relations.get(edge.from).push({ type: edge.type, personId: edge.to, ...(edge.kind ? { kind: edge.kind } : {}) });
+    for (const edge of path?.edges || []) relations.get(edge.from).push({ type: edge.type, personId: edge.to, ...(edge.kind ? { kind: edge.kind } : {}), ...(edge.seniority ? { seniority: edge.seniority } : {}) });
     const people = graph.people.filter(p => ids.has(p.id)).map(p => ({ ...p, relationships: relations.get(p.id) }));
     const focused = Model.build({ schemaVersion: 2, familyName: graph.familyName, people });
     // Display original generations, including gaps for explicit grandparent edges.

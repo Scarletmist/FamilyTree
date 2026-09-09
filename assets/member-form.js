@@ -27,7 +27,7 @@
   const nameInput = document.getElementById('family-name-input');
   const nameError = document.getElementById('family-name-error');
   let nameVersion = null, savingName = false;
-  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', teacher: '師父', student: '徒弟' };
+  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
   function updateTargets(select) {
@@ -41,8 +41,8 @@
     const graph = FamilyModel.build(payload.data);
     snapshot = payload;
     restoredBackup = restored;
-    const storage = restored ? null : backup.save(payload);
-    backupStatus.textContent = restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
+    const storage = FamilyRepository.isStatic ? 'localStorage' : restored ? null : backup.save(payload);
+    backupStatus.textContent = FamilyRepository.isStatic ? '已儲存至此瀏覽器；可匯出 JSON 備份或移至其他裝置。' : restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
     const familyName = graph.familyName;
     familyTitle.textContent = familyName + '族譜圖';
     document.title = '族譜圖 — ' + familyName;
@@ -54,7 +54,7 @@
     document.getElementById('export-json').disabled = false;
   }
   async function load() {
-    const response = await fetch('/api/family', { cache: 'no-store' });
+    const response = await FamilyRepository.request('/api/family', { cache: 'no-store' });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || '無法載入族譜。');
     accept(payload);
@@ -77,8 +77,9 @@
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
       kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
-      const name = snapshot.data.people.find(p => p.id === target.value)?.name;
-      preview.textContent = name && type.value ? `${name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${labels[type.value]}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
+      const person = snapshot.data.people.find(p => p.id === target.value);
+      const role = person && type.value === 'fellowDisciple' ? FamilyModel.fellowRole(person, { discipleOrder: Number(document.getElementById('member-disciple-order').value) || null }) : labels[type.value];
+      preview.textContent = person && type.value ? `${person.name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${role}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
     }
     row.addEventListener('change', update);
     row.updatePreview = update;
@@ -94,7 +95,7 @@
   function populateMember() {
     const person = snapshot.data.people.find(p => p.id === editingId);
     if (!person) throw new Error('此成員已不存在，請關閉表單後更新資料。');
-    for (const key of ['name', 'location', 'position', 'gender', 'siblingOrder']) form.elements.namedItem(key).value = person[key] ?? '';
+    for (const key of ['name', 'location', 'position', 'notes', 'gender', 'siblingOrder', 'discipleOrder']) form.elements.namedItem(key).value = person[key] ?? '';
     relations.replaceChildren();
     FamilyModel.relationshipsFor(snapshot.data, editingId).forEach(addRelation);
   }
@@ -143,12 +144,12 @@
     catch (e) { nameError.textContent = e.message; return; }
     setNameSaving(true);
     try {
-      const response = await fetch('/api/family/name', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ familyName, version: nameVersion }) });
+      const response = await FamilyRepository.request('/api/family/name', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ familyName, version: nameVersion }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || '儲存名稱失敗，請重試。');
       accept(payload);
       nameDialog.close();
-      status.textContent = `已將家族名稱更新為「${familyName}」，並儲存至族譜檔案。`;
+      status.textContent = `已將家族名稱更新為「${familyName}」，並儲存至${FamilyRepository.isStatic ? '此瀏覽器' : '族譜檔案'}。`;
     } catch (e) { nameError.textContent = e.message || '連線中斷，請重試。'; }
     finally { setNameSaving(false); }
   });
@@ -157,6 +158,7 @@
   ['close-member-dialog', 'cancel-member'].forEach(id => document.getElementById(id).addEventListener('click', () => dialog.close()));
   dialog.addEventListener('cancel', event => { if (saving) event.preventDefault(); });
   document.getElementById('add-relation').addEventListener('click', () => addRelation());
+  document.getElementById('member-disciple-order').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   document.getElementById('member-name').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   document.getElementById('refresh-family').addEventListener('click', async () => {
     error.textContent = '';
@@ -173,6 +175,8 @@
     const values = new FormData(form);
     const member = {
       name: values.get('name').trim(), location: values.get('location').trim(), position: values.get('position').trim(), gender: values.get('gender'),
+      notes: values.get('notes').trim(),
+      discipleOrder: values.get('discipleOrder') === '' ? null : Number(values.get('discipleOrder')),
       siblingOrder: values.get('siblingOrder') === '' ? null : Number(values.get('siblingOrder')),
       relationships: [...relations.children].map(row => {
         const type = row.querySelector('.relation-type').value;
@@ -183,7 +187,7 @@
     };
     setSaving(true);
     try {
-      const response = await fetch(editingId ? '/api/members/' + encodeURIComponent(editingId) : '/api/members', { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member, requestId, version: snapshot.version }) });
+      const response = await FamilyRepository.request(editingId ? '/api/members/' + encodeURIComponent(editingId) : '/api/members', { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member, requestId, version: snapshot.version }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || '儲存失敗，請重試。');
       document.getElementById('family-filter').value = '';
@@ -224,7 +228,7 @@
     importing = true; importError.textContent = '';
     ['confirm-import', 'cancel-import', 'refresh-import'].forEach(id => document.getElementById(id).disabled = true);
     try {
-      const response = await fetch('/api/family/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: stagedImport.data, version: importVersion }) });
+      const response = await FamilyRepository.request('/api/family/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: stagedImport.data, version: importVersion }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || '匯入失敗，請重試。');
       document.getElementById('family-filter').value = '';
@@ -239,7 +243,7 @@
     const button = document.getElementById('export-json'); button.disabled = true;
     try {
       // Export the latest persisted JSON, including changes from other open pages.
-      const response = restoredBackup ? new Response(JSON.stringify(snapshot.data, null, 2), { headers: { 'Content-Type': 'application/json' } }) : await fetch('/api/family/export', { cache: 'no-store' });
+      const response = restoredBackup ? new Response(JSON.stringify(snapshot.data, null, 2), { headers: { 'Content-Type': 'application/json' } }) : await FamilyRepository.request('/api/family/export', { cache: 'no-store' });
       if (!response.ok) throw new Error((await response.json()).error || '匯出失敗。');
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a'); link.href = url; link.download = 'family.json';
@@ -250,7 +254,7 @@
     finally { button.disabled = false; }
   });
   load().catch(e => {
-    const cached = backup.read();
+    const cached = FamilyRepository.isStatic ? null : backup.read();
     if (cached) { accept(cached, true); return; }
     const canvas = document.getElementById('tree-canvas');
     canvas.replaceChildren();

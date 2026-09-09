@@ -1,333 +1,374 @@
-/*
- * 族譜圖繪製
- *
- * 讀取全域 FAMILY（data/family.js）與 computeBranches（assets/branch.js），
- * 將族人依 gen 分成水平世代列，並在節點層之上以 SVG 繪製關係連線。
- *
- * 佈局刻意簡單：同一世代依 FAMILY.people 的陣列順序由左至右排列。
- * 這在數十人的規模下足以閱讀；人數大幅成長後需要重新設計。
- *
- * 六類關係各有相異的 data-kind：
- *   spouse 婚姻｜親生／過繼／養子女（承繼，實線系列）
- *   義子女／契子女（不承繼，虛線系列）｜契手足（同輩，點線）
- */
+/* Relationship graph: shared parent/sibling connectors and directed mentorships. */
 (function () {
-  "use strict";
-
-  var SVG_NS = "http://www.w3.org/2000/svg";
-
-  var LINEAGE_KINDS = ["親生", "過繼", "養子女"];
-  var DESCENT_KINDS = ["親生", "過繼", "養子女", "義子女", "契子女"];
-
-  // 承繼者為實線系列，非承繼者為虛線系列——「是否入房」先在視覺上可分。
-  var STROKE_BY_KIND = {
-    spouse: null,
-    親生: null,
-    過繼: "10 3",
-    養子女: "6 3",
-    義子女: "2 4",
-    契子女: "1 4",
-    契手足: "1 6",
-    unknown: "12 2 2 2"
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+  // The legend and graph share the same colors, patterns and endpoint symbols.
+  const STYLES = {
+    spouse: { color: '#aa3d55', width: 6, double: true, label: '婚姻 · 雙線' },
+    family: { color: '#59616c', width: 2, label: '共同父母／手足 · 分叉線' },
+    親生: { color: '#347045', width: 2.5, end: 'triangle', label: '親生 · 實線箭頭' },
+    過繼: { color: '#b15a15', width: 2.5, dash: '12 5', end: 'diamond', label: '過繼 · 長虛線菱形' },
+    養子女: { color: '#2963a3', width: 2.5, dash: '6 4', end: 'circle', label: '養子女 · 短虛線空心圓' },
+    義子女: { color: '#854791', width: 2.5, dash: '10 4 2 4', end: 'square', label: '義子女 · 點劃線方形' },
+    契子女: { color: '#187e80', width: 3, dash: '1 6', end: 'circle', label: '契子女 · 點線空心圓' },
+    手足: { color: '#59616c', width: 2, both: true, end: 'circle', label: '手足 · 雙端空心圓' },
+    契手足: { color: '#765138', width: 2.5, dash: '8 4 2 4', end: 'diamond', both: true, label: '契手足 · 雙端菱形' },
+    師兄弟姊妹: { color: '#247c86', width: 2.5, dash: '5 4', both: true, end: 'square', label: '師兄弟姊妹 · 雙端方形虛線' },
+    師徒: { color: '#1756b0', width: 3, end: 'arrow', label: '師徒 · 師父 → 徒弟' },
+    unknown: { color: '#666666', width: 2, dash: '12 2 2 2', label: '未知關係' }
   };
-
-  function isKnownDescentKind(kind) {
-    return DESCENT_KINDS.indexOf(kind) !== -1;
+  const relationshipDetails = FamilyRelationshipDetails.createController();
+  const relationshipSearch = FamilyRelationshipSearch.createController({ onChange: () => { selectedId = null; render(); } });
+  const orderKey = FamilyModel.orderKey;
+  let selectedId = null;
+  let suppressClick = false;
+  function element(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
   }
-
-  function renderError(canvas, message) {
-    var box = document.createElement("p");
-    box.className = "tree__error";
-    box.textContent = message;
-    canvas.appendChild(box);
+  function svgElement(tag, attrs = {}) {
+    const el = document.createElementNS(NS, tag);
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+    return el;
   }
-
-  /* 節點：姓名 + 生卒年 + 房別標籤。在世者只顯示生年並加上在世標記。 */
-  function buildPersonNode(person, branchLabel) {
-    var node = document.createElement("div");
-    node.className = "person" + (person.death === null ? " person--living" : "");
-    node.dataset.personId = person.id;
-    node.dataset.living = person.death === null ? "true" : "false";
-
-    var name = document.createElement("div");
-    name.className = "person__name";
-    name.textContent = person.name;
-    node.appendChild(name);
-
-    var years = document.createElement("div");
-    years.className = "person__years";
-    if (person.death === null) {
-      // 生卒年原樣輸出，不去除不確定年份的問號。
-      years.textContent = person.birth + " —";
-      var mark = document.createElement("span");
-      mark.className = "person__living-mark";
-      mark.textContent = " ●";
-      years.appendChild(mark);
-    } else {
-      years.textContent = person.birth + " – " + person.death;
+  function addMarkers(svg, prefix) {
+    const defs = svgElement('defs');
+    Object.entries(STYLES).forEach(([kind, style]) => {
+      if (!style.end) return;
+      const marker = svgElement('marker', { id: prefix + kind, viewBox: '0 0 12 12', refX: 10, refY: 6, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' });
+      const shape = style.end === 'circle' ? svgElement('circle', { cx: 6, cy: 6, r: 4, fill: '#fbf8f3', stroke: style.color, 'stroke-width': 2 })
+        : svgElement('path', { d: style.end === 'diamond' ? 'M 1 6 L 6 1 L 11 6 L 6 11 Z' : style.end === 'square' ? 'M 2 2 H 10 V 10 H 2 Z' : style.end === 'arrow' ? 'M 1 1 L 11 6 L 1 11 L 4 6 Z' : 'M 1 1 L 11 6 L 1 11 Z', fill: style.color });
+      marker.appendChild(shape);
+      defs.appendChild(marker);
+    });
+    svg.appendChild(defs);
+  }
+  function applyStyle(el, kind, prefix) {
+    const style = STYLES[kind];
+    el.setAttribute('stroke', style.color);
+    el.setAttribute('stroke-width', style.width);
+    el.setAttribute('stroke-linecap', 'round');
+    if (style.dash) el.setAttribute('stroke-dasharray', style.dash);
+    if (style.end) el.setAttribute('marker-end', `url(#${prefix}${kind})`);
+    if (style.both) el.setAttribute('marker-start', `url(#${prefix}${kind})`);
+  }
+  function buildLegend() {
+    const legend = document.getElementById('relationship-legend');
+    if (!legend || legend.children.length) return;
+    Object.entries(STYLES).filter(([kind]) => kind !== 'unknown').forEach(([kind, style], index) => {
+      const item = element('span', 'legend__item');
+      const svg = svgElement('svg', { viewBox: '0 0 64 24', 'aria-hidden': 'true' });
+      const prefix = `legend-${index}-`;
+      addMarkers(svg, prefix);
+      const line = svgElement('path', { d: kind === 'family' ? 'M 32 2 V 10 M 8 21 V 10 H 56 V 21' : 'M 8 12 H 55', fill: 'none' });
+      applyStyle(line, kind, prefix);
+      svg.appendChild(line);
+      if (style.double) svg.appendChild(svgElement('path', { d: 'M 8 12 H 55', stroke: '#fff', 'stroke-width': 2 }));
+      item.append(svg, element('span', '', style.label));
+      legend.appendChild(item);
+    });
+  }
+  function bindPanning(viewport) {
+    if (viewport.dataset.panBound) return;
+    viewport.dataset.panBound = 'true';
+    let drag = null;
+    viewport.addEventListener('pointerdown', event => {
+      if (!event.isPrimary || event.button !== 0) return;
+      // Leave native scrollbar interaction to the browser.
+      const box = viewport.getBoundingClientRect();
+      if (event.clientX >= box.left + viewport.clientWidth || event.clientY >= box.top + viewport.clientHeight) return;
+      suppressClick = false;
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop, moved: false };
+    });
+    viewport.addEventListener('pointermove', event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+      drag.moved = true;
+      suppressClick = true;
+      viewport.setPointerCapture(event.pointerId);
+      viewport.classList.add('is-dragging');
+      viewport.scrollLeft = drag.left - dx;
+      viewport.scrollTop = drag.top - dy;
+      event.preventDefault();
+    });
+    function finish(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      if (viewport.hasPointerCapture(drag.id)) viewport.releasePointerCapture(drag.id);
+      drag = null;
+      viewport.classList.remove('is-dragging');
     }
-    node.appendChild(years);
-
-    // 標籤為空時完全不輸出元素，不留佔位文字。
-    if (branchLabel) {
-      var branch = document.createElement("div");
-      branch.className = "person__branch";
-      branch.textContent = branchLabel;
-      node.appendChild(branch);
-    }
-
-    return node;
+    viewport.addEventListener('pointerup', finish);
+    viewport.addEventListener('pointercancel', finish);
+    viewport.addEventListener('lostpointercapture', finish);
+    viewport.addEventListener('click', event => {
+      if (suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); suppressClick = false; }
+    }, true);
+    viewport.addEventListener('dragstart', event => event.preventDefault());
   }
-
-  function buildRows(canvas, people, branches) {
-    var rows = document.createElement("div");
-    rows.className = "tree__rows";
-
-    var generations = people
-      .map(function (p) {
-        return p.gen;
-      })
-      .filter(function (g, i, arr) {
-        return arr.indexOf(g) === i;
-      })
-      .sort(function (a, b) {
-        return a - b;
+  function render() {
+    const canvas = document.getElementById('tree-canvas');
+    if (!canvas) return;
+    buildLegend();
+    bindPanning(canvas.parentElement);
+    canvas.replaceChildren();
+    if (typeof FAMILY === 'undefined' || !Array.isArray(FAMILY.people)) {
+      canvas.appendChild(element('p', 'tree__error', '正在載入族譜…'));
+      return;
+    }
+    const queryView = relationshipSearch.update(FAMILY);
+    const graph = queryView.graph;
+    const familySelect = document.getElementById('family-filter');
+    if (familySelect) {
+      const previous = familySelect.value;
+      familySelect.replaceChildren(element('option', '', '所有關係'));
+      familySelect.options[0].value = '';
+      (FAMILY.unions || []).forEach(u => {
+        const parents = (u.partners || []).map(id => FAMILY.people.find(p => p.id === id));
+        if (!parents.length || parents.some(p => !p)) return;
+        const option = element('option', '', parents.map(p => p.name).join(' ＋ '));
+        option.value = u.id;
+        familySelect.appendChild(option);
       });
-
-    var nodeById = {};
-
-    generations.forEach(function (gen) {
-      var row = document.createElement("div");
-      row.className = "generation";
-      row.dataset.gen = String(gen);
-
-      // 陣列順序即列內由左至右的順序，配偶已在資料中相鄰排列。
-      people
-        .filter(function (p) {
-          return p.gen === gen;
-        })
-        .forEach(function (person) {
-          var entry = branches[person.id];
-          var node = buildPersonNode(person, entry ? entry.label : "");
-          nodeById[person.id] = node;
-          row.appendChild(node);
+      familySelect.value = [...familySelect.options].some(o => o.value === previous) ? previous : '';
+      if (!familySelect.dataset.bound) {
+        familySelect.addEventListener('change', () => { selectedId = null; render(); });
+        familySelect.dataset.bound = 'true';
+      }
+    }
+    const focus = !queryView.active && (graph.unions || []).find(u => u.id === familySelect?.value);
+    const focusedIds = focus ? new Set(focus.partners.concat((graph.descents || []).filter(d => d.union === focus.id).map(d => d.child))) : null;
+    const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id));
+    if (!people.length) {
+      canvas.appendChild(element('p', 'tree__error', '尚未新增成員，請點選「新增成員」或匯入族譜 JSON。'));
+      document.getElementById('relationship-details').hidden = true;
+      return;
+    }
+    const byId = new Map(people.map(p => [p.id, p]));
+    const unions = (graph.unions || []).filter(u => {
+      if (focus && u.id !== focus.id) return false;
+      const valid = Array.isArray(u.partners) && u.partners.length >= 1 && u.partners.length <= 4 && new Set(u.partners).size === u.partners.length && u.partners.every(id => byId.has(id));
+      if (!valid) console.warn('略過無效婚姻', u.id);
+      return valid;
+    });
+    const unionById = new Map(unions.map(u => [u.id, u]));
+    const descents = (graph.descents || []).filter(d => {
+      if (focus && d.union !== focus.id) return false;
+      const valid = byId.has(d.child) && unionById.has(d.union);
+      if (!valid) console.warn('略過無效親子關係', d);
+      return valid;
+    });
+    const childrenOf = u => descents.filter(d => d.union === u.id).sort((a, b) => orderKey(byId.get(a.child)) - orderKey(byId.get(b.child)));
+    const extra = (graph.bonds || []).map(b => ({ from: b.members?.[0], to: b.members?.[1], kind: b.kind }))
+      .concat((graph.mentorships || []).map(m => ({ from: m.teacher, to: m.student, kind: '師徒' })))
+      .filter(r => {
+        if (focus && (!byId.has(r.from) || !byId.has(r.to))) return false;
+        const valid = byId.has(r.from) && byId.has(r.to) && r.from !== r.to;
+        if (!valid) console.warn('略過無效關係', r);
+        return valid;
+      });
+    const occupiedGenerations = people.map(p => p.gen);
+    const firstGeneration = Math.min(...occupiedGenerations), lastGeneration = Math.max(...occupiedGenerations);
+    const generations = people.length ? Array.from({ length: lastGeneration - firstGeneration + 1 }, (_, i) => firstGeneration + i) : [];
+    // A skipped generation can contain cards directly under the ancestor anchor.
+    // Give each such family its own lane outside every generation's card area.
+    const crossGenerationUnions = unions.filter(u => childrenOf(u).some(d => byId.get(d.child).gen - byId.get(u.partners[0]).gen > 1));
+    const lowerLanes = 22 + Math.max(0, unions.length - 1) * 16;
+    const upperLanes = Math.max(58 + Math.max(0, unions.length - 1) * 18, 32 + Math.max(0, extra.length - 1) * 22);
+    const rowGap = Math.max(140 + unions.length * 30 + extra.length * 8, lowerLanes + upperLanes + 48);
+    const rows = element('div', 'tree__rows');
+    const nodes = new Map();
+    // Spouse blocks stay together. Sibling blocks use parent-pair order, then numeric order.
+    generations.forEach(gen => {
+      const visited = new Set(), blocks = [];
+      people.filter(p => p.gen === gen).forEach(p => {
+        if (visited.has(p.id)) return;
+        const block = [];
+        function visit(id) {
+          if (visited.has(id) || byId.get(id).gen !== gen) return;
+          visited.add(id);
+          block.push(byId.get(id));
+          unions.forEach(u => { if (u.partners.includes(id)) u.partners.forEach(visit); });
+        }
+        visit(p.id);
+        block.sort((a, b) => people.indexOf(a) - people.indexOf(b));
+        blocks.push(block);
+      });
+      function key(block) {
+        const links = descents.filter(d => block.some(p => p.id === d.child));
+        links.sort((a, b) => unions.indexOf(unionById.get(a.union)) - unions.indexOf(unionById.get(b.union)));
+        if (links.length) return [unions.indexOf(unionById.get(links[0].union)), orderKey(byId.get(links[0].child))];
+        // Explicit siblings can be ordered together without inventing missing parent edges.
+        for (const bond of graph.bonds || []) {
+          if (bond.kind !== '手足' || !bond.members.some(id => block.some(p => p.id === id))) continue;
+          const other = bond.members.find(id => !block.some(p => p.id === id));
+          const parentLink = descents.find(d => d.child === other);
+          if (parentLink) return [unions.indexOf(unionById.get(parentLink.union)), orderKey(block[0])];
+        }
+        return [Infinity, orderKey(block[0])];
+      }
+      blocks.sort((a, b) => { const x = key(a), y = key(b); return (x[0] - y[0]) || (x[1] - y[1]) || 0; });
+      const row = element('div', 'generation');
+      row.dataset.gen = gen;
+      if (!blocks.length) row.style.minHeight = '120px';
+      blocks.forEach(block => {
+        const group = element('div', 'couple-group');
+        block.forEach(p => {
+          const node = element('button', 'person');
+          node.type = 'button';
+          if (p.notes) node.title = p.notes;
+          if (queryView.active && p.id === queryView.aId) node.classList.add('pair-a');
+          if (queryView.active && p.id === queryView.bId) node.classList.add('pair-b');
+          node.dataset.personId = p.id;
+          node.setAttribute('aria-pressed', String(selectedId === p.id));
+          node.appendChild(element('span', 'person__name', p.name));
+          node.appendChild(element('span', 'person__location', '所在地：' + (p.location || '未填寫')));
+          node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
+          node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
+          if (FamilyModel.knownDiscipleOrder(p)) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
+          node.addEventListener('click', () => { selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false); showDetails(); });
+          nodes.set(p.id, node);
+          group.appendChild(node);
         });
-
+        row.appendChild(group);
+      });
+      row.style.marginBottom = rowGap + 'px';
       rows.appendChild(row);
     });
-
+    // Reserve a label rail without changing the existing relationship gutters.
+    const generationGutter = 80;
+    canvas.style.paddingLeft = (generationGutter + 48 + (extra.length + crossGenerationUnions.length) * 18) + 'px';
+    canvas.style.paddingTop = (64 + (queryView.active ? document.getElementById('relationship-summary').offsetHeight : 0) + extra.length * 22) + 'px';
     canvas.appendChild(rows);
-    return nodeById;
-  }
-
-  /* 節點座標，相對於 canvas 左上角。 */
-  function boxOf(node, canvasRect) {
-    var r = node.getBoundingClientRect();
-    return {
-      x: r.left - canvasRect.left + r.width / 2,
-      top: r.top - canvasRect.top,
-      bottom: r.bottom - canvasRect.top,
-      midY: r.top - canvasRect.top + r.height / 2
-    };
-  }
-
-  function styleStroke(el, kind) {
-    el.setAttribute("stroke", "var(--color-connector)");
-    el.setAttribute("stroke-width", "1.5");
-    el.dataset.kind = kind;
-    var dash = STROKE_BY_KIND[kind];
-    if (dash) {
-      el.setAttribute("stroke-dasharray", dash);
-    }
-  }
-
-  function line(x1, y1, x2, y2, kind) {
-    var el = document.createElementNS(SVG_NS, "line");
-    el.setAttribute("x1", x1);
-    el.setAttribute("y1", y1);
-    el.setAttribute("x2", x2);
-    el.setAttribute("y2", y2);
-    styleStroke(el, kind);
-    return el;
-  }
-
-  function polyline(points, kind) {
-    var el = document.createElementNS(SVG_NS, "polyline");
-    el.setAttribute(
-      "points",
-      points
-        .map(function (p) {
-          return p[0] + "," + p[1];
-        })
-        .join(" ")
-    );
-    el.setAttribute("fill", "none");
-    styleStroke(el, kind);
-    return el;
-  }
-
-  /*
-   * 連線。一筆壞資料只跳過該條連線並在 console 警告，不讓整張圖消失。
-   */
-  function drawConnectors(canvas, nodeById, data) {
-    var svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("class", "tree__connectors");
-    svg.id = "tree-connectors";
+    const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
+    canvas.prepend(generationLayers.backgrounds);
+    const svg = svgElement('svg', { class: 'tree__connectors', 'aria-hidden': 'true' });
+    svg.id = 'tree-connectors';
     canvas.appendChild(svg);
-
-    var canvasRect = canvas.getBoundingClientRect();
-    svg.setAttribute("width", canvasRect.width);
-    svg.setAttribute("height", canvasRect.height);
-
-    var unionAnchors = {};
-
-    (data.unions || []).forEach(function (union) {
-      var a = nodeById[union.partners[0]];
-      var b = nodeById[union.partners[1]];
-      if (!a || !b) {
-        console.warn(
-          "族譜圖：union " +
-            union.id +
-            " 參照到不存在的族人 id（" +
-            union.partners
-              .filter(function (id) {
-                return !nodeById[id];
-              })
-              .join("、") +
-            "），略過此婚姻連線。"
-        );
-        return;
+    const rect = canvas.getBoundingClientRect();
+    svg.setAttribute('width', rect.width);
+    svg.setAttribute('height', rect.height);
+    addMarkers(svg, 'edge-');
+    function box(id) {
+      const r = nodes.get(id).getBoundingClientRect();
+      return { x: r.left - rect.left + r.width / 2, top: r.top - rect.top, bottom: r.bottom - rect.top };
+    }
+    function path(points, kind, ids, role, union) {
+      const el = svgElement('polyline', { points: points.map(p => p.join(',')).join(' '), fill: 'none' });
+      if (!Object.hasOwn(STYLES, kind)) kind = 'unknown';
+      applyStyle(el, kind, 'edge-');
+      el.dataset.kind = kind;
+      el.dataset.people = ids.join(' ');
+      el.dataset.role = role;
+      if (union) el.dataset.union = union;
+      svg.appendChild(el);
+      if (STYLES[kind].double) {
+        const inner = svgElement('polyline', { points: el.getAttribute('points'), fill: 'none', stroke: '#fbf8f3', 'stroke-width': 2 });
+        inner.dataset.people = ids.join(' ');
+        svg.appendChild(inner);
       }
-
-      var ba = boxOf(a, canvasRect);
-      var bb = boxOf(b, canvasRect);
-      svg.appendChild(line(ba.x, ba.midY, bb.x, bb.midY, "spouse"));
-
-      // 親子連線由配偶連線的中點向下拉。
-      unionAnchors[union.id] = {
-        x: (ba.x + bb.x) / 2,
-        y: Math.max(ba.bottom, bb.bottom)
-      };
-    });
-
-    (data.descents || []).forEach(function (descent) {
-      var anchor = unionAnchors[descent.union];
-      var childNode = nodeById[descent.child];
-      if (!anchor) {
-        console.warn(
-          "族譜圖：descent 參照到不存在或無法定位的 union id（" +
-            descent.union +
-            "），略過此親子連線。"
-        );
-        return;
-      }
-      if (!childNode) {
-        console.warn(
-          "族譜圖：union " +
-            descent.union +
-            " 參照到不存在的族人 id（" +
-            descent.child +
-            "），略過此親子連線。"
-        );
-        return;
-      }
-
-      var kind = descent.kind;
-      if (!isKnownDescentKind(kind)) {
-        console.warn(
-          "族譜圖：無法辨識的親子關係 kind（" +
-            kind +
-            "），以預設線條樣式繪出，且不承繼房別。"
-        );
-        kind = "unknown";
-      }
-
-      var c = boxOf(childNode, canvasRect);
-      var midY = (anchor.y + c.top) / 2;
-      svg.appendChild(
-        polyline(
-          [
-            [anchor.x, anchor.y],
-            [anchor.x, midY],
-            [c.x, midY],
-            [c.x, c.top]
-          ],
-          kind
-        )
-      );
-    });
-
-    /* 同輩橫向連線。兩人可能不在同一列，因此走列外的折線避免穿過節點。 */
-    (data.bonds || []).forEach(function (bond) {
-      var a = nodeById[bond.members[0]];
-      var b = nodeById[bond.members[1]];
-      if (!a || !b) {
-        console.warn(
-          "族譜圖：bond 參照到不存在的族人 id（" +
-            bond.members
-              .filter(function (id) {
-                return !nodeById[id];
-              })
-              .join("、") +
-            "），略過此同輩連線。"
-        );
-        return;
-      }
-      var ba = boxOf(a, canvasRect);
-      var bb = boxOf(b, canvasRect);
-      if (Math.abs(ba.midY - bb.midY) < 1) {
-        svg.appendChild(line(ba.x, ba.midY, bb.x, bb.midY, "契手足"));
+      return el;
+    }
+    function label(x, y, text, kind, ids) {
+      const el = svgElement('text', { x, y, class: 'relation-label', fill: (STYLES[kind] || STYLES.unknown).color });
+      el.textContent = text;
+      el.dataset.people = ids.join(' ');
+      svg.appendChild(el);
+    }
+    function junction(x, y, ids) {
+      const dot = svgElement('circle', { cx: x, cy: y, r: 3, fill: '#8f7b65' });
+      dot.dataset.people = ids.join(' ');
+      svg.appendChild(dot);
+    }
+    unions.forEach((u, index) => {
+      const origins = u.partners.map(box), a = origins[0];
+      const marriageY = Math.max(...origins.map(p => p.bottom)) + 22 + index * 16;
+      const anchor = (Math.min(...origins.map(p => p.x)) + Math.max(...origins.map(p => p.x))) / 2;
+      const kids = childrenOf(u);
+      const familyIds = u.partners.concat(kids.map(d => d.child));
+      // Join both parents below their cards; the child stem starts ON this line.
+      if (u.partners.length === 1) {
+        path([[a.x, a.bottom], [a.x, marriageY]], 'family', familyIds, 'parent-origin', u.id);
       } else {
-        var gutter = Math.min(ba.x, bb.x) - 24;
-        svg.appendChild(
-          polyline(
-            [
-              [ba.x, ba.midY],
-              [gutter, ba.midY],
-              [gutter, bb.midY],
-              [bb.x, bb.midY]
-            ],
-            "契手足"
-          )
-        );
+        const originXs = origins.map(p => p.x);
+        path([[Math.min(...originXs), marriageY], [Math.max(...originXs), marriageY]], u.married ? 'spouse' : 'family', familyIds, 'marriage', u.id);
+        origins.forEach(p => path([[p.x, p.bottom], [p.x, marriageY]], u.married ? 'spouse' : 'family', familyIds, 'parent-origin', u.id));
+        label(anchor + 8, marriageY - 8, u.married ? '婚姻' : kids.every(d => d.generations === 2) ? '共同祖父母' : '共同父母', u.married ? 'spouse' : 'family', familyIds);
       }
+      if (kids.length) junction(anchor, marriageY, familyIds);
+      [...new Set(kids.map(d => byId.get(d.child).gen))].forEach(gen => {
+        const group = kids.filter(d => byId.get(d.child).gen === gen);
+        const boxes = group.map(d => box(d.child));
+        const barY = Math.min(...boxes.map(c => c.top)) - 58 - index * 18;
+        const crossesGeneration = gen - byId.get(u.partners[0]).gen > 1;
+        const stemX = crossesGeneration ? generationGutter + 18 + (extra.length + crossGenerationUnions.indexOf(u)) * 18 : anchor;
+        const xs = boxes.map(c => c.x).concat(stemX);
+        const stem = crossesGeneration
+          ? [[anchor, marriageY], [stemX, marriageY], [stemX, barY]]
+          : [[anchor, marriageY], [anchor, barY]];
+        path(stem, 'family', familyIds, 'parent-stem', u.id);
+        path([[Math.min(...xs), barY], [Math.max(...xs), barY]], 'family', familyIds, 'sibling-bar', u.id);
+        junction(stemX, barY, familyIds);
+        group.forEach(d => {
+          const c = box(d.child);
+          path([[c.x, barY], [c.x, c.top]], d.kind, familyIds, 'child', u.id);
+          label(c.x + 10, c.top - 14, d.kind + (d.generations === 2 ? '（祖孫）' : ''), d.kind, familyIds);
+          junction(c.x, barY, familyIds);
+        });
+      });
     });
-  }
-
-  function render() {
-    var canvas = document.getElementById("tree-canvas");
-    if (!canvas) {
-      return;
+    extra.forEach((r, index) => {
+      const a = box(r.from), b = box(r.to), gutter = generationGutter + 18 + index * 18;
+      const fromY = a.top - 32 - index * 22, toY = b.top - 32 - index * 22;
+      const points = Math.abs(a.top - b.top) < 1
+        ? [[a.x - 42, a.top], [a.x - 42, fromY], [b.x - 42, toY], [b.x - 42, b.top]]
+        : [[a.x - 42, a.top], [a.x - 42, fromY], [gutter, fromY], [gutter, toY], [b.x - 42, toY], [b.x - 42, b.top]];
+      path(points, r.kind, [r.from, r.to], 'auxiliary');
+      label(b.x - 135, toY - 8, r.kind === '師徒' ? '師父 → 徒弟' : r.kind, r.kind, [r.from, r.to]);
+    });
+    // Keep the pale generation labels above connector lines, but non-interactive.
+    canvas.appendChild(generationLayers.labels);
+    function showDetails() {
+      const panel = document.getElementById('relationship-details');
+      const visibleId = selectedId && byId.has(selectedId) ? selectedId : null;
+      nodes.forEach((node, id) => node.setAttribute('aria-pressed', String(id === visibleId)));
+      svg.querySelectorAll('[data-people]').forEach(line => {
+        line.style.opacity = visibleId && !line.dataset.people.split(' ').includes(visibleId) ? '0.12' : '1';
+      });
+      relationshipDetails.render(panel, FAMILY, visibleId, {
+        onEdit: id => window.editFamilyMember(id),
+        onClose: () => {
+          const id = selectedId;
+          selectedId = null;
+          showDetails();
+          nodes.get(id)?.focus({ preventScroll: true });
+        }
+      });
     }
-    canvas.innerHTML = "";
-
-    if (typeof FAMILY === "undefined" || !FAMILY) {
-      renderError(
-        canvas,
-        "族譜資料載入失敗，無法顯示族譜圖。請確認 data/family.js 存在且可讀取。"
-      );
-      return;
+    showDetails();
+    // On entry or a new family, start at the parents; resizing preserves the user's pan.
+    const viewport = canvas.parentElement;
+    const scope = queryView.active ? 'query:' + queryView.scope : focus ? focus.id : '__all__';
+    if (viewport.dataset.scope !== scope && people.length) {
+      const topPeople = people.filter(p => p.gen === generations[0]).map(p => box(p.id));
+      const center = (Math.min(...topPeople.map(p => p.x)) + Math.max(...topPeople.map(p => p.x))) / 2;
+      viewport.scrollLeft = Math.max(0, center - viewport.clientWidth / 2);
+      viewport.scrollTop = 0;
+      viewport.dataset.scope = scope;
     }
-
-    var branches =
-      typeof computeBranches === "function" ? computeBranches(FAMILY) : {};
-
-    var nodeById = buildRows(canvas, FAMILY.people, branches);
-    drawConnectors(canvas, nodeById, FAMILY);
   }
-
-  // 供重繪使用（例如視窗尺寸改變後連線座標需要重算）。
   window.renderFamilyTree = render;
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", render);
-  } else {
+  window.selectFamilyMember = id => {
+    selectedId = id;
+    if (id) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false);
     render();
-  }
-
-  var resizeTimer = null;
-  window.addEventListener("resize", function () {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(render, 150);
-  });
+    const node = [...document.querySelectorAll('.person')].find(n => n.dataset.personId === id);
+    node?.scrollIntoView({ block: 'center', inline: 'center' });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
+  else render();
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
 })();

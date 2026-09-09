@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 2,
+  "people": [
+    {
+      "id": "p2",
+      "name": "林氏",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p1"
+        },
+        {
+          "type": "child",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p4",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p6",
+          "kind": "過繼"
+        },
+        {
+          "type": "child",
+          "personId": "p21",
+          "kind": "養子女"
+        },
+        {
+          "type": "child",
+          "personId": "p22",
+          "kind": "義子女"
+        }
+      ]
+    },
+    {
+      "id": "p1",
+      "name": "陳阿土",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p8"
+        }
+      ]
+    },
+    {
+      "id": "p8",
+      "name": "黃阿葉",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": []
+    },
+    {
+      "id": "p3",
+      "name": "陳文彬",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p9"
+        },
+        {
+          "type": "parent",
+          "personId": "p1",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p9",
+      "name": "王美雲",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": []
+    },
+    {
+      "id": "p4",
+      "name": "陳秀琴",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 2,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p10"
+        },
+        {
+          "type": "parent",
+          "personId": "p1",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p10",
+      "name": "張水木",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": []
+    },
+    {
+      "id": "p5",
+      "name": "陳文山",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p1",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p8",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p6",
+      "name": "陳文德",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 3,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p1",
+          "kind": "過繼"
+        }
+      ]
+    },
+    {
+      "id": "p21",
+      "name": "陳阿海",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 4,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p1",
+          "kind": "養子女"
+        }
+      ]
+    },
+    {
+      "id": "p22",
+      "name": "劉金水",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p1",
+          "kind": "義子女"
+        }
+      ]
+    },
+    {
+      "id": "p11",
+      "name": "陳建國",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p15"
+        },
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p9",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p15",
+      "name": "吳雅婷",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": []
+    },
+    {
+      "id": "p12",
+      "name": "陳建民",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 3,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p9",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p7",
+      "name": "陳淑芬",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 2,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p9",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p13",
+      "name": "張家豪",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p4",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p10",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p23",
+      "name": "何秀娟",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "契子女"
+        },
+        {
+          "type": "parent",
+          "personId": "p9",
+          "kind": "契子女"
+        }
+      ]
+    },
+    {
+      "id": "p24",
+      "name": "周文彥",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "swornSibling",
+          "personId": "p11"
+        }
+      ]
+    },
+    {
+      "id": "p16",
+      "name": "陳志明",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p17",
+      "name": "陳志偉",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 2,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        },
+        {
+          "type": "teacher",
+          "personId": "p11"
+        }
+      ]
+    },
+    {
+      "id": "p18",
+      "name": "陳雅雯",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 3,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p19",
+      "name": "陳雅琪",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 4,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p20",
+      "name": "陳冠廷",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 5,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p14",
+      "name": "陳思妤",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 6,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ]
+    },
+    {
+      "id": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+      "name": "測試",
+      "location": "測試",
+      "position": "測試",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "student",
+          "personId": "p3"
+        }
+      ]
+    }
+  ]
+}

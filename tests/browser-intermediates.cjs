@@ -153,6 +153,31 @@ async function checkGeometry(page) {
       await page.locator('.intermediate-node').first().scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(process.env.INTERMEDIATE_SCREENSHOTS, 'intermediate-third-generation.png') });
     }
+    const shared = { schemaVersion: 2, people: [person('A', [{ type: 'tangCousin', personId: 'B' }, { type: 'tangCousin', personId: 'C' }]), person('B', [{ type: 'sibling', personId: 'C' }]), person('C')] };
+    await fs.writeFile(dataFile, JSON.stringify(shared));
+    await page.reload();
+    await page.waitForFunction(() => window.FAMILY?.people.length === 3);
+    const aSlot = page.locator('.intermediate-node[data-near="A"]');
+    assert.equal(await aSlot.count(), 1);
+    assert.equal(await page.evaluate(() => FAMILY.bonds.filter(b => b.kind === '堂親').length), 2);
+    await checkGeometry(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(250);
+    assert.equal(await aSlot.count(), 1);
+    await aSlot.click();
+    assert.equal(await page.locator('.relation-row').count(), 1);
+    assert.equal(await page.locator('.relation-target').inputValue(), 'A');
+    await page.locator('#cancel-member').click();
+    assert.equal(await aSlot.count(), 1);
+    await aSlot.click();
+    await page.locator('#member-name').fill('A的父親');
+    await page.locator('#save-member').click();
+    await page.waitForFunction(() => window.FAMILY.people.length === 4);
+    assert.equal(await aSlot.count(), 0);
+    await page.reload();
+    await page.waitForFunction(() => window.FAMILY?.people.length === 4);
+    assert.equal(await aSlot.count(), 0);
+    assert.equal(await page.evaluate(() => FAMILY.bonds.filter(b => b.kind === '堂親').length), 2);
     await page.close();
     console.log('PASS: A/B → C → D, automatic relationships, cancel, reload, API and static mobile');
   } finally {

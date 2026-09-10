@@ -3,6 +3,21 @@ const assert = require('node:assert/strict');
 const Model = require('../assets/family-model');
 const p = (id, relationships = [], gender = 'M') => ({ id, name: id, gender, location: '', position: '', siblingOrder: null, relationships });
 const child = personId => ({ type: 'child', personId, kind: '親生' });
+test('cousin lines to biological siblings share one missing father slot', () => {
+  const data = { schemaVersion: 2, people: [p('A', [{ type: 'tangCousin', personId: 'B' }, { type: 'tangCousin', personId: 'C' }]), p('B', [{ type: 'sibling', personId: 'C' }]), p('C')] };
+  const plans = Model.intermediatePlans(data).filter(p => p.near === 'A');
+  assert.equal(plans.length, 2);
+  assert.equal(new Set(plans.map(p => p.slotId)).size, 1);
+  const shuffled = Model.intermediatePlans({ ...data, people: data.people.slice().reverse() }).filter(p => p.near === 'A');
+  assert.equal(shuffled[0].slotId, plans[0].slotId);
+  data.people.push(p('D', plans[0].relationships));
+  assert.equal(Model.intermediatePlans(data).filter(p => p.near === 'A').length, 0);
+  assert.equal(Model.build(data).bonds.filter(b => b.kind === '堂親').length, 2);
+});
+test('contract siblings are not sufficient evidence for merging cousin father slots', () => {
+  const data = { schemaVersion: 2, people: [p('A', [{ type: 'tangCousin', personId: 'B' }, { type: 'tangCousin', personId: 'C' }]), p('B', [{ type: 'swornSibling', personId: 'C' }]), p('C')] };
+  assert.equal(new Set(Model.intermediatePlans(data).filter(p => p.near === 'A').map(p => p.slotId)).size, 2);
+});
 test('adding a father aligns both cousin branches even when the other branch is already anchored', () => {
   const data = { schemaVersion: 2, people: [p('G', [child('P')]), p('P', [child('B')]), p('B'), p('A', [{ type: 'tangCousin', personId: 'B' }]), p('C', [child('A')])] };
   const byId = new Map(Model.build(data).people.map(p => [p.id, p]));

@@ -271,9 +271,10 @@
         row.appendChild(group);
       });
       intermediatePlans.filter(p => p.generation + displayShift === gen).forEach(plan => {
+        if (slots.has(plan.slotId)) return;
         const slot = element('div', 'intermediate-slot'); slot.dataset.planId = plan.id;
         slot.setAttribute('aria-hidden', 'true');
-        row.appendChild(slot); slots.set(plan.id, slot);
+        row.appendChild(slot); slots.set(plan.slotId, slot);
       });
       row.style.marginBottom = rowGap + 'px';
       rows.appendChild(row);
@@ -375,7 +376,10 @@
       svg.appendChild(dot);
     }
     const intermediateButtons = [];
+    const drawnSlots = new Set();
     function intermediateButton(plan, x, y) {
+      if (drawnSlots.has(plan.slotId)) return;
+      drawnSlots.add(plan.slotId);
       const button = element('button', 'intermediate-node', '+');
       button.type = 'button'; button.dataset.planId = plan.id;
       button.dataset.near = plan.near;
@@ -428,8 +432,8 @@
         const groupKey = `aux:${index}`;
         const real = id => ({ ...box(id), x: memberPort(id, 'top', groupKey, -42), gen: byId.get(id).gen, id });
         const virtual = plan => {
-          const slot = slots.get(plan.id).getBoundingClientRect();
-          const row = slots.get(plan.id).parentElement.getBoundingClientRect();
+          const slot = slots.get(plan.slotId).getBoundingClientRect();
+          const row = slots.get(plan.slotId).parentElement.getBoundingClientRect();
           return { x: slot.left - rect.left + slot.width / 2, y: slot.top - rect.top + slot.height / 2,
             top: row.top - rect.top, bottom: row.bottom - rect.top, gen: plan.generation + displayShift, plan };
         };

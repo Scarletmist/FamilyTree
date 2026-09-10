@@ -122,7 +122,23 @@
           relationships: [child(d.child), { type: 'parent', personId: ancestor, kind: '親生' }], choices: [] });
       }
     }
-    return plans.map(plan => ({ ...plan, generation: byId.get(plan.near).gen - 1 }));
+    // Separate cousin edges can refer to the same missing father. Share the
+    // display slot when their other endpoints are known biological siblings and
+    // their suggested relationships agree; retain each edge's own plan identity.
+    const siblingPairs = new Set(graph.bonds.filter(b => b.kind === '手足').map(b => intermediateKey('手足', b.members)));
+    const siblingsOf = (a, b) => siblingPairs.has(intermediateKey('手足', [a, b])) || parents.get(a).some(id => parents.get(b).includes(id));
+    const roots = plans.map((_, i) => i);
+    const rootOf = i => { while (roots[i] !== i) i = roots[i]; return i; };
+    const signature = plan => JSON.stringify([plan.near, plan.gender, plan.choices.map(c => c.personId).sort()]);
+    for (let i = 0; i < plans.length; i++) for (let j = 0; j < i; j++) {
+      if (plans[i].edgeKey.startsWith('堂親|') && plans[j].edgeKey.startsWith('堂親|') && signature(plans[i]) === signature(plans[j]) && siblingsOf(plans[i].other, plans[j].other)) roots[rootOf(i)] = rootOf(j);
+    }
+    const slotIds = new Map();
+    plans.forEach((plan, i) => {
+      const root = rootOf(i), previous = slotIds.get(root);
+      if (!previous || plan.id < previous) slotIds.set(root, plan.id);
+    });
+    return plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)), generation: byId.get(plan.near).gen - 1 }));
   }
   function fail(message) { throw new Error(message); }
   function validateMember(p) {

@@ -33,6 +33,132 @@
     render();
   });
   let suppressClick = false;
+  const memberTooltip = (() => {
+    const tooltip = document.getElementById('member-tooltip');
+    const name = document.getElementById('member-tooltip-name');
+    const body = document.getElementById('member-tooltip-body');
+    const SHOW_DELAY = 320;
+    const HIDE_DELAY = 80;
+    const GAP = 12;
+    const VIEWPORT_MARGIN = 12;
+    let showTimer = 0;
+    let hideTimer = 0;
+    let anchor = null;
+    let activePerson = null;
+    let positionFrame = 0;
+
+    function clearTimers() {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+      showTimer = 0;
+      hideTimer = 0;
+    }
+
+    function choosePlacement(rect, width, height) {
+      const spaces = {
+        top: rect.top - VIEWPORT_MARGIN,
+        bottom: window.innerHeight - rect.bottom - VIEWPORT_MARGIN,
+        left: rect.left - VIEWPORT_MARGIN,
+        right: window.innerWidth - rect.right - VIEWPORT_MARGIN
+      };
+      const required = { top: height + GAP, bottom: height + GAP, left: width + GAP, right: width + GAP };
+      const preferred = ['top', 'bottom', 'right', 'left'];
+      return preferred.find(side => spaces[side] >= required[side])
+        || preferred.reduce((best, side) => spaces[side] / required[side] > spaces[best] / required[best] ? side : best, preferred[0]);
+    }
+
+    function position() {
+      positionFrame = 0;
+      if (!tooltip || tooltip.hidden || !anchor?.isConnected) return;
+      const rect = anchor.getBoundingClientRect();
+      const tip = tooltip.getBoundingClientRect();
+      const placement = choosePlacement(rect, tip.width, tip.height);
+      let left;
+      let top;
+      if (placement === 'top' || placement === 'bottom') {
+        left = rect.left + rect.width / 2 - tip.width / 2;
+        top = placement === 'top' ? rect.top - tip.height - GAP : rect.bottom + GAP;
+      } else {
+        left = placement === 'left' ? rect.left - tip.width - GAP : rect.right + GAP;
+        top = rect.top + rect.height / 2 - tip.height / 2;
+      }
+      left = Math.max(VIEWPORT_MARGIN, Math.min(left, window.innerWidth - tip.width - VIEWPORT_MARGIN));
+      top = Math.max(VIEWPORT_MARGIN, Math.min(top, window.innerHeight - tip.height - VIEWPORT_MARGIN));
+      tooltip.dataset.placement = placement;
+      tooltip.style.left = Math.round(left) + 'px';
+      tooltip.style.top = Math.round(top) + 'px';
+      if (placement === 'top' || placement === 'bottom') {
+        const arrowX = Math.max(18, Math.min(rect.left + rect.width / 2 - left, tip.width - 18));
+        tooltip.style.setProperty('--tooltip-arrow-x', Math.round(arrowX) + 'px');
+      } else {
+        const arrowY = Math.max(18, Math.min(rect.top + rect.height / 2 - top, tip.height - 18));
+        tooltip.style.setProperty('--tooltip-arrow-y', Math.round(arrowY) + 'px');
+      }
+    }
+
+    function schedulePosition() {
+      if (!positionFrame && anchor && !tooltip.hidden) positionFrame = requestAnimationFrame(position);
+    }
+
+    function show(node, person, immediate = false) {
+      if (!tooltip || !person.notes) return;
+      clearTimeout(hideTimer);
+      clearTimeout(showTimer);
+      anchor = node;
+      activePerson = person;
+      const reveal = () => {
+        showTimer = 0;
+        if (anchor !== node || !node.isConnected) return;
+        name.textContent = hideCanvasNames ? 'OOO' : person.name;
+        body.textContent = person.notes;
+        tooltip.classList.remove('is-visible');
+        tooltip.hidden = false;
+        node.setAttribute('aria-describedby', 'member-tooltip');
+        position();
+        requestAnimationFrame(() => { if (anchor === node && !tooltip.hidden) tooltip.classList.add('is-visible'); });
+      };
+      if (immediate) reveal();
+      else showTimer = setTimeout(reveal, SHOW_DELAY);
+    }
+
+    function hide(node, immediate = false) {
+      clearTimeout(showTimer);
+      showTimer = 0;
+      if (node && anchor && anchor !== node) return;
+      const conceal = () => {
+        hideTimer = 0;
+        if (anchor) anchor.removeAttribute('aria-describedby');
+        anchor = null;
+        activePerson = null;
+        tooltip.classList.remove('is-visible');
+        if (immediate) tooltip.hidden = true;
+        else setTimeout(() => { if (!anchor && !tooltip.classList.contains('is-visible')) tooltip.hidden = true; }, 150);
+      };
+      clearTimeout(hideTimer);
+      if (immediate) conceal();
+      else hideTimer = setTimeout(conceal, HIDE_DELAY);
+    }
+
+    function refreshName() {
+      if (!tooltip.hidden && activePerson) {
+        name.textContent = hideCanvasNames ? 'OOO' : activePerson.name;
+        schedulePosition();
+      }
+    }
+
+    function bind(node, person) {
+      if (!person.notes) return;
+      node.dataset.hasNote = 'true';
+      node.addEventListener('mouseenter', () => show(node, person));
+      node.addEventListener('mouseleave', () => hide(node));
+      node.addEventListener('focus', () => show(node, person, true));
+      node.addEventListener('blur', () => hide(node));
+    }
+
+    window.addEventListener('resize', schedulePosition);
+    document.getElementById('tree-canvas')?.parentElement?.addEventListener('scroll', schedulePosition, { passive: true });
+    return { bind, hide, refreshName, schedulePosition };
+  })();
   function element(tag, className, text) {
     const el = document.createElement(tag);
     if (className) el.className = className;
@@ -124,6 +250,7 @@
     if (!canvas) return;
     buildLegend();
     bindPanning(canvas.parentElement);
+    memberTooltip.hide(null, true);
     canvas.replaceChildren();
     canvas.style.paddingBottom = '';
     if (typeof FAMILY === 'undefined' || !Array.isArray(FAMILY.people)) {
@@ -260,7 +387,6 @@
         block.forEach(p => {
           const node = element('button', 'person');
           node.type = 'button';
-          if (p.notes) node.title = p.notes;
           if (queryView.active && p.id === queryView.aId) node.classList.add('pair-a');
           if (queryView.active && p.id === queryView.bId) node.classList.add('pair-b');
           node.dataset.personId = p.id;
@@ -270,7 +396,8 @@
           node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
           node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
           if (FamilyModel.knownDiscipleOrder(p)) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
-          node.addEventListener('click', () => { selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false); showDetails(); });
+          memberTooltip.bind(node, p);
+          node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false); showDetails(); });
           nodes.set(p.id, node);
           group.appendChild(node);
         });

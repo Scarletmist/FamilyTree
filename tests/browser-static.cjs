@@ -33,7 +33,13 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.equal(await page.locator('.person').count(), 0);
     await page.click('#add-member'); await page.fill('#member-name', '第一位'); await page.fill('#member-notes', '第一行\n<script>只是文字</script>'); await page.click('#save-member');
     await page.waitForFunction(() => window.FAMILY.people.length === 1);
-    assert.equal(await page.locator('.person').getAttribute('title'), '第一行\n<script>只是文字</script>');
+    assert.equal(await page.locator('.person').getAttribute('title'), null);
+    await page.locator('.person').hover();
+    await page.waitForFunction(() => document.getElementById('member-tooltip')?.classList.contains('is-visible'));
+    assert.equal(await page.locator('#member-tooltip-name').textContent(), '第一位');
+    assert.equal(await page.locator('#member-tooltip-body').textContent(), '第一行\n<script>只是文字</script>');
+    const tooltipBox = await page.locator('#member-tooltip').boundingBox();
+    assert(tooltipBox.x >= 0 && tooltipBox.y >= 0 && tooltipBox.x + tooltipBox.width <= 1440 && tooltipBox.y + tooltipBox.height <= 960);
     assert.match(await page.locator('.member-notes__text').textContent(), /<script>只是文字/);
     await page.locator('[data-group=notes] summary').click();
     await page.evaluate(() => window.renderFamilyTree());

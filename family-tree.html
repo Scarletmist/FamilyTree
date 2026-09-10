@@ -60,6 +60,21 @@
     .person__order { margin-top:6px; font-size:.75rem; color:var(--color-ink-soft); }
     .person[aria-pressed="true"] { outline:3px solid var(--color-accent); outline-offset:3px; }
     .person:focus-visible { outline:3px solid #286e86; outline-offset:3px; }
+    .member-tooltip { --tooltip-arrow-x:50%; --tooltip-arrow-y:50%; position:fixed; z-index:20; width:max-content; max-width:min(320px,calc(100vw - 24px)); border:1px solid #d8cbb8; border-radius:12px; background:rgba(255,255,255,.98); box-shadow:0 10px 30px #2b211926,0 2px 8px #2b211914; pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .15s ease,transform .15s ease; filter:drop-shadow(0 1px 0 rgba(255,255,255,.35)); }
+    .member-tooltip[hidden] { display:none; }
+    .member-tooltip.is-visible { opacity:1; transform:translate(0,0); }
+    .member-tooltip[data-placement="bottom"] { transform:translateY(-4px); }
+    .member-tooltip[data-placement="left"] { transform:translateX(4px); }
+    .member-tooltip[data-placement="right"] { transform:translateX(-4px); }
+    .member-tooltip[data-placement="bottom"].is-visible,.member-tooltip[data-placement="left"].is-visible,.member-tooltip[data-placement="right"].is-visible { transform:translate(0,0); }
+    .member-tooltip::after { content:''; position:absolute; width:10px; height:10px; background:#fff; border:1px solid #d8cbb8; transform:rotate(45deg); }
+    .member-tooltip[data-placement="top"]::after { left:var(--tooltip-arrow-x); bottom:-6px; margin-left:-5px; border-left:0; border-top:0; }
+    .member-tooltip[data-placement="bottom"]::after { left:var(--tooltip-arrow-x); top:-6px; margin-left:-5px; border-right:0; border-bottom:0; }
+    .member-tooltip[data-placement="left"]::after { top:var(--tooltip-arrow-y); right:-6px; margin-top:-5px; border-left:0; border-bottom:0; }
+    .member-tooltip[data-placement="right"]::after { top:var(--tooltip-arrow-y); left:-6px; margin-top:-5px; border-right:0; border-top:0; }
+    .member-tooltip__header { padding:10px 14px 8px; border-bottom:1px solid #eee7dc; font:600 1rem/1.45 var(--font-serif); letter-spacing:.03em; overflow-wrap:anywhere; }
+    .member-tooltip__label { display:block; margin-bottom:2px; color:var(--color-accent); font:600 .7rem/1.4 var(--font-sans); letter-spacing:.1em; }
+    .member-tooltip__body { max-height:min(260px,45vh); padding:10px 14px 12px; overflow:hidden; color:var(--color-ink-soft); font-size:.875rem; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:10; }
     .relationship-details { position:absolute; z-index:3; right:32px; top:16px; width:360px; max-width:calc(100% - 32px); max-height:calc(100% - 32px); display:flex; flex-direction:column; overflow:hidden; padding:16px; border:1px solid var(--color-line); border-radius:12px; background:white; box-shadow:0 8px 30px #2b211920; overscroll-behavior:contain; }
     .relationship-details[hidden] { display:none; }
     .relationship-details__content { flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
@@ -246,6 +261,10 @@
       <div class="tree__canvas" id="tree-canvas"></div>
     </main>
     <section class="relationship-details" id="relationship-details" aria-label="成員關係詳情" hidden></section>
+    <div id="member-tooltip" class="member-tooltip" role="tooltip" hidden>
+      <div class="member-tooltip__header"><span class="member-tooltip__label">成員備註</span><span id="member-tooltip-name"></span></div>
+      <div class="member-tooltip__body" id="member-tooltip-body"></div>
+    </div>
     <p id="save-status" class="save-status" role="status"></p>
     <p id="backup-status" role="status" style="position:absolute;bottom:0;left:16px;z-index:4;margin:0;font-size:12px;background:white;max-width:calc(100% - 32px)"></p>
   </div>

@@ -454,12 +454,17 @@
     },
     {
       "id": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
-      "name": "測試B",
+      "name": "測試B1",
       "location": "",
       "position": "",
       "gender": "F",
       "siblingOrder": null,
-      "relationships": [],
+      "relationships": [
+        {
+          "type": "student",
+          "personId": "p16"
+        }
+      ],
       "discipleOrder": null,
       "notes": ""
     },
@@ -470,7 +475,50 @@
       "position": "",
       "gender": "F",
       "siblingOrder": null,
-      "relationships": [],
+      "relationships": [
+        {
+          "type": "fellowDisciple",
+          "personId": "p16"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": ""
+    },
+    {
+      "id": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+      "name": "測試A",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "child",
+          "personId": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+          "kind": "親生"
+        },
+        {
+          "type": "sibling",
+          "personId": "p-d34b1223-a363-4e40-a631-ed05f6b62a97"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": ""
+    },
+    {
+      "id": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+      "name": "測試B",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "child",
+          "personId": "p24",
+          "kind": "親生"
+        }
+      ],
       "discipleOrder": null,
       "notes": ""
     }

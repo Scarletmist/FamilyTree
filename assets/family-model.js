@@ -24,7 +24,7 @@
   const CHILD_KINDS = ['親生', '過繼', '養子女'];
   const knownOrder = p => Number.isInteger(p.siblingOrder) && p.siblingOrder > 0;
   const orderKey = p => knownOrder(p) ? p.siblingOrder : Infinity;
-  const compareOrder = (a, b) => knownOrder(a) && knownOrder(b) ? a.siblingOrder - b.siblingOrder : 0;
+  const compareOrder = (a, b) => knownOrder(a) && knownOrder(b) ? a.siblingOrder - b.siblingOrder : a.siblingOrder === 1 ? -1 : b.siblingOrder === 1 ? 1 : 0;
   const inverseSeniority = value => value === 'older' ? 'younger' : value === 'younger' ? 'older' : 'unknown';
   const knownDiscipleOrder = p => Number.isInteger(p?.discipleOrder) && p.discipleOrder > 0;
   const compareDiscipleOrder = (a, b) => knownDiscipleOrder(a) && knownDiscipleOrder(b) ? a.discipleOrder - b.discipleOrder : 0;
@@ -64,6 +64,65 @@
     }) };
     build(next);
     return next;
+  }
+  const intermediateKey = (kind, members) => [kind, ...members.slice().sort()].join('|');
+  function completedCousins(graph) {
+    const parents = new Map(graph.people.map(p => [p.id, new Set()]));
+    const unions = new Map(graph.unions.map(u => [u.id, u]));
+    const people = new Map(graph.people.map(p => [p.id, p]));
+    for (const d of graph.descents) if (d.kind === '親生' && d.generations !== 2) unions.get(d.union).partners.forEach(id => parents.get(d.child).add(id));
+    const siblings = new Set(graph.bonds.filter(b => b.kind === '手足').map(b => intermediateKey('手足', b.members)));
+    const result = new Set();
+    for (const b of graph.bonds.filter(b => ['堂親', '表親'].includes(b.kind))) {
+      for (const a of parents.get(b.members[0])) for (const c of parents.get(b.members[1])) {
+        if (a === c) continue;
+        const genders = [people.get(a).gender, people.get(c).gender];
+        const matching = b.kind === '堂親' ? genders.every(g => g === 'M') : genders.includes('F');
+        if (matching && (siblings.has(intermediateKey('手足', [a, c])) || [...parents.get(a)].some(id => parents.get(c).has(id)))) result.add(intermediateKey(b.kind, b.members));
+      }
+    }
+    return result;
+  }
+  // Suggestions are derived from biological edges only; placeholders never enter JSON.
+  function intermediatePlans(data) {
+    const graph = build(data), byId = new Map(graph.people.map(p => [p.id, p]));
+    const parents = new Map(graph.people.map(p => [p.id, []]));
+    const unions = new Map(graph.unions.map(u => [u.id, u]));
+    for (const d of graph.descents) if (d.kind === '親生' && d.generations !== 2) {
+      parents.get(d.child).push(...unions.get(d.union).partners);
+    }
+    const child = id => ({ type: 'child', personId: id, kind: '親生' });
+    const plans = [];
+    for (const bond of graph.bonds) {
+      const [a, b] = bond.members, edgeKey = intermediateKey(bond.kind, bond.members);
+      if (['堂親', '表親'].includes(bond.kind)) {
+        const eligible = id => parents.get(id).filter(p => bond.kind !== '堂親' || byId.get(p).gender !== 'F');
+        for (const [near, other] of [[a, b], [b, a]]) {
+          // Existing biological parents are real nodes, not blank slots to duplicate.
+          if (eligible(near).length || parents.get(near).length >= 2) continue;
+          const candidates = eligible(other);
+          plans.push({ id: edgeKey + '|' + near, edgeKey, near, other,
+            title: `新增${byId.get(near).name}的親生${bond.kind === '堂親' ? '父親' : '父母'}`,
+            gender: bond.kind === '堂親' ? 'M' : 'U',
+            relationships: [child(near)],
+            choices: candidates.map(id => ({ personId: id, label: byId.get(id).name, relationship: { type: 'sibling', personId: id } })),
+            knownOther: candidates.length === 1 ? candidates[0] : null });
+        }
+      } else if (bond.kind === '手足' && !parents.get(a).some(id => parents.get(b).includes(id)) && parents.get(a).length < 2 && parents.get(b).length < 2) {
+        plans.push({ id: edgeKey, edgeKey, near: a, other: b, title: `新增${byId.get(a).name}與${byId.get(b).name}的共同親生父母`, gender: 'U', relationships: [child(a), child(b)], choices: [] });
+      }
+    }
+    for (const d of graph.descents) if (d.kind === '親生' && d.generations === 2) {
+      for (const ancestor of unions.get(d.union).partners) {
+        const known = parents.get(d.child);
+        if (known.some(id => parents.get(id).includes(ancestor)) || known.length >= 2) continue;
+        const edgeKey = intermediateKey('親生祖孫', [ancestor, d.child]);
+        plans.push({ id: edgeKey, edgeKey, near: d.child, other: ancestor,
+          title: `新增${byId.get(ancestor).name}與${byId.get(d.child).name}之間的親生父母`, gender: 'U',
+          relationships: [child(d.child), { type: 'parent', personId: ancestor, kind: '親生' }], choices: [] });
+      }
+    }
+    return plans.map(plan => ({ ...plan, generation: byId.get(plan.near).gen - 1 }));
   }
   function fail(message) { throw new Error(message); }
   function validateMember(p) {
@@ -133,6 +192,8 @@
     function link(a, b, offset) { adjacency.get(a).push([b, offset]); adjacency.get(b).push([a, -offset]); }
     edges.forEach(e => link(e.parent, e.child, e.generations));
     [...spouses.values(), ...siblings.values(), ...sworn.values()].forEach(([a, b]) => link(a, b, 0));
+    // First cousins share a generation, including while one parental branch is incomplete.
+    cousins.forEach(({ members: [a, b] }) => link(a, b, 0));
     const levels = new Map();
     for (const p of people) {
       if (levels.has(p.id)) continue;
@@ -255,5 +316,5 @@
       bonds: [...cousins.values()].concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
-  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole };
+  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, intermediatePlans, completedCousins };
 });

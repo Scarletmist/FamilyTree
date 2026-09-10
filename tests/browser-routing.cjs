@@ -68,7 +68,7 @@ async function check(page, scenario) {
     await check(page, 'dense relationships and tall cards');
     await fs.writeFile(dataFile, JSON.stringify(require('../data/family.json')));
     await page.reload();
-    await page.waitForFunction(() => window.FAMILY?.people.length === 25);
+    await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../data/family.json').people.length);
     await check(page, 'existing family dataset');
     assert.deepEqual(errors, []);
     console.log('PASS: no connector intersects any member card (grandparents, resize, filter, dense mentors and siblings)');

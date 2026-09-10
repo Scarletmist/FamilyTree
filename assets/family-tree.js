@@ -155,9 +155,17 @@
     // not become "unconnected" merely because a filter hides their relatives.
     const connectedIds = new Set();
     FAMILY.people.forEach(p => p.relationships.forEach(r => { connectedIds.add(p.id); connectedIds.add(r.personId); }));
-    const uncertainGeneration = Math.max(0, ...FAMILY.people.filter(p => connectedIds.has(p.id)).map(p => p.gen)) + 1;
+    const visibleIds = new Set(graph.people.filter(p => !focusedIds || focusedIds.has(p.id)).map(p => p.id));
+    const visibleEdges = new Set((graph.bonds || []).map(b => FamilyModel.intermediateKey(b.kind, b.members)));
+    for (const d of graph.descents || []) if (d.kind === '親生' && d.generations === 2) {
+      const union = graph.unions.find(u => u.id === d.union);
+      union?.partners.forEach(id => visibleEdges.add(FamilyModel.intermediateKey('親生祖孫', [id, d.child])));
+    }
+    const intermediatePlans = FamilyModel.intermediatePlans({ schemaVersion: 2, people: FAMILY.people }).filter(p => visibleIds.has(p.near) && visibleIds.has(p.other) && visibleEdges.has(p.edgeKey));
+    const displayShift = Math.max(0, 1 - Math.min(1, ...intermediatePlans.map(p => p.generation)));
+    const uncertainGeneration = Math.max(0, ...FAMILY.people.filter(p => connectedIds.has(p.id)).map(p => p.gen)) + displayShift + 1;
     const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id))
-      .map(p => connectedIds.has(p.id) ? p : { ...p, gen: uncertainGeneration });
+      .map(p => ({ ...p, gen: connectedIds.has(p.id) ? p.gen + displayShift : uncertainGeneration }));
     if (!people.length) {
       canvas.appendChild(element('p', 'tree__error', '尚未新增成員，請點選「新增成員」或匯入族譜 JSON。'));
       document.getElementById('relationship-details').hidden = true;
@@ -172,13 +180,16 @@
     });
     const unionById = new Map(unions.map(u => [u.id, u]));
     const descents = (graph.descents || []).filter(d => {
+      if (d.kind === '親生' && d.generations === 2 && intermediatePlans.some(p => p.near === d.child && p.edgeKey.startsWith('親生祖孫|'))) return false;
       if (focus && d.union !== focus.id) return false;
       const valid = byId.has(d.child) && unionById.has(d.union);
       if (!valid) console.warn('略過無效親子關係', d);
       return valid;
     });
     const childrenOf = u => descents.filter(d => d.union === u.id).sort((a, b) => orderKey(byId.get(a.child)) - orderKey(byId.get(b.child)));
-    const extra = (graph.bonds || []).map(b => ({ from: b.members?.[0], to: b.members?.[1], kind: b.kind }))
+    const completedCousins = FamilyModel.completedCousins(graph);
+    const extra = (graph.bonds || []).filter(b => !completedCousins.has(FamilyModel.intermediateKey(b.kind, b.members))).map(b => ({ from: b.members?.[0], to: b.members?.[1], kind: b.kind }))
+      .concat(intermediatePlans.filter(p => p.edgeKey.startsWith('親生祖孫|')).map(p => ({ from: p.other, to: p.near, kind: '親生', planId: p.id })))
       .concat((graph.mentorships || []).map(m => ({ from: m.teacher, to: m.student, kind: '師徒' })))
       .filter(r => {
         if (focus && (!byId.has(r.from) || !byId.has(r.to))) return false;
@@ -186,18 +197,21 @@
         if (!valid) console.warn('略過無效關係', r);
         return valid;
       });
-    const occupiedGenerations = people.filter(p => connectedIds.has(p.id)).map(p => p.gen);
+    const occupiedGenerations = people.filter(p => connectedIds.has(p.id)).map(p => p.gen).concat(intermediatePlans.map(p => p.generation + displayShift));
     const firstGeneration = Math.min(...occupiedGenerations), lastGeneration = Math.max(...occupiedGenerations);
     const generations = occupiedGenerations.length ? Array.from({ length: lastGeneration - firstGeneration + 1 }, (_, i) => firstGeneration + i) : [];
     if (people.some(p => !connectedIds.has(p.id))) generations.push(uncertainGeneration);
-    // A skipped generation can contain cards directly under the ancestor anchor.
-    // Give each such family its own lane outside every generation's card area.
-    const crossGenerationUnions = unions.filter(u => childrenOf(u).some(d => byId.get(d.child).gen - byId.get(u.partners[0]).gen > 1));
     const lowerLanes = 22 + Math.max(0, unions.length - 1) * 16;
-    const upperLanes = Math.max(58 + Math.max(0, unions.length - 1) * 18, 32 + Math.max(0, extra.length - 1) * 22);
-    const rowGap = Math.max(140 + unions.length * 30 + extra.length * 8, lowerLanes + upperLanes + 48);
+    let auxiliaryCount = 0;
+    const auxiliaryLanes = extra.map(r => {
+      const count = intermediatePlans.filter(p => r.planId ? p.id === r.planId : p.edgeKey === FamilyModel.intermediateKey(r.kind, [r.from, r.to])).length;
+      const lane = auxiliaryCount; auxiliaryCount += count + 1; return lane;
+    });
+    const upperLanes = Math.max(58 + Math.max(0, unions.length - 1) * 18, 64);
+    const rowGap = Math.max(160, Math.max(lowerLanes, 64) + upperLanes + 40);
     const rows = element('div', 'tree__rows');
     const nodes = new Map();
+    const slots = new Map();
     // Spouse blocks stay together. Sibling blocks use parent-pair order, then numeric order.
     generations.forEach(gen => {
       const visited = new Set(), blocks = [];
@@ -253,13 +267,18 @@
         });
         row.appendChild(group);
       });
+      intermediatePlans.filter(p => p.generation + displayShift === gen).forEach(plan => {
+        const slot = element('div', 'intermediate-slot'); slot.dataset.planId = plan.id;
+        slot.setAttribute('aria-hidden', 'true');
+        row.appendChild(slot); slots.set(plan.id, slot);
+      });
       row.style.marginBottom = rowGap + 'px';
       rows.appendChild(row);
     });
     // Reserve a label rail without changing the existing relationship gutters.
     const generationGutter = 80;
-    canvas.style.paddingLeft = (generationGutter + 48 + (extra.length + crossGenerationUnions.length) * 18) + 'px';
-    canvas.style.paddingTop = (64 + (queryView.active ? document.getElementById('relationship-summary').offsetHeight : 0) + extra.length * 22) + 'px';
+    canvas.style.paddingLeft = (generationGutter + 48) + 'px';
+    canvas.style.paddingTop = (80 + (queryView.active ? document.getElementById('relationship-summary').offsetHeight : 0)) + 'px';
     canvas.appendChild(rows);
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
     canvas.prepend(generationLayers.backgrounds);
@@ -274,6 +293,11 @@
       const r = nodes.get(id).getBoundingClientRect();
       return { x: r.left - rect.left + r.width / 2, top: r.top - rect.top, bottom: r.bottom - rect.top };
     }
+    const cardBoxes = [...nodes.values()].map(node => {
+      const r = node.getBoundingClientRect();
+      return { left: r.left - rect.left, right: r.right - rect.left, top: r.top - rect.top, bottom: r.bottom - rect.top };
+    });
+    const route = (start, end) => FamilyConnectorRouting.route(start, end, cardBoxes);
     function path(points, kind, ids, role, union) {
       const el = svgElement('polyline', { points: points.map(p => p.join(',')).join(' '), fill: 'none' });
       if (!Object.hasOwn(STYLES, kind)) kind = 'unknown';
@@ -301,6 +325,18 @@
       dot.dataset.people = ids.join(' ');
       svg.appendChild(dot);
     }
+    const intermediateButtons = [];
+    function intermediateButton(plan, x, y) {
+      const button = element('button', 'intermediate-node', '+');
+      button.type = 'button'; button.dataset.planId = plan.id;
+      button.dataset.near = plan.near;
+      button.dataset.gen = plan.generation + displayShift;
+      button.setAttribute('aria-label', plan.title); button.title = plan.title;
+      button.style.left = x + 'px'; button.style.top = y + 'px';
+      button.addEventListener('pointerdown', event => { suppressClick = false; event.stopPropagation(); });
+      button.addEventListener('click', event => { event.stopPropagation(); window.addIntermediateMember(plan.id); });
+      intermediateButtons.push(button);
+    }
     unions.forEach((u, index) => {
       const origins = u.partners.map(box), a = origins[0];
       const marriageY = Math.max(...origins.map(p => p.bottom)) + 22 + index * 16;
@@ -321,12 +357,9 @@
         const group = kids.filter(d => byId.get(d.child).gen === gen);
         const boxes = group.map(d => box(d.child));
         const barY = Math.min(...boxes.map(c => c.top)) - 58 - index * 18;
-        const crossesGeneration = gen - byId.get(u.partners[0]).gen > 1;
-        const stemX = crossesGeneration ? generationGutter + 18 + (extra.length + crossGenerationUnions.indexOf(u)) * 18 : anchor;
+        const stemX = anchor;
         const xs = boxes.map(c => c.x).concat(stemX);
-        const stem = crossesGeneration
-          ? [[anchor, marriageY], [stemX, marriageY], [stemX, barY]]
-          : [[anchor, marriageY], [anchor, barY]];
+        const stem = route([anchor, marriageY], [stemX, barY]);
         path(stem, 'family', familyIds, 'parent-stem', u.id);
         path([[Math.min(...xs), barY], [Math.max(...xs), barY]], 'family', familyIds, 'sibling-bar', u.id);
         junction(stemX, barY, familyIds);
@@ -339,14 +372,45 @@
       });
     });
     extra.forEach((r, index) => {
-      const a = box(r.from), b = box(r.to), gutter = generationGutter + 18 + index * 18;
-      const fromY = a.top - 32 - index * 22, toY = b.top - 32 - index * 22;
-      const points = Math.abs(a.top - b.top) < 1
-        ? [[a.x - 42, a.top], [a.x - 42, fromY], [b.x - 42, toY], [b.x - 42, b.top]]
-        : [[a.x - 42, a.top], [a.x - 42, fromY], [gutter, fromY], [gutter, toY], [b.x - 42, toY], [b.x - 42, b.top]];
-      path(points, r.kind, [r.from, r.to], 'auxiliary');
-      label(b.x - 135, toY - 8, r.kind === '師徒' ? '師父 → 徒弟' : r.kind, r.kind, [r.from, r.to]);
+      const plans = intermediatePlans.filter(p => r.planId ? p.id === r.planId : p.edgeKey === FamilyModel.intermediateKey(r.kind, [r.from, r.to]));
+      const from = r.from, to = r.to;
+      const a = box(from), b = box(to);
+      if (plans.length) {
+        const real = id => ({ ...box(id), x: box(id).x - 42, gen: byId.get(id).gen, id });
+        const virtual = plan => {
+          const slot = slots.get(plan.id).getBoundingClientRect();
+          const row = slots.get(plan.id).parentElement.getBoundingClientRect();
+          return { x: slot.left - rect.left + slot.width / 2, y: slot.top - rect.top + slot.height / 2,
+            top: row.top - rect.top, bottom: row.bottom - rect.top, gen: plan.generation + displayShift, plan };
+        };
+        const ordered = r.kind === '手足' || r.planId ? plans : [...plans.filter(p => p.near === r.from), ...plans.filter(p => p.near === r.to)];
+        const chain = [real(from), ...ordered.map(virtual), real(to)];
+        chain.forEach(node => { if (node.plan) intermediateButton(node.plan, node.x, node.y); });
+        const ids = [...new Set([r.from, r.to, from, to])];
+        for (let i = 1; i < chain.length; i++) {
+          const left = chain[i - 1], right = chain[i], lane = auxiliaryLanes[index] + i - 1;
+          const same = left.gen === right.gen;
+          const endpoint = (node, other) => {
+            const upward = same || node.gen > other.gen;
+            return { x: node.x, y: node.plan ? node.y : upward ? node.top : node.bottom,
+              escape: upward ? node.top - 24 - (lane % 6) * 6 : node.bottom + 24 + (lane % 6) * 6 };
+          };
+          const start = endpoint(left, right), end = endpoint(right, left);
+          const points = [[start.x, start.y], ...route([start.x, start.escape], [end.x, end.escape]), [end.x, end.y]];
+          path(points, r.kind, ids, 'auxiliary');
+        }
+        const last = chain.at(-1);
+        label(last.x + 12, last.top - 12, r.planId ? '親生（補中間一代）' : r.kind + '（補親生父母）', r.kind, ids);
+        return;
+      }
+      const offset = 24 + (auxiliaryLanes[index] % 6) * 6;
+      const fromY = a.top - offset, toY = b.top - offset;
+      const points = [[a.x - 42, a.top], ...route([a.x - 42, fromY], [b.x - 42, toY]), [b.x - 42, b.top]];
+      const routeIds = [...new Set([r.from, r.to, from, to])];
+      path(points, r.kind, routeIds, 'auxiliary');
+      label(b.x - 135, toY - (plans.length ? 24 : 8), r.kind === '師徒' ? '師父 → 徒弟' : from !== r.from || to !== r.to ? r.kind + '（補親生父母）' : r.kind, r.kind, routeIds);
     });
+    canvas.append(...intermediateButtons);
     // Keep the pale generation labels above connector lines, but non-interactive.
     canvas.appendChild(generationLayers.labels);
     function showDetails() {
@@ -371,7 +435,8 @@
     const viewport = canvas.parentElement;
     const scope = queryView.active ? 'query:' + queryView.scope : focus ? focus.id : '__all__';
     if (viewport.dataset.scope !== scope && people.length) {
-      const topPeople = people.filter(p => p.gen === generations[0]).map(p => box(p.id));
+      const firstRealGeneration = Math.min(...people.map(p => p.gen));
+      const topPeople = people.filter(p => p.gen === firstRealGeneration).map(p => box(p.id));
       const center = (Math.min(...topPeople.map(p => p.x)) + Math.max(...topPeople.map(p => p.x))) / 2;
       viewport.scrollLeft = Math.max(0, center - viewport.clientWidth / 2);
       viewport.scrollTop = 0;

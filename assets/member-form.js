@@ -81,7 +81,7 @@
       kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
       seniority.closest('label').hidden = !FamilyModel.isCousin(type.value); seniority.disabled = !FamilyModel.isCousin(type.value);
       const person = snapshot.data.people.find(p => p.id === target.value);
-      const role = person && FamilyModel.isCousin(type.value) ? FamilyModel.cousinRole(person, type.value, seniority.value) : person && type.value === 'fellowDisciple' ? FamilyModel.fellowRole(person, { discipleOrder: Number(document.getElementById('member-disciple-order').value) || null }) : labels[type.value];
+      const role = person && FamilyModel.isCousin(type.value) ? FamilyModel.cousinRole(person, type.value, seniority.value) : person && type.value === 'fellowDisciple' ? FamilyModel.fellowRole(person, { discipleOrder: Number(document.getElementById('member-disciple-order').value) || null }) : type.value === 'sibling' && document.getElementById('intermediate-context') ? '親生手足' : labels[type.value];
       preview.textContent = person && type.value ? `${person.name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${role}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
     }
     row.addEventListener('change', update);
@@ -102,16 +102,44 @@
     relations.replaceChildren();
     FamilyModel.relationshipsFor(snapshot.data, editingId).forEach(addRelation);
   }
-  function openMember(id = null) {
+  function openMember(id = null, plan = null) {
     if (restoredBackup) { status.textContent = '目前為瀏覽器備份，請重新連線並重新整理後再編輯。'; return; }
     editingId = id;
     form.reset(); relations.replaceChildren(); error.textContent = ''; status.textContent = ''; requestId = crypto.randomUUID();
+    document.getElementById('intermediate-context')?.remove();
     document.getElementById('member-dialog-title').textContent = editingId ? '編輯成員與關係' : '新增成員';
     document.getElementById('refresh-family').textContent = editingId ? '重新載入成員' : '更新資料';
     if (editingId) populateMember();
+    if (plan) {
+      document.getElementById('member-dialog-title').textContent = plan.title;
+      form.elements.namedItem('gender').value = plan.gender;
+      const context = document.createElement('div'); context.id = 'intermediate-context'; context.className = 'form-note';
+      const note = document.createElement('p'); note.textContent = '已帶入親生關係，請確認後填寫新成員資料。儲存後會更新連線中的節點。'; context.appendChild(note);
+      function fill(choice) {
+        relations.replaceChildren();
+        plan.relationships.forEach(addRelation);
+        if (choice) addRelation(choice.relationship);
+      }
+      fill(plan.choices.length === 1 ? plan.choices[0] : null);
+      if (plan.choices.length > 1) {
+        const label = document.createElement('label'); label.textContent = '這位新成員是哪位已知父母的親生手足？';
+        const select = document.createElement('select'); select.id = 'intermediate-choice'; select.required = true;
+        select.appendChild(option('', '請選擇銜接的親生父母'));
+        plan.choices.forEach(choice => select.appendChild(option(choice.personId, choice.label)));
+        select.addEventListener('change', () => fill(plan.choices.find(choice => choice.personId === select.value)));
+        label.appendChild(select); context.appendChild(label);
+      }
+      document.getElementById('member-fields').prepend(context);
+      [...relations.children].forEach(row => row.updatePreview());
+    }
     setSaving(false);
     dialog.showModal(); document.getElementById('member-name').focus();
   }
+  window.addIntermediateMember = planId => {
+    const plan = FamilyModel.intermediatePlans(snapshot.data).find(p => p.id === planId);
+    if (plan) openMember(null, plan);
+    else status.textContent = '此中間關係已更新，請重新整理後再選擇。';
+  };
   function setNameSaving(value) {
     savingName = value;
     document.getElementById('family-name-fields').disabled = value;
@@ -196,7 +224,8 @@
       if (!response.ok) throw new Error(payload.error || '儲存失敗，請重試。');
       document.getElementById('family-filter').value = '';
       accept(payload); dialog.close();
-      window.selectFamilyMember(payload.memberId);
+      // Keep the diagram available for filling the next intermediate slot.
+      window.selectFamilyMember(document.getElementById('intermediate-context') ? null : payload.memberId);
       status.textContent = `已${editingId ? '更新' : '新增'}「${member.name}」，並儲存至族譜檔案。`;
     } catch (e) { error.textContent = e.message || '連線中斷，請重試。'; }
     finally { setSaving(false); }

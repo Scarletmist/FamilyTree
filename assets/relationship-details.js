@@ -29,7 +29,7 @@
     const order = FamilyModel.compareOrder(sibling, person);
     if (!order) return '手足（長幼待確認）';
     if (!['M', 'F'].includes(sibling.gender)) return order < 0 ? '年長手足' : '年幼手足';
-    const prefix = sibling.siblingOrder === 1 ? '長' : chineseNumber(sibling.siblingOrder);
+    const prefix = sibling.siblingOrder === 1 ? '長' : FamilyModel.knownOrder(sibling) ? chineseNumber(sibling.siblingOrder) : '';
     return prefix + (order < 0 ? (sibling.gender === 'M' ? '兄' : '姊') : (sibling.gender === 'M' ? '弟' : '妹'));
   }
   function buildGroups(graph, personId) {
@@ -106,6 +106,7 @@
         }
         if (category.id === 'siblings') {
           role = entry.ordinary ? siblingRole(target, person) : '契手足';
+          if (entry.ordinary && FamilyModel.knownOrder(target) && !FamilyModel.compareOrder(target, person)) badges.push('手足序：' + target.siblingOrder);
           if (entry.sworn && entry.ordinary) badges.push('契手足');
         }
         return { ...entry, role, badges, contexts: [...entry.contexts], kinds: [...entry.kinds],

@@ -47,6 +47,28 @@ test('reverse, explicit, and mixed sibling relations are deduplicated', () => {
   assert.deepEqual(mixed.entries[0].contexts, ['共同父母：父親']);
 });
 
+test('children and students use their own ranks, keep gaps and put unranked members last', () => {
+  const member = (id, gender, siblingOrder, discipleOrder, relationships = []) => ({ id, name: id, gender, siblingOrder, discipleOrder, location: '', position: '', relationships });
+  const data = { schemaVersion: 2, people: [member('P', 'M', null, null),
+    member('C4', 'F', 4, 1, [{ type: 'parent', personId: 'P', kind: '親生' }, { type: 'teacher', personId: 'P' }]),
+    member('C1', 'M', 1, 4, [{ type: 'parent', personId: 'P', kind: '養子女' }, { type: 'teacher', personId: 'P' }]),
+    member('C2', 'M', 2, 2, [{ type: 'parent', personId: 'P', kind: '親生' }, { type: 'teacher', personId: 'P' }]),
+    member('C0', 'U', null, null, [{ type: 'parent', personId: 'P', kind: '親生' }, { type: 'teacher', personId: 'P' }])
+  ] };
+  const before = JSON.stringify(data);
+  for (const people of [data.people, data.people.slice().reverse()]) {
+    const groups = Details.buildGroups(Model.build({ ...data, people }), 'P');
+    const children = groups.find(g => g.id === 'children').entries;
+    assert.deepEqual(children.map(e => e.personId), ['C1', 'C2', 'C4', 'C0']);
+    assert.deepEqual(children.map(e => e.role), ['長子', '二子', '四女', '子女']);
+    assert.deepEqual(children[0].badges, ['養子女']);
+    const students = groups.find(g => g.id === 'students').entries;
+    assert.deepEqual(students.map(e => e.personId), ['C4', 'C2', 'C1', 'C0']);
+    assert.deepEqual(students.map(e => e.role), ['大徒弟', '二徒弟', '四徒弟', '徒弟']);
+  }
+  assert.equal(JSON.stringify(data), before);
+});
+
 class FakeElement {
   constructor(tag) {
     this.tagName = tag; this.children = []; this.dataset = {}; this.attributes = {};

@@ -50,6 +50,8 @@ async function checkGeometry(page) {
       await page.goto(base);
       await page.waitForFunction(() => window.FAMILY?.people.length === 2);
       assert.equal(await page.locator('.intermediate-node').count(), 2);
+      assert.equal(await page.locator('.intermediate-node[data-gen="1"]').count(), 2, 'unanchored parent placeholders stop at generation one');
+      assert.equal(await page.locator('.generation[data-gen="1"] .person').count(), 2, 'placeholders do not shift member generations');
       await checkGeometry(page);
       if (mode === 'api' && process.env.INTERMEDIATE_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.INTERMEDIATE_SCREENSHOTS, 'intermediate-two.png') });
       const readRows = () => page.locator('.relation-row').evaluateAll(rows => rows.map(row => ({ type: row.querySelector('.relation-type').value, personId: row.querySelector('.relation-target').value, kind: row.querySelector('.relation-kind').value })));

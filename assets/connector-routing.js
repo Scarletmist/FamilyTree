@@ -4,7 +4,7 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.FamilyConnectorRouting = api;
 })(globalThis, function () {
-  const LANE_GAP = 12;
+  const LANE_GAP = 18;
 
   function intersects(a, b, r) {
     return a[0] === b[0]
@@ -71,10 +71,21 @@
   function overlapCost(candidate, occupied) {
     let total = 0;
     for (const a of segments(candidate)) for (const b of occupied) {
-      const overlap = overlapLength(a, b);
-      if (overlap > 0.5) total += 100000 + overlap * 1000;
+      if (a.axis !== b.axis) continue;
+      const distance = Math.abs(a.fixed - b.fixed);
+      const overlap = Math.max(0, Math.min(a.max, b.max) - Math.max(a.min, b.min));
+      if (overlap > 0.5 && distance < LANE_GAP - .01) total += 100000 + overlap * (LANE_GAP - distance) * 1000;
     }
     return total;
+  }
+
+  // Choose one attachment column for the entire child stem. Moving only its
+  // middle leaves a misleading short horizontal stub at the junction.
+  function attachmentX(preferred, left, right, top, bottom, occupied = []) {
+    const vertical = occupied.filter(s => s.axis === 'v' && Math.min(s.max, bottom) > Math.max(s.min, top));
+    const candidates = [preferred, left, right, ...vertical.flatMap(s => [s.fixed - LANE_GAP, s.fixed + LANE_GAP])];
+    return candidates.filter(x => x >= left && x <= right && vertical.every(s => Math.abs(x - s.fixed) >= LANE_GAP - .01))
+      .sort((a, b) => Math.abs(a - preferred) - Math.abs(b - preferred) || a - b)[0] ?? preferred;
   }
 
   function route(start, end, cards, occupied = []) {
@@ -192,5 +203,26 @@
     return d;
   }
 
-  return { route, intersects, simplify, segments, overlapLength, crossingPoint, crossings, bridgePath };
+  function sharedSegments(paths) {
+    const lines = new Map();
+    paths.forEach(p => segments(p.points).forEach(s => {
+      const key = `${s.axis}:${s.fixed}`;
+      if (!lines.has(key)) lines.set(key, []);
+      lines.get(key).push({ ...s, people: p.people });
+    }));
+    const result = [];
+    for (const entries of lines.values()) {
+      const cuts = [...new Set(entries.flatMap(s => [s.min, s.max]))].sort((a, b) => a - b);
+      for (let i = 1; i < cuts.length; i++) {
+        const lo = cuts[i - 1], hi = cuts[i];
+        const covering = entries.filter(s => s.min <= lo && s.max >= hi);
+        if (!covering.length) continue;
+        const s = covering[0];
+        const point = v => s.axis === 'h' ? [v, s.fixed] : [s.fixed, v];
+        result.push({ points: [point(lo), point(hi)], people: [...new Set(covering.flatMap(s => s.people))] });
+      }
+    }
+    return result;
+  }
+  return { route, intersects, simplify, segments, overlapLength, crossingPoint, crossings, bridgePath, sharedSegments, attachmentX };
 });

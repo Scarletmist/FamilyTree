@@ -95,6 +95,15 @@
         const target = byId.get(entry.personId);
         let role = '';
         const badges = [...entry.kinds];
+        if (category.id === 'children') {
+          const known = FamilyModel.knownOrder(target);
+          const noun = ({ M: '子', F: '女', U: '子女' })[target.gender];
+          role = known ? (target.gender === 'U' ? '第' + chineseNumber(target.siblingOrder) + '位子女' :
+            (target.siblingOrder === 1 ? '長' : chineseNumber(target.siblingOrder)) + noun) :
+            ({ M: '兒子', F: '女兒', U: '子女' })[target.gender];
+        }
+        if (category.id === 'students') role = FamilyModel.knownDiscipleOrder(target) ?
+          (target.discipleOrder === 1 ? '大' : chineseNumber(target.discipleOrder)) + '徒弟' : '徒弟';
         if (category.id === 'cousins') role = FamilyModel.relationshipsFor(graph, personId).filter(r => r.personId === entry.personId && FamilyModel.isCousin(r.type)).map(r => FamilyModel.cousinRole(target, r.type, r.seniority)).join('、');
         if (category.id === 'fellowDisciples') {
           role = FamilyModel.fellowRole(target, person);
@@ -112,8 +121,8 @@
         return { ...entry, role, badges, contexts: [...entry.contexts], kinds: [...entry.kinds],
           ordinary: entry.ordinary, sworn: entry.sworn };
       });
-      if (category.id === 'fellowDisciples') entries.sort((a, b) => (byId.get(a.personId).discipleOrder ?? Infinity) - (byId.get(b.personId).discipleOrder ?? Infinity) || a.name.localeCompare(b.name, 'zh-Hant'));
-      if (category.id === 'siblings') {
+      if (['fellowDisciples', 'students'].includes(category.id)) entries.sort((a, b) => (byId.get(a.personId).discipleOrder ?? Infinity) - (byId.get(b.personId).discipleOrder ?? Infinity) || a.name.localeCompare(b.name, 'zh-Hant') || a.personId.localeCompare(b.personId));
+      if (['siblings', 'children'].includes(category.id)) {
         entries.sort((a, b) => {
           const left = byId.get(a.personId), right = byId.get(b.personId);
           return FamilyModel.orderKey(left) - FamilyModel.orderKey(right) || a.name.localeCompare(b.name, 'zh-Hant') || a.personId.localeCompare(b.personId);

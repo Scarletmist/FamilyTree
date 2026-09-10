@@ -70,6 +70,21 @@ async function check(page, scenario) {
     await page.reload();
     await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../data/family.json').people.length);
     await check(page, 'existing family dataset');
+    const stems = await page.evaluate(() => {
+      const canvas = document.getElementById('tree-canvas').getBoundingClientRect();
+      return [...document.querySelectorAll('.person')].filter(p => /TEST_D[12]/.test(p.textContent)).map(card => {
+        const b = card.getBoundingClientRect();
+        const line = [...document.querySelectorAll('path[data-role="child"]')].find(el => {
+          const [x, y] = el.dataset.points.split(' ').at(-1).split(',').map(Number);
+          return x > b.left - canvas.left && x < b.right - canvas.left && Math.abs(y - (b.top - canvas.top)) < .1;
+        });
+        return line?.dataset.points.split(' ').map(p => p.split(',').map(Number));
+      });
+    });
+    for (const points of stems) {
+      assert(points?.length === 2, 'TEST_D child stem remains straight from junction to card');
+      assert.equal(points[0][0], points[1][0]);
+    }
     assert.deepEqual(errors, []);
     console.log('PASS: no connector intersects any member card (grandparents, resize, filter, dense mentors and siblings)');
   } finally {

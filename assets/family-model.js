@@ -138,7 +138,9 @@
       const root = rootOf(i), previous = slotIds.get(root);
       if (!previous || plan.id < previous) slotIds.set(root, plan.id);
     });
-    return plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)), generation: byId.get(plan.near).gen - 1 }));
+    // Missing ancestors are suggestions, not evidence for shifting the family's
+    // generation numbers. Without an earlier known generation, use row one.
+    return plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)), generation: Math.max(1, byId.get(plan.near).gen - 1) }));
   }
   function fail(message) { throw new Error(message); }
   function validateMember(p) {
@@ -211,6 +213,7 @@
     // First cousins share a generation, including while one parental branch is incomplete.
     cousins.forEach(({ members: [a, b] }) => link(a, b, 0));
     const levels = new Map();
+    const familyComponents = [], componentOf = new Map();
     for (const p of people) {
       if (levels.has(p.id)) continue;
       const component = [p.id];
@@ -226,6 +229,34 @@
       }
       const min = Math.min(...component.map(id => levels.get(id)));
       component.forEach(id => { byId.get(id).gen = levels.get(id) - min + 1; });
+      component.forEach(id => componentOf.set(id, familyComponents.length));
+      familyComponents.push(component);
+    }
+    // Adding a teacher's relatives must not discard the placement previously
+    // supplied by their student. Align whole independent family components;
+    // mentorship within one family never overrides its established offsets.
+    const componentLinks = familyComponents.map(() => []);
+    for (const m of mentors.values()) {
+      const t = componentOf.get(m.teacher), s = componentOf.get(m.student);
+      if (t === s || familyComponents[t].length < 2 || familyComponents[s].length < 2) continue;
+      componentLinks[t].push({ next: s, from: m.teacher, to: m.student, offset: 1 });
+      componentLinks[s].push({ next: t, from: m.student, to: m.teacher, offset: -1 });
+    }
+    const aligned = new Set();
+    const componentOrder = familyComponents.map((ids, index) => ({ ids, index }))
+      .sort((a, b) => b.ids.length - a.ids.length || [...a.ids].sort()[0].localeCompare([...b.ids].sort()[0]));
+    for (const { index } of componentOrder) {
+      if (aligned.has(index)) continue;
+      const queue = [index]; aligned.add(index);
+      for (let i = 0; i < queue.length; i++) for (const link of componentLinks[queue[i]]) {
+        if (aligned.has(link.next)) continue;
+        const shift = byId.get(link.from).gen + link.offset - byId.get(link.to).gen;
+        familyComponents[link.next].forEach(id => { byId.get(id).gen += shift; });
+        aligned.add(link.next); queue.push(link.next);
+      }
+      const ids = queue.flatMap(i => familyComponents[i]);
+      const shift = Math.max(0, 1 - Math.min(...ids.map(id => byId.get(id).gen)));
+      ids.forEach(id => { byId.get(id).gen += shift; });
     }
     // Mentorship supplies display placement only when a member has no family/peer
     // anchor. An unanchored teacher goes one row above the student. Preserve all
@@ -332,5 +363,42 @@
       bonds: [...cousins.values()].concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
-  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, intermediatePlans, completedCousins };
+  // A shared stroke asserts a common source, so require evidence, not merely
+  // equal relationship labels. Keep groups as stars with pairwise-compatible leaves.
+  function connectorGroups(graph, edges) {
+    const parents = id => (graph.descents || []).filter(d => d.child === id && d.kind === '親生' && (d.generations || 1) === 1)
+      .flatMap(d => graph.unions.find(u => u.id === d.union)?.partners || []);
+    const teachers = id => (graph.mentorships || []).filter(m => m.student === id).map(m => m.teacher);
+    const common = (a, b) => a.some(id => b.includes(id));
+    const siblings = (a, b) => common(parents(a), parents(b)) || (graph.bonds || []).some(r => r.kind === '手足' && r.members.includes(a) && r.members.includes(b));
+    function compatible(root, a, b) {
+      const x = a.from === root ? a.to : a.from, y = b.from === root ? b.to : b.from;
+      if (a.kind !== b.kind) return false;
+      if (a.kind === '師徒') return a.from === root && b.from === root;
+      if (a.kind === '堂親') return siblings(x, y);
+      if (a.kind === '手足') return common(parents(root), parents(x).filter(p => parents(y).includes(p)));
+      if (a.kind === '師兄弟姊妹') return common(teachers(root), teachers(x).filter(t => teachers(y).includes(t)));
+      // A biao relationship alone does not identify the paternal/maternal branch.
+      // Fully resolved biological cousin paths are already drawn as parent links.
+      return false;
+    }
+    const result = edges.map((_, i) => ({ group: `aux:${i}` })), used = new Set();
+    edges.forEach((edge, i) => {
+      if (used.has(i)) return;
+      let best = [];
+      for (const root of [edge.from, edge.to]) {
+        const candidates = [i];
+        edges.forEach((other, j) => {
+          if (j <= i || used.has(j) || ![other.from, other.to].includes(root)) return;
+          if (candidates.every(k => compatible(root, edges[k], other))) candidates.push(j);
+        });
+        if (candidates.length > best.length) best = candidates.map(index => ({ index, root }));
+      }
+      if (best.length > 1) best.forEach(({ index, root }) => {
+        used.add(index); result[index] = { group: `shared:${i}`, root };
+      });
+    });
+    return result;
+  }
+  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, intermediatePlans, completedCousins, connectorGroups };
 });

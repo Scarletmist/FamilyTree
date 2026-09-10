@@ -3,6 +3,14 @@ const assert = require('node:assert/strict');
 const Model = require('../assets/family-model');
 const p = (id, relationships = [], gender = 'M') => ({ id, name: id, gender, location: '', position: '', siblingOrder: null, relationships });
 const child = personId => ({ type: 'child', personId, kind: '親生' });
+
+test('unanchored missing parents stop at generation one without shifting known branches', () => {
+  const data = { schemaVersion: 2, people: [p('A', [{ type: 'tangCousin', personId: 'B' }]), p('B'), p('G', [child('P')]), p('P', [child('C')]), p('C')] };
+  assert(Model.intermediatePlans(data).every(plan => plan.generation === 1));
+  const people = Model.build(data).people;
+  assert.equal(people.find(p => p.id === 'G').gen, 1);
+  assert.equal(people.find(p => p.id === 'C').gen, 3);
+});
 test('cousin lines to biological siblings share one missing father slot', () => {
   const data = { schemaVersion: 2, people: [p('A', [{ type: 'tangCousin', personId: 'B' }, { type: 'tangCousin', personId: 'C' }]), p('B', [{ type: 'sibling', personId: 'C' }]), p('C')] };
   const plans = Model.intermediatePlans(data).filter(p => p.near === 'A');

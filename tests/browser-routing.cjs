@@ -18,8 +18,8 @@ async function check(page, scenario) {
       return { id: node.dataset.personId, left: r.left - canvas.left, right: r.right - canvas.left, top: r.top - canvas.top, bottom: r.bottom - canvas.top };
     });
     const found = [];
-    for (const line of document.querySelectorAll('#tree-connectors polyline[data-role]')) {
-      const points = [...line.points].map(p => [p.x, p.y]);
+    for (const line of document.querySelectorAll('#tree-connectors path[data-role]')) {
+      const points = line.dataset.points.split(' ').map(pair => pair.split(',').map(Number));
       for (let i = 1; i < points.length; i++) {
         const [a, b] = [points[i - 1], points[i]];
         for (const box of boxes) {

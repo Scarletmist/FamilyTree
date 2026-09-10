@@ -204,20 +204,21 @@
       title.id = 'relationship-details-title';
       header.append(edit, title, collapse, close);
       content.appendChild(header);
+      const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
       profile.appendChild(element('p', '', '所在地：' + (person.location || '未填寫')));
       profile.appendChild(element('p', '', '職位：' + (person.position || '未填寫')));
       profile.appendChild(element('p', '', '師門次序：' + (person.discipleOrder ?? '未填寫')));
-      content.appendChild(profile);
+      body.appendChild(profile);
       if (person.notes) {
         const notes = element('details', 'relationship-group member-notes'); notes.dataset.group = 'notes';
         notes.open = openStates.get(person.id)?.get('notes') ?? true;
         notes.append(element('summary', 'relationship-group__summary', '備註說明'), element('p', 'member-notes__text', person.notes));
-        content.append(notes);
+        body.append(notes);
       }
       const groups = buildGroups(graph, person.id);
       if (!groups.length) {
-        content.appendChild(element('p', 'relationship-details__empty', '尚未記錄關係。'));
+        body.appendChild(element('p', 'relationship-details__empty', '尚未記錄關係。'));
       } else {
         const list = element('div', 'relationship-groups');
         const saved = openStates.get(person.id);
@@ -246,8 +247,9 @@
           details.appendChild(items);
           list.appendChild(details);
         });
-        content.appendChild(list);
+        body.appendChild(list);
       }
+      content.appendChild(body);
       const tab = element('button', 'relationship-details__tab');
       tab.type = 'button';
       tab.setAttribute('aria-label', '展開' + person.name + '的關係詳情');

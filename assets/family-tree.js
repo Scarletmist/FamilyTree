@@ -125,6 +125,7 @@
     buildLegend();
     bindPanning(canvas.parentElement);
     canvas.replaceChildren();
+    canvas.style.paddingBottom = '';
     if (typeof FAMILY === 'undefined' || !Array.isArray(FAMILY.people)) {
       canvas.appendChild(element('p', 'tree__error', '正在載入族譜…'));
       return;
@@ -207,7 +208,9 @@
       const count = intermediatePlans.filter(p => r.planId ? p.id === r.planId : p.edgeKey === FamilyModel.intermediateKey(r.kind, [r.from, r.to])).length;
       const lane = auxiliaryCount; auxiliaryCount += count + 1; return lane;
     });
-    const upperLanes = Math.max(58 + Math.max(0, unions.length - 1) * 18, 64);
+    const auxiliaryLaneStep = 6;
+    const auxiliaryExtent = auxiliaryCount ? 24 + Math.max(0, auxiliaryCount - 1) * auxiliaryLaneStep : 0;
+    const upperLanes = Math.max(58 + Math.max(0, unions.length - 1) * 18, auxiliaryExtent + 16, 64);
     const rowGap = Math.max(160, Math.max(lowerLanes, 64) + upperLanes + 40);
     const rows = element('div', 'tree__rows');
     const nodes = new Map();
@@ -297,28 +300,74 @@
       const r = node.getBoundingClientRect();
       return { left: r.left - rect.left, right: r.right - rect.left, top: r.top - rect.top, bottom: r.bottom - rect.top };
     });
-    const route = (start, end) => FamilyConnectorRouting.route(start, end, cardBoxes);
-    function path(points, kind, ids, role, union) {
-      const el = svgElement('polyline', { points: points.map(p => p.join(',')).join(' '), fill: 'none' });
+    const connectorSegments = [];
+    const portReservations = new Map();
+    let connectorSerial = 0;
+    function reservePort(id, side, group, baseOffset = 0) {
+      const key = `${id}:${side}:${baseOffset}`;
+      if (!portReservations.has(key)) portReservations.set(key, new Set());
+      portReservations.get(key).add(group);
+    }
+    unions.forEach(u => {
+      const group = `union:${u.id}`;
+      u.partners.forEach(id => reservePort(id, 'bottom', group));
+      childrenOf(u).forEach(d => reservePort(d.child, 'top', group));
+    });
+    extra.forEach((r, index) => {
+      const group = `aux:${index}`;
+      reservePort(r.from, 'top', group, -42);
+      reservePort(r.to, 'top', group, -42);
+    });
+    function memberPort(id, side, group, baseOffset = 0, preferredSpacing = 10) {
+      const key = `${id}:${side}:${baseOffset}`;
+      const groups = [...(portReservations.get(key) || new Set([group]))];
+      if (!groups.includes(group)) groups.push(group);
+      const index = groups.indexOf(group), count = groups.length;
+      const node = nodes.get(id);
+      const width = node?.getBoundingClientRect().width || 160;
+      const limit = Math.max(12, width / 2 - 12);
+      if (count <= 1) return box(id).x + Math.max(-limit, Math.min(limit, baseOffset));
+      const span = Math.min((count - 1) * preferredSpacing, limit * 2);
+      const step = span / (count - 1);
+      const desiredStart = baseOffset - span / 2;
+      const start = Math.max(-limit, Math.min(limit - span, desiredStart));
+      return box(id).x + start + index * step;
+    }
+    const otherSegments = group => connectorSegments.filter(segment => segment.group !== group);
+    const route = (start, end, group) => FamilyConnectorRouting.route(start, end, cardBoxes, otherSegments(group));
+    function path(points, kind, ids, role, union, group) {
+      const connectorGroup = group || (union ? `union:${union}` : `edge:${connectorSerial++}`);
+      const logicalPoints = FamilyConnectorRouting.simplify(points);
+      const bridgePoints = FamilyConnectorRouting.crossings(logicalPoints, otherSegments(connectorGroup), 2.5);
+      const d = FamilyConnectorRouting.bridgePath(logicalPoints, bridgePoints, 7);
+      const el = svgElement('path', { d, fill: 'none' });
       if (!Object.hasOwn(STYLES, kind)) kind = 'unknown';
       applyStyle(el, kind, 'edge-');
+      el.setAttribute('stroke-linejoin', 'round');
       el.dataset.kind = kind;
       el.dataset.people = ids.join(' ');
       el.dataset.role = role;
+      el.dataset.group = connectorGroup;
+      el.dataset.points = logicalPoints.map(p => p.join(',')).join(' ');
+      if (bridgePoints.length) el.dataset.bridges = bridgePoints.map(p => `${p.x},${p.y}`).join(' ');
       if (union) el.dataset.union = union;
       svg.appendChild(el);
       if (STYLES[kind].double) {
-        const inner = svgElement('polyline', { points: el.getAttribute('points'), fill: 'none', stroke: '#fbf8f3', 'stroke-width': 2 });
+        const inner = svgElement('path', { d, fill: 'none', stroke: '#fbf8f3', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
         inner.dataset.people = ids.join(' ');
+        inner.dataset.group = connectorGroup;
         svg.appendChild(inner);
       }
+      connectorSegments.push(...FamilyConnectorRouting.segments(logicalPoints, { group: connectorGroup, role, kind }));
       return el;
     }
+    const lineLabels = [];
     function label(x, y, text, kind, ids) {
       const el = svgElement('text', { x, y, class: 'relation-label', fill: (STYLES[kind] || STYLES.unknown).color });
       el.textContent = text;
       el.dataset.people = ids.join(' ');
       svg.appendChild(el);
+      lineLabels.push(el);
     }
     function junction(x, y, ids) {
       const dot = svgElement('circle', { cx: x, cy: y, r: 3, fill: '#8f7b65' });
@@ -345,11 +394,11 @@
       const familyIds = u.partners.concat(kids.map(d => d.child));
       // Join both parents below their cards; the child stem starts ON this line.
       if (u.partners.length === 1) {
-        path([[a.x, a.bottom], [a.x, marriageY]], 'family', familyIds, 'parent-origin', u.id);
+        { const groupKey = `union:${u.id}`; const portX = memberPort(u.partners[0], 'bottom', groupKey); const escapeY = Math.min(marriageY, a.bottom + 10); path([[portX, a.bottom], ...route([portX, escapeY], [a.x, marriageY], groupKey)], 'family', familyIds, 'parent-origin', u.id, groupKey); }
       } else {
         const originXs = origins.map(p => p.x);
         path([[Math.min(...originXs), marriageY], [Math.max(...originXs), marriageY]], u.married ? 'spouse' : 'family', familyIds, 'marriage', u.id);
-        origins.forEach(p => path([[p.x, p.bottom], [p.x, marriageY]], u.married ? 'spouse' : 'family', familyIds, 'parent-origin', u.id));
+        origins.forEach((p, partnerIndex) => { const groupKey = `union:${u.id}`; const portX = memberPort(u.partners[partnerIndex], 'bottom', groupKey); const escapeY = Math.min(marriageY, p.bottom + 10); path([[portX, p.bottom], ...route([portX, escapeY], [p.x, marriageY], groupKey)], u.married ? 'spouse' : 'family', familyIds, 'parent-origin', u.id, groupKey); });
         label(anchor + 8, marriageY - 8, u.married ? '婚姻' : kids.every(d => d.generations === 2) ? '共同祖父母' : '共同父母', u.married ? 'spouse' : 'family', familyIds);
       }
       if (kids.length) junction(anchor, marriageY, familyIds);
@@ -359,14 +408,14 @@
         const barY = Math.min(...boxes.map(c => c.top)) - 58 - index * 18;
         const stemX = anchor;
         const xs = boxes.map(c => c.x).concat(stemX);
-        const stem = route([anchor, marriageY], [stemX, barY]);
-        path(stem, 'family', familyIds, 'parent-stem', u.id);
+        const groupKey = `union:${u.id}`;
+        const stem = route([anchor, marriageY], [stemX, barY], groupKey);
+        path(stem, 'family', familyIds, 'parent-stem', u.id, groupKey);
         path([[Math.min(...xs), barY], [Math.max(...xs), barY]], 'family', familyIds, 'sibling-bar', u.id);
         junction(stemX, barY, familyIds);
         group.forEach(d => {
           const c = box(d.child);
-          path([[c.x, barY], [c.x, c.top]], d.kind, familyIds, 'child', u.id);
-          label(c.x + 10, c.top - 14, d.kind + (d.generations === 2 ? '（祖孫）' : ''), d.kind, familyIds);
+          { const portX = memberPort(d.child, 'top', groupKey); const escapeY = Math.max(barY, c.top - 10); const childPath = [...route([c.x, barY], [portX, escapeY], groupKey), [portX, c.top]]; path(childPath, d.kind, familyIds, 'child', u.id, groupKey); label(portX + 10, c.top - 14, d.kind + (d.generations === 2 ? '（祖孫）' : ''), d.kind, familyIds); }
           junction(c.x, barY, familyIds);
         });
       });
@@ -376,7 +425,8 @@
       const from = r.from, to = r.to;
       const a = box(from), b = box(to);
       if (plans.length) {
-        const real = id => ({ ...box(id), x: box(id).x - 42, gen: byId.get(id).gen, id });
+        const groupKey = `aux:${index}`;
+        const real = id => ({ ...box(id), x: memberPort(id, 'top', groupKey, -42), gen: byId.get(id).gen, id });
         const virtual = plan => {
           const slot = slots.get(plan.id).getBoundingClientRect();
           const row = slots.get(plan.id).parentElement.getBoundingClientRect();
@@ -393,24 +443,56 @@
           const endpoint = (node, other) => {
             const upward = same || node.gen > other.gen;
             return { x: node.x, y: node.plan ? node.y : upward ? node.top : node.bottom,
-              escape: upward ? node.top - 24 - (lane % 6) * 6 : node.bottom + 24 + (lane % 6) * 6 };
+              escape: upward ? node.top - 24 - lane * auxiliaryLaneStep : node.bottom + 24 + lane * auxiliaryLaneStep };
           };
           const start = endpoint(left, right), end = endpoint(right, left);
-          const points = [[start.x, start.y], ...route([start.x, start.escape], [end.x, end.escape]), [end.x, end.y]];
-          path(points, r.kind, ids, 'auxiliary');
+          const points = [[start.x, start.y], ...route([start.x, start.escape], [end.x, end.escape], groupKey), [end.x, end.y]];
+          path(points, r.kind, ids, 'auxiliary', null, groupKey);
         }
         const last = chain.at(-1);
         label(last.x + 12, last.top - 12, r.planId ? '親生（補中間一代）' : r.kind + '（補親生父母）', r.kind, ids);
         return;
       }
-      const offset = 24 + (auxiliaryLanes[index] % 6) * 6;
+      const offset = 24 + auxiliaryLanes[index] * auxiliaryLaneStep;
       const fromY = a.top - offset, toY = b.top - offset;
-      const points = [[a.x - 42, a.top], ...route([a.x - 42, fromY], [b.x - 42, toY]), [b.x - 42, b.top]];
+      const groupKey = `aux:${index}`;
+      const fromX = memberPort(from, 'top', groupKey, -42), toX = memberPort(to, 'top', groupKey, -42);
+      const points = [[fromX, a.top], ...route([fromX, fromY], [toX, toY], groupKey), [toX, b.top]];
       const routeIds = [...new Set([r.from, r.to, from, to])];
-      path(points, r.kind, routeIds, 'auxiliary');
+      path(points, r.kind, routeIds, 'auxiliary', null, groupKey);
       label(b.x - 135, toY - (plans.length ? 24 : 8), r.kind === '師徒' ? '師父 → 徒弟' : from !== r.from || to !== r.to ? r.kind + '（補親生父母）' : r.kind, r.kind, routeIds);
     });
     canvas.append(...intermediateButtons);
+    // Measure actual glyph bounds (including a margin for the text outline), then
+    // position all labels together so later connectors cannot paint over them.
+    const measuredLabels = lineLabels.map(el => {
+      const b = el.getBBox();
+      return { x: b.x - 3, y: b.y - 3, width: b.width + 6, height: b.height + 6 };
+    });
+    const labelObstacles = cardBoxes.map(b => ({ x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top }));
+    intermediateButtons.forEach(button => {
+      const b = button.getBoundingClientRect();
+      labelObstacles.push({ x: b.left - rect.left, y: b.top - rect.top, width: b.width, height: b.height });
+    });
+    if (queryView.active) {
+      const b = document.getElementById('relationship-summary').getBoundingClientRect();
+      labelObstacles.push({ x: b.left - rect.left, y: b.top - rect.top, width: b.width, height: b.height });
+    }
+    const positions = FamilyLabelLayout.place(measuredLabels, labelObstacles, { left: generationGutter, right: rect.width - 12, top: 12, bottom: rect.height - 12 });
+    positions.forEach((position, i) => {
+      const el = lineLabels[i], original = measuredLabels[i];
+      el.setAttribute('x', Number(el.getAttribute('x')) + position.x - original.x);
+      el.setAttribute('y', Number(el.getAttribute('y')) + position.y - original.y);
+      svg.appendChild(el);
+    });
+    const overflow = Math.max(0, ...positions.map(p => p.y + p.height + 12 - rect.height));
+    if (overflow > 0) {
+      canvas.style.paddingBottom = (parseFloat(getComputedStyle(canvas).paddingBottom) + overflow) + 'px';
+      svg.setAttribute('height', canvas.getBoundingClientRect().height);
+      generationLayers.backgrounds.remove();
+      Object.assign(generationLayers, FamilyGenerationBands.render(canvas, [...rows.children]));
+      canvas.prepend(generationLayers.backgrounds);
+    }
     // Keep the pale generation labels above connector lines, but non-interactive.
     canvas.appendChild(generationLayers.labels);
     function showDetails() {
@@ -455,4 +537,5 @@
   else render();
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+  document.fonts?.ready.then(() => { if (typeof FAMILY !== 'undefined') render(); });
 })();

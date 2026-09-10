@@ -10,7 +10,7 @@ async function checkGeometry(page) {
   const invalid = await page.evaluate(() => {
     const root = document.getElementById('tree-canvas').getBoundingClientRect();
     const cards = [...document.querySelectorAll('.person')].map(el => el.getBoundingClientRect());
-    const segments = [...document.querySelectorAll('#tree-connectors polyline[data-role]')].flatMap(el => [...el.points].slice(1).map((b, i) => [el.points[i], b]));
+    const segments = [...document.querySelectorAll('#tree-connectors path[data-role]')].flatMap(el => { const points = el.dataset.points.split(' ').map(pair => pair.split(',').map(Number)); return points.slice(1).map((b, i) => [{ x: points[i][0], y: points[i][1] }, { x: b[0], y: b[1] }]); });
     const errors = [];
     for (const [a, b] of segments) for (const c of cards) {
       const left = c.left - root.left, right = c.right - root.left, top = c.top - root.top, bottom = c.bottom - root.top;
@@ -72,9 +72,10 @@ async function checkGeometry(page) {
         const root = document.getElementById('tree-canvas').getBoundingClientRect();
         const members = [...document.querySelectorAll('.person')].map(el => ({ id: el.dataset.personId, r: el.getBoundingClientRect() }));
         const hits = new Set();
-        document.querySelectorAll('#tree-connectors polyline[data-kind="堂親"]').forEach(line => {
-          for (const p of [line.points[0], line.points[line.points.length - 1]]) for (const { id, r } of members) {
-            if (p.x + root.left >= r.left && p.x + root.left <= r.right && (Math.abs(p.y + root.top - r.top) < 1 || Math.abs(p.y + root.top - r.bottom) < 1)) hits.add(id);
+        document.querySelectorAll('#tree-connectors path[data-kind="堂親"]').forEach(line => {
+          const points = line.dataset.points.split(' ').map(pair => pair.split(',').map(Number));
+          for (const p of [points[0], points[points.length - 1]]) for (const { id, r } of members) {
+            if (p[0] + root.left >= r.left && p[0] + root.left <= r.right && (Math.abs(p[1] + root.top - r.top) < 1 || Math.abs(p[1] + root.top - r.bottom) < 1)) hits.add(id);
           }
         });
         return [...hits].sort();

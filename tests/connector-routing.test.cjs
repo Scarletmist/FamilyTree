@@ -17,3 +17,21 @@ test('a blocking card is bypassed at its nearby edge with clearance', () => {
 test('aligned row gutters take the direct horizontal path', () => {
   assert.deepEqual(route([20, 30], [300, 30], [{ left: 80, right: 200, top: 50, bottom: 150 }]), [[20, 30], [300, 30]]);
 });
+test('an occupied connector lane is bypassed instead of overlapped', () => {
+  const occupied = [{ axis: 'v', fixed: 100, min: 20, max: 200, x1: 100, y1: 20, x2: 100, y2: 200 }];
+  const points = route([100, 20], [100, 200], [], occupied);
+  const { segments, overlapLength } = require('../assets/connector-routing');
+  assert.equal(segments(points).some(a => occupied.some(b => overlapLength(a, b) > .5)), false);
+  assert(points.some(p => p[0] === 88 || p[0] === 112));
+});
+test('perpendicular crossings are detected away from connector endpoints', () => {
+  const { segments, crossings } = require('../assets/connector-routing');
+  const occupied = segments([[50, 0], [50, 100]]);
+  assert.deepEqual(crossings([[0, 40], [100, 40]], occupied, 8), [{ x: 50, y: 40 }]);
+  assert.deepEqual(crossings([[42, 40], [100, 40]], occupied, 8), []);
+});
+test('bridge path replaces a crossing with a rounded SVG arc', () => {
+  const { bridgePath } = require('../assets/connector-routing');
+  const d = bridgePath([[0, 40], [100, 40]], [{ x: 50, y: 40 }], 7);
+  assert.match(d, /^M 0 40 L 43 40 A 7 7 0 0 [01] 57 40 L 100 40$/);
+});

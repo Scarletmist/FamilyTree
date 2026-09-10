@@ -54,6 +54,33 @@
     return { edge: { ...steps.at(-1), seniority: steps.at(-1).seniority || 'unknown' }, target: stepsContext.at(-1), steps: stepsContext };
   }
   function term(edge, byId) { return evaluate(config.direct[edge.type] ?? config.display.fallbackTerm, contextFor([edge], byId)); }
+  function ruleNotes(rule, context) {
+    return (rule?.notes || []).filter(note => typeof note === 'string' || matches(note.when, context))
+      .map(note => config.notes[typeof note === 'string' ? note : note.key]);
+  }
+  const longestPattern = Math.max(1, ...config.rules.flatMap(rule => rule.patterns.map(pattern => pattern.split('/').length)));
+  // Minimize the remaining chain, matching every fragment relative to its own
+  // starting member. The original graph path and its intermediate members stay intact.
+  function compactChain(steps, byId) {
+    const best = new Array(steps.length + 1);
+    best[steps.length] = { titles: [], notes: [], cost: 0, length: 0 };
+    for (let start = steps.length - 1; start >= 0; start--) {
+      for (let end = Math.min(steps.length, start + longestPattern); end > start; end--) {
+        const fragment = steps.slice(start, end), context = contextFor(fragment, byId);
+        const pattern = fragment.map(edge => edge.type).join('/');
+        // Do not erase contract/sworn kinds inside compressed family fragments.
+        const eligible = fragment.length === 1 || fragment.every(edge => !edge.kind || FAMILY_KINDS.has(edge.kind));
+        const rule = eligible && config.rules.find(rule => rule.patterns.includes(pattern) && matches(rule.when, context));
+        const title = rule ? evaluate(rule.label, context) : fragment.length === 1 ? term(fragment[0], byId) : '';
+        if (!title) continue;
+        const tail = best[end];
+        const candidate = { titles: [title, ...tail.titles], notes: [...ruleNotes(rule, context), ...(context.target.gender === 'U' ? [config.notes.unknownGender] : []), ...tail.notes],
+          cost: title.split(config.display.chainSeparator).length + tail.cost, length: title.length + tail.length };
+        if (!best[start] || candidate.cost < best[start].cost || candidate.cost === best[start].cost && candidate.length < best[start].length) best[start] = candidate;
+      }
+    }
+    return best[0];
+  }
   function describe(path, byId) {
     const original = path.edges, steps = [], notes = [];
     for (let i = 0; i < original.length; i++) {
@@ -65,9 +92,13 @@
     const rule = config.rules.find(r => r.patterns.includes(pattern) && matches(r.when, context));
     let confidence = 3;
     let title = rule ? evaluate(rule.label, context) : steps.length === 1 ? term(steps[0], byId) : '';
-    for (const note of rule?.notes || []) if (typeof note === 'string' || matches(note.when, context)) notes.push(config.notes[typeof note === 'string' ? note : note.key]);
+    notes.push(...ruleNotes(rule, context));
     if (notes.includes(config.notes.unknownSide)) confidence = 2;
-    if (!title) { title = steps.map(s => term(s, byId)).join(config.display.chainSeparator); notes.push(config.notes.fallback); confidence = 1; }
+    if (!title) {
+      const compact = compactChain(steps, byId);
+      title = compact.titles.join(config.display.chainSeparator);
+      notes.push(...compact.notes, config.notes.fallback); confidence = 1;
+    }
     const kinds = [...new Set(original.map(e => e.kind).filter(k => k && k !== '親生'))];
     if (kinds.length && original.length > 1) { title += config.display.nonBiologicalPrefix + kinds.join(config.display.nonBiologicalSeparator) + config.display.nonBiologicalSuffix; notes.push(config.notes.nonBiological); }
     if (context.target.gender === 'U') notes.push(config.notes.unknownGender);

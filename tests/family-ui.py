@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = json.loads((ROOT / 'data/family.json').read_text())
 HTML = re.sub(r'<script src="assets/[^"\n]+"></script>', '', (ROOT / 'family-tree.html').read_text())
-ASSETS = ['family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js', 'relationship-search.js', 'connector-routing.js', 'family-tree.js', 'family-storage.js', 'family-repository.js', 'member-form.js', 'member-tools.js']
+ASSETS = ['family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js', 'relationship-search.js', 'connector-routing.js', 'label-layout.js', 'family-tree.js', 'family-storage.js', 'family-repository.js', 'member-form.js', 'member-tools.js']
 
 with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
     data_file = Path(temp) / 'family.json'

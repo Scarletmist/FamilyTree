@@ -20,6 +20,7 @@ async function check(page, scenario) {
     const found = [];
     for (const line of document.querySelectorAll('#tree-connectors path[data-role]')) {
       const points = line.dataset.points.split(' ').map(pair => pair.split(',').map(Number));
+      if (points.some(p => p[1] < 0)) found.push({ role: line.dataset.role, reason: 'connector above canvas', points });
       for (let i = 1; i < points.length; i++) {
         const [a, b] = [points[i - 1], points[i]];
         for (const box of boxes) {
@@ -66,10 +67,38 @@ async function check(page, scenario) {
     await page.reload();
     await page.waitForFunction(() => window.FAMILY?.people.length === 35);
     await check(page, 'dense relationships and tall cards');
+    const firstRow = { schemaVersion: 2, people: [person('A'), ...Array.from({ length: 10 }, (_, i) => person('Peer' + i, [{ type: 'fellowDisciple', personId: 'A' }]))] };
+    await fs.writeFile(dataFile, JSON.stringify(firstRow));
+    await page.reload();
+    await page.waitForFunction(() => window.FAMILY?.people.length === 11);
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(250);
+      assert.equal(await page.locator('.generation[data-gen="1"] .person').count(), 11);
+      await check(page, 'first-generation peer lines remain inside canvas');
+      const top = await page.locator('#tree-connectors').evaluate(svg => Math.min(...[...svg.querySelectorAll('path[data-points]')].map(p => p.getBBox().y)));
+      assert(top >= 7, 'crossing arcs and endpoint symbols have clearance from canvas top');
+    }
     await fs.writeFile(dataFile, JSON.stringify(require('../data/family.json')));
     await page.reload();
     await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../data/family.json').people.length);
     await check(page, 'existing family dataset');
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.reload();
+    await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../data/family.json').people.length);
+    const visibleRows = await page.evaluate(() => {
+      const viewport = document.getElementById('tree-canvas').parentElement;
+      const bounds = viewport.getBoundingClientRect();
+      return [...document.querySelectorAll('.generation')].filter(row => {
+        const cards = [...row.querySelectorAll('.person')];
+        return cards.length && cards.every(card => {
+          const r = card.getBoundingClientRect();
+          return r.top >= bounds.top && r.bottom <= bounds.top + viewport.clientHeight;
+        });
+      }).map(row => row.dataset.gen);
+    });
+    assert(visibleRows.length >= 2, `1920x1080 should show two full generations; visible: ${visibleRows}`);
+    if (process.env.COMPACT_SCREENSHOT) await page.screenshot({ path: process.env.COMPACT_SCREENSHOT });
     const stems = await page.evaluate(() => {
       const canvas = document.getElementById('tree-canvas').getBoundingClientRect();
       return [...document.querySelectorAll('.person')].filter(p => /TEST_D[12]/.test(p.textContent)).map(card => {

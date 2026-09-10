@@ -123,6 +123,14 @@ async function checkGeometry(page) {
     assert.equal(await page.locator('.relation-row').last().locator('.relation-target').inputValue(), 'D');
     await page.locator('#cancel-member').click();
     assert.equal(JSON.parse(await fs.readFile(dataFile, 'utf8')).people.length, 4);
+    // An established first generation can reserve a new ancestor row.
+    await fs.writeFile(dataFile, JSON.stringify({ schemaVersion: 2, people: [person('A', [{ type: 'child', personId: 'C', kind: '親生' }, { type: 'sibling', personId: 'B' }]), person('B'), person('C')] }));
+    await page.reload();
+    await page.waitForFunction(() => window.FAMILY?.people.length === 3);
+    assert.equal(await page.locator('.intermediate-node[data-gen="1"]').count(), 1);
+    assert.equal(await page.locator('.generation[data-gen="2"] .person').count(), 2);
+    assert.equal(await page.locator('.generation[data-gen="3"] .person[data-person-id="C"]').count(), 1);
+    await checkGeometry(page);
     // Keyboard activation and prefilled biological grandparent / sibling paths.
     for (const [type, kind, expected] of [['grandchild', '親生', 1], ['grandchild', '契子女', 0], ['sibling', null, 1]]) {
       const r = { type, personId: 'B', ...(kind ? { kind } : {}) };

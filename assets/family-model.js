@@ -138,9 +138,12 @@
       const root = rootOf(i), previous = slotIds.get(root);
       if (!previous || plan.id < previous) slotIds.set(root, plan.id);
     });
-    // Missing ancestors are suggestions, not evidence for shifting the family's
-    // generation numbers. Without an earlier known generation, use row one.
-    return plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)), generation: Math.max(1, byId.get(plan.near).gen - 1) }));
+    // Only an established family generation may reserve a new ancestor row.
+    // An isolated peer relationship still has no evidence for generation zero.
+    return plans.map((plan, i) => {
+      const person = byId.get(plan.near);
+      return { ...plan, slotId: slotIds.get(rootOf(i)), generation: Math.max(person.generationKnown ? 0 : 1, person.gen - 1) };
+    });
   }
   function fail(message) { throw new Error(message); }
   function validateMember(p) {
@@ -228,7 +231,11 @@
         }
       }
       const min = Math.min(...component.map(id => levels.get(id)));
-      component.forEach(id => { byId.get(id).gen = levels.get(id) - min + 1; });
+      const generationKnown = component.some(id => levels.get(id) !== min);
+      component.forEach(id => {
+        byId.get(id).gen = levels.get(id) - min + 1;
+        Object.defineProperty(byId.get(id), 'generationKnown', { value: generationKnown, enumerable: false, configurable: true });
+      });
       component.forEach(id => componentOf.set(id, familyComponents.length));
       familyComponents.push(component);
     }

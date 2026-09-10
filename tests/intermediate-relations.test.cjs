@@ -11,6 +11,19 @@ test('unanchored missing parents stop at generation one without shifting known b
   assert.equal(people.find(p => p.id === 'G').gen, 1);
   assert.equal(people.find(p => p.id === 'C').gen, 3);
 });
+
+test('known first-generation relatives reserve an ancestor row while unknown peers do not', () => {
+  const data = { schemaVersion: 2, people: [p('A', [child('C'), { type: 'sibling', personId: 'B' }]), p('B'), p('C'),
+    p('X', [{ type: 'tangCousin', personId: 'Y' }]), p('Y')] };
+  const plans = Model.intermediatePlans(data);
+  assert.equal(plans.find(p => p.edgeKey.startsWith('手足|')).generation, 0);
+  assert(plans.filter(p => p.edgeKey.startsWith('堂親|')).every(p => p.generation === 1));
+  const graph = Model.build(data);
+  const shift = 1 - Math.min(1, ...plans.map(p => p.generation));
+  assert.equal(shift, 1);
+  assert.equal(graph.people.find(p => p.id === 'A').gen + shift, 2);
+  assert.equal(graph.people.find(p => p.id === 'C').gen + shift, 3);
+});
 test('cousin lines to biological siblings share one missing father slot', () => {
   const data = { schemaVersion: 2, people: [p('A', [{ type: 'tangCousin', personId: 'B' }, { type: 'tangCousin', personId: 'C' }]), p('B', [{ type: 'sibling', personId: 'C' }]), p('C')] };
   const plans = Model.intermediatePlans(data).filter(p => p.near === 'A');

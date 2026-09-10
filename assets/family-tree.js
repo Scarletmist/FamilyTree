@@ -333,18 +333,36 @@
     const firstGeneration = Math.min(...occupiedGenerations), lastGeneration = Math.max(...occupiedGenerations);
     const generations = occupiedGenerations.length ? Array.from({ length: lastGeneration - firstGeneration + 1 }, (_, i) => firstGeneration + i) : [];
     if (people.some(p => !connectedIds.has(p.id))) generations.push(uncertainGeneration);
-    const lowerLanes = 22 + Math.max(0, unions.length - 1) * 16;
-    let auxiliaryCount = 0;
+    // Lanes belong to a generation gutter, not to the entire family graph.
+    // Reuse their numbers in other generations instead of inflating every row.
+    const originCounts = new Map(), childCounts = new Map();
+    const originLanes = new Map(), childLanes = new Map();
+    unions.forEach(u => {
+      const gen = Math.max(...u.partners.map(id => byId.get(id).gen));
+      originLanes.set(u.id, originCounts.get(gen) || 0);
+      originCounts.set(gen, (originCounts.get(gen) || 0) + 1);
+      for (const childGen of new Set(childrenOf(u).map(d => byId.get(d.child).gen))) {
+        childLanes.set(`${u.id}:${childGen}`, childCounts.get(childGen) || 0);
+        childCounts.set(childGen, (childCounts.get(childGen) || 0) + 1);
+      }
+    });
+    const auxiliaryCounts = new Map();
     const groupLanes = new Map();
     const auxiliaryLanes = extra.map((r, index) => {
       if (groupLanes.has(sharing[index].group)) return groupLanes.get(sharing[index].group);
-      const count = intermediatePlans.filter(p => r.planId ? p.id === r.planId : p.edgeKey === FamilyModel.intermediateKey(r.kind, [r.from, r.to])).length;
-      const lane = auxiliaryCount; auxiliaryCount += count + 1; groupLanes.set(sharing[index].group, lane); return lane;
+      const members = extra.filter((_, i) => sharing[i].group === sharing[index].group);
+      const memberPlans = members.map(edge => intermediatePlans.filter(p => edge.planId ? p.id === edge.planId : p.edgeKey === FamilyModel.intermediateKey(edge.kind, [edge.from, edge.to])));
+      const count = Math.max(...memberPlans.map(plans => plans.length));
+      const gens = [...new Set([...members.flatMap(edge => [byId.get(edge.from).gen, byId.get(edge.to).gen]), ...memberPlans.flat().map(p => p.generation + displayShift)])];
+      const lane = Math.max(0, ...gens.map(gen => auxiliaryCounts.get(gen) || 0));
+      gens.forEach(gen => auxiliaryCounts.set(gen, lane + count + 1));
+      groupLanes.set(sharing[index].group, lane); return lane;
     });
     const auxiliaryLaneStep = 18;
-    const auxiliaryExtent = auxiliaryCount ? 24 + Math.max(0, auxiliaryCount - 1) * auxiliaryLaneStep : 0;
-    const upperLanes = Math.max(58 + Math.max(0, unions.length - 1) * 18, auxiliaryExtent + 16, 64);
-    const rowGap = Math.max(160, Math.max(lowerLanes, 64) + upperLanes + 40);
+    const auxiliaryExtent = gen => auxiliaryCounts.has(gen) ? 24 + Math.max(0, auxiliaryCounts.get(gen) - 1) * auxiliaryLaneStep : 0;
+    const upperLanes = gen => Math.max(58 + Math.max(0, (childCounts.get(gen) || 0) - 1) * 18, auxiliaryExtent(gen) + 16, 64);
+    const lowerLanes = gen => Math.max(22 + Math.max(0, (originCounts.get(gen) || 0) - 1) * 18, auxiliaryExtent(gen), 40);
+    const rowGap = gen => Math.max(144, lowerLanes(gen) + upperLanes(gen + 1) + 24);
     const rows = element('div', 'tree__rows');
     const nodes = new Map();
     const slots = new Map();
@@ -409,13 +427,15 @@
         slot.setAttribute('aria-hidden', 'true');
         row.appendChild(slot); slots.set(plan.slotId, slot);
       });
-      row.style.marginBottom = rowGap + 'px';
+      row.style.marginBottom = rowGap(gen) + 'px';
       rows.appendChild(row);
     });
     // Reserve a label rail without changing the existing relationship gutters.
     const generationGutter = 80;
     canvas.style.paddingLeft = (generationGutter + 48) + 'px';
-    canvas.style.paddingTop = (80 + (queryView.active ? document.getElementById('relationship-summary').offsetHeight : 0)) + 'px';
+    // The first row needs the same upper routing gutter as subsequent rows.
+    // Include room for endpoint symbols, crossing bridges and relation labels.
+    canvas.style.paddingTop = (Math.max(80, upperLanes(firstGeneration) + 40) + (queryView.active ? document.getElementById('relationship-summary').offsetHeight : 0)) + 'px';
     canvas.appendChild(rows);
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
     canvas.prepend(generationLayers.backgrounds);
@@ -527,7 +547,7 @@
     }
     unions.forEach((u, index) => {
       const origins = u.partners.map(box), a = origins[0];
-      const marriageY = Math.max(...origins.map(p => p.bottom)) + 22 + index * 16;
+      const marriageY = Math.max(...origins.map(p => p.bottom)) + 22 + originLanes.get(u.id) * 18;
       const anchor = (Math.min(...origins.map(p => p.x)) + Math.max(...origins.map(p => p.x))) / 2;
       const kids = childrenOf(u);
       const familyIds = u.partners.concat(kids.map(d => d.child));
@@ -544,7 +564,7 @@
       [...new Set(kids.map(d => byId.get(d.child).gen))].forEach(gen => {
         const group = kids.filter(d => byId.get(d.child).gen === gen);
         const boxes = group.map(d => box(d.child));
-        const barY = Math.min(...boxes.map(c => c.top)) - 58 - index * 18;
+        const barY = Math.min(...boxes.map(c => c.top)) - 58 - childLanes.get(`${u.id}:${gen}`) * 18;
         const stemX = anchor;
         const groupKey = `union:${u.id}`;
         const childPorts = new Map(group.map(d => {
@@ -718,7 +738,7 @@
       const topPeople = people.filter(p => p.gen === firstRealGeneration).map(p => box(p.id));
       const center = (Math.min(...topPeople.map(p => p.x)) + Math.max(...topPeople.map(p => p.x))) / 2;
       viewport.scrollLeft = Math.max(0, center - viewport.clientWidth / 2);
-      viewport.scrollTop = 0;
+      viewport.scrollTop = firstRealGeneration > firstGeneration ? Math.max(0, Math.min(...topPeople.map(p => p.top)) - 32) : 0;
       viewport.dataset.scope = scope;
     }
   }

@@ -76,22 +76,66 @@
   });
   const treeZoom = (() => {
     const MOBILE_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)';
-    const DESKTOP_MIN_SCALE = 0.25;
-    const MOBILE_MIN_SCALE = 0.5;
     const MAX_SCALE = 2;
+    const SEMANTIC_PROFILES = {
+      desktop: [
+        { max: 0.40, mode: 'overview' },
+        { max: 0.55, mode: 'compact' },
+        { max: 0.70, mode: 'condensed' },
+        { max: 0.85, mode: 'medium' },
+        { max: 1.10, mode: 'normal' },
+        { max: 1.40, mode: 'detail' },
+        { max: Infinity, mode: 'inspect' }
+      ],
+      tablet: [
+        { max: 0.45, mode: 'overview' },
+        { max: 0.60, mode: 'compact' },
+        { max: 0.80, mode: 'condensed' },
+        { max: 1.10, mode: 'normal' },
+        { max: Infinity, mode: 'detail' }
+      ],
+      'mobile-portrait': [
+        { max: 0.55, mode: 'compact' },
+        { max: 0.75, mode: 'condensed' },
+        { max: 1.10, mode: 'normal' },
+        { max: Infinity, mode: 'detail' }
+      ],
+      'mobile-landscape': [
+        { max: 0.45, mode: 'overview' },
+        { max: 0.60, mode: 'compact' },
+        { max: 0.80, mode: 'condensed' },
+        { max: 1.10, mode: 'normal' },
+        { max: Infinity, mode: 'detail' }
+      ]
+    };
+    const PROFILE_MIN_SCALE = { desktop: 0.25, tablet: 0.30, 'mobile-portrait': 0.50, 'mobile-landscape': 0.40 };
     const STEP = 0.1;
-    const DESKTOP_NAME_ONLY_MAX_SCALE = 0.6;
+    const SEMANTIC_COMMIT_DELAY = 140;
     let scale = Number(initialViewState?.scale) || 1;
     let naturalWidth = 0;
     let naturalHeight = 0;
     let rendering = false;
     let generationLabelFrame = 0;
+    let semanticMode = null;
+    let semanticProfile = null;
+    let semanticTimer = 0;
+    let pendingSemanticRestore = null;
+    let semanticGestureActive = false;
 
     const viewport = () => document.querySelector('.tree');
     const canvas = () => document.getElementById('tree-canvas');
     const spacer = () => document.getElementById('tree-zoom-spacer');
     const isMobileLayout = () => matchMedia(MOBILE_QUERY).matches;
-    const minScale = () => isMobileLayout() ? MOBILE_MIN_SCALE : DESKTOP_MIN_SCALE;
+    function semanticProfileForViewport() {
+      const width = window.innerWidth || document.documentElement.clientWidth || 0;
+      const height = window.innerHeight || document.documentElement.clientHeight || 0;
+      const coarse = matchMedia('(pointer:coarse)').matches;
+      if (coarse && width <= 950 && height <= 520) return 'mobile-landscape';
+      if (coarse && width <= 700) return 'mobile-portrait';
+      if ((coarse && width < 1366) || width < 1100) return 'tablet';
+      return 'desktop';
+    }
+    const minScale = () => PROFILE_MIN_SCALE[semanticProfileForViewport()] || 0.25;
     const roundScale = value => Math.round(value * 1000) / 1000;
     const clampScale = value => Math.max(minScale(), Math.min(MAX_SCALE, roundScale(value)));
 
@@ -135,16 +179,80 @@
       });
     }
 
-    function updateCardDetailMode() {
+    function semanticStateForScale(value = scale) {
+      const profile = semanticProfileForViewport();
+      const levels = SEMANTIC_PROFILES[profile] || SEMANTIC_PROFILES.desktop;
+      const level = levels.find(item => value <= item.max + .001) || levels[levels.length - 1];
+      return { profile, mode: level.mode };
+    }
+
+    function semanticModeForScale(value = scale) {
+      return semanticStateForScale(value).mode;
+    }
+
+    function applySemanticMode(mode, profile) {
       const root = canvas();
       if (!root) return;
-      root.classList.toggle('is-desktop-name-only', !isMobileLayout() && scale <= DESKTOP_NAME_ONLY_MAX_SCALE + .001);
+      const state = mode && profile ? { mode, profile } : semanticStateForScale(scale);
+      semanticMode = state.mode;
+      semanticProfile = state.profile;
+      root.dataset.zoomLevel = state.mode;
+      root.dataset.zoomProfile = state.profile;
+      root.classList.remove('is-desktop-name-only');
+    }
+
+    function clearSemanticTimer() {
+      if (!semanticTimer) return;
+      clearTimeout(semanticTimer);
+      semanticTimer = 0;
+    }
+
+    function armSemanticCommit() {
+      clearSemanticTimer();
+      if (semanticGestureActive || !pendingSemanticRestore) return;
+      semanticTimer = setTimeout(() => {
+        semanticTimer = 0;
+        const pending = pendingSemanticRestore;
+        const current = semanticStateForScale(scale);
+        if (!pending || semanticGestureActive || pending.mode !== current.mode || pending.profile !== current.profile || (pending.mode === semanticMode && pending.profile === semanticProfile)) return;
+        semanticMode = pending.mode;
+        semanticProfile = pending.profile;
+        render();
+      }, SEMANTIC_COMMIT_DELAY);
+    }
+
+    function scheduleSemanticCommit(logical, anchor) {
+      const target = semanticStateForScale(scale);
+      if (target.mode === semanticMode && target.profile === semanticProfile) {
+        clearSemanticTimer();
+        pendingSemanticRestore = null;
+        return;
+      }
+      const width = Math.max(1, naturalWidth);
+      const height = Math.max(1, naturalHeight);
+      pendingSemanticRestore = {
+        mode: target.mode,
+        profile: target.profile,
+        ratioX: Math.max(0, Math.min(1, logical.x / width)),
+        ratioY: Math.max(0, Math.min(1, logical.y / height)),
+        anchor: { x: anchor.x, y: anchor.y }
+      };
+      armSemanticCommit();
+    }
+
+    function beginSemanticGesture() {
+      semanticGestureActive = true;
+      clearSemanticTimer();
+    }
+
+    function endSemanticGesture() {
+      semanticGestureActive = false;
+      armSemanticCommit();
     }
 
     function applyScale() {
       const root = canvas();
       if (!root) return;
-      updateCardDetailMode();
       root.style.transform = `scale(${scale})`;
       updateSpacer();
       updateGenerationLabelPosition();
@@ -167,6 +275,7 @@
       updateGenerationLabelPosition();
       updateControls();
       memberTooltip.hide(null, true);
+      scheduleSemanticCommit(logical, anchor);
       scheduleCanvasViewStateSave();
       return scale;
     }
@@ -215,7 +324,15 @@
     function beforeRender() {
       const root = canvas();
       rendering = true;
-      if (root) root.style.transform = 'none';
+      const current = semanticStateForScale(scale);
+      if (!semanticMode || semanticProfile !== current.profile || semanticMode !== current.mode) {
+        semanticMode = current.mode;
+        semanticProfile = current.profile;
+      }
+      if (root) {
+        applySemanticMode(semanticMode, semanticProfile);
+        root.style.transform = 'none';
+      }
     }
 
     function afterRender() {
@@ -226,6 +343,14 @@
       naturalWidth = Math.max(root.offsetWidth, root.scrollWidth);
       naturalHeight = Math.max(root.offsetHeight, root.scrollHeight);
       applyScale();
+      if (pendingSemanticRestore && pendingSemanticRestore.mode === semanticMode && pendingSemanticRestore.profile === semanticProfile) {
+        const pending = pendingSemanticRestore;
+        pendingSemanticRestore = null;
+        const logical = { x: naturalWidth * pending.ratioX, y: naturalHeight * pending.ratioY };
+        positionLogicalAtAnchor(logical, pending.anchor);
+        updateGenerationLabelPosition();
+        scheduleCanvasViewStateSave();
+      }
       updateControls();
     }
 
@@ -257,6 +382,10 @@
       fitWidth,
       fitView,
       getScale: () => scale,
+      getSemanticMode: () => semanticMode || semanticModeForScale(scale),
+      getSemanticProfile: () => semanticProfile || semanticProfileForViewport(),
+      beginSemanticGesture,
+      endSemanticGesture,
       isMobileLayout,
       getMinScale: minScale,
       getMaxScale: () => MAX_SCALE,
@@ -586,6 +715,7 @@
       const [a, b] = pair;
       const mid = localPoint({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
       const scale = treeZoom.getScale();
+      treeZoom.beginSemanticGesture();
       pinch = {
         ids: [a.id, b.id],
         distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
@@ -726,6 +856,7 @@
       pinch = null;
       singleTouch = null;
       viewport.classList.remove('is-dragging');
+      treeZoom.endSemanticGesture();
       if (!cancelled && endedSingle?.moved) startInertia(endedSingle.vx, endedSingle.vy);
     }
 
@@ -1046,6 +1177,7 @@
       if (!Object.hasOwn(STYLES, kind)) kind = 'unknown';
       applyStyle(el, kind, 'edge-');
       el.setAttribute('stroke-linejoin', 'round');
+      el.setAttribute('vector-effect', 'non-scaling-stroke');
       el.dataset.kind = kind;
       el.dataset.people = ids.join(' ');
       el.dataset.role = role;
@@ -1055,7 +1187,7 @@
       if (union) el.dataset.union = union;
       svg.appendChild(el);
       if (STYLES[kind].double) {
-        const inner = svgElement('path', { d, fill: 'none', stroke: '#fbf8f3', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+        const inner = svgElement('path', { d, fill: 'none', stroke: '#fbf8f3', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' });
         inner.dataset.people = ids.join(' ');
         inner.dataset.group = connectorGroup;
         svg.appendChild(inner);
@@ -1203,7 +1335,7 @@
       for (const { point, neighbor, marker, people } of markers.values()) {
         const dx = point[0] - neighbor[0], dy = point[1] - neighbor[1], length = Math.hypot(dx, dy);
         if (!length) continue;
-        const el = svgElement('path', { d: `M ${point[0] - dx / length * .1} ${point[1] - dy / length * .1} L ${point[0]} ${point[1]}`, stroke: STYLES[kind].color, 'marker-end': marker });
+        const el = svgElement('path', { d: `M ${point[0] - dx / length * .1} ${point[1] - dy / length * .1} L ${point[0]} ${point[1]}`, stroke: STYLES[kind].color, 'marker-end': marker, 'vector-effect': 'non-scaling-stroke' });
         el.dataset.people = people.join(' '); el.dataset.group = group;
         svg.appendChild(el);
       }

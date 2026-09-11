@@ -4,7 +4,7 @@
   "scripts": {
     "start": "node server.cjs",
     "test": "node --test tests/*.test.cjs",
-    "test:browser": "python tests/family-ui.py && python tests/ux-form-query.py && python tests/ux-canvas-dismiss.py && python tests/ux-member-list-toolbar.py && python tests/ux-compact-history-toast-draft.py && python tests/ux-peek-back-filter-empty.py && python tests/ux-recent-undo-viewstate.py && python tests/ux-unlinked-query-filter.py && python tests/ux-mobile-viewport-shell.py && python tests/ux-mobile-gesture-policy.py",
+    "test:browser": "python tests/family-ui.py && python tests/ux-form-query.py && python tests/ux-canvas-dismiss.py && python tests/ux-member-list-toolbar.py && python tests/ux-compact-history-toast-draft.py && python tests/ux-peek-back-filter-empty.py && python tests/ux-recent-undo-viewstate.py && python tests/ux-unlinked-query-filter.py && python tests/ux-mobile-viewport-shell.py && python tests/ux-mobile-gesture-policy.py && python tests/ux-semantic-zoom.py",
     "build": "node build.cjs"
   },
   "engines": {

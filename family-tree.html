@@ -34,7 +34,50 @@
     .tree::-webkit-scrollbar-thumb { background:#a89782; border:3px solid #eee7dc; border-radius:8px; }
     .tree.is-dragging,.tree.is-dragging * { cursor:grabbing !important; user-select:none; }
     .tree:focus-visible { outline:2px solid #286e86; outline-offset:-3px; }
-    .tree__canvas { position:absolute; left:0; top:0; width:max-content; min-width:100%; min-height:100%; padding:80px 64px 64px; transform-origin:0 0; will-change:transform; }
+    .tree__canvas {
+      --person-width:176px; --person-min-height:108px; --person-padding-y:12px; --person-padding-x:16px;
+      --generation-gap:48px; --couple-gap:24px; --intermediate-slot-width:176px; --intermediate-slot-height:124px;
+      --person-name-size:1.25rem; --person-meta-size:.875rem; --person-order-size:.75rem;
+      --relation-label-size:12px; --generation-label-size:1.25rem; --intermediate-size:28px; --intermediate-font-size:20px;
+      position:absolute; left:0; top:0; width:max-content; min-width:100%; min-height:100%; padding:80px 64px 64px; transform-origin:0 0; will-change:transform;
+    }
+    /* Semantic zoom changes logical geometry and information density after a zoom gesture commits. */
+    .tree__canvas[data-zoom-level="overview"] {
+      --person-width:96px; --person-min-height:48px; --person-padding-y:6px; --person-padding-x:8px;
+      --generation-gap:22px; --couple-gap:10px; --intermediate-slot-width:96px; --intermediate-slot-height:66px;
+      --person-name-size:1.35rem; --person-meta-size:.82rem; --person-order-size:.72rem;
+      --relation-label-size:22px; --generation-label-size:2rem; --intermediate-size:48px; --intermediate-font-size:30px;
+    }
+    .tree__canvas[data-zoom-level="compact"] {
+      --person-width:116px; --person-min-height:56px; --person-padding-y:8px; --person-padding-x:10px;
+      --generation-gap:30px; --couple-gap:14px; --intermediate-slot-width:116px; --intermediate-slot-height:76px;
+      --person-name-size:1.05rem; --person-meta-size:.8rem; --person-order-size:.7rem;
+      --relation-label-size:18px; --generation-label-size:1.7rem; --intermediate-size:40px; --intermediate-font-size:26px;
+    }
+    .tree__canvas[data-zoom-level="condensed"] {
+      --person-width:148px; --person-min-height:78px; --person-padding-y:10px; --person-padding-x:12px;
+      --generation-gap:38px; --couple-gap:18px; --intermediate-slot-width:148px; --intermediate-slot-height:96px;
+      --person-name-size:1.12rem; --person-meta-size:.82rem; --person-order-size:.72rem;
+      --relation-label-size:15px; --generation-label-size:1.45rem; --intermediate-size:34px; --intermediate-font-size:23px;
+    }
+    .tree__canvas[data-zoom-level="medium"] {
+      --person-width:164px; --person-min-height:92px; --person-padding-y:11px; --person-padding-x:14px;
+      --generation-gap:43px; --couple-gap:21px; --intermediate-slot-width:164px; --intermediate-slot-height:106px;
+      --person-name-size:1.18rem; --person-meta-size:.84rem; --person-order-size:.72rem;
+      --relation-label-size:13px; --generation-label-size:1.3rem; --intermediate-size:31px; --intermediate-font-size:21px;
+    }
+    .tree__canvas[data-zoom-level="detail"] {
+      --person-width:154px; --person-min-height:96px; --person-padding-y:10px; --person-padding-x:13px;
+      --generation-gap:43px; --couple-gap:21px; --intermediate-slot-width:154px; --intermediate-slot-height:108px;
+      --person-name-size:.98rem; --person-meta-size:.72rem; --person-order-size:.66rem;
+      --relation-label-size:9.5px; --generation-label-size:1rem; --intermediate-size:22px; --intermediate-font-size:16px;
+    }
+    .tree__canvas[data-zoom-level="inspect"] {
+      --person-width:126px; --person-min-height:84px; --person-padding-y:8px; --person-padding-x:10px;
+      --generation-gap:36px; --couple-gap:18px; --intermediate-slot-width:126px; --intermediate-slot-height:94px;
+      --person-name-size:.82rem; --person-meta-size:.62rem; --person-order-size:.58rem;
+      --relation-label-size:7px; --generation-label-size:.86rem; --intermediate-size:18px; --intermediate-font-size:13px;
+    }
     .tree__zoom-spacer { width:100%; height:100%; visibility:hidden; pointer-events:none; }
     .tree-zoom-controls { position:absolute; z-index:6; left:50%; bottom:16px; transform:translateX(-50%); display:inline-flex; align-items:center; gap:4px; padding:5px; border:1px solid #d8cbb8; border-radius:10px; background:rgba(255,253,247,.96); box-shadow:0 4px 18px #2b211926; backdrop-filter:blur(6px); }
     .tree-zoom-controls button { display:inline-flex; align-items:center; justify-content:center; height:36px; min-width:36px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:var(--color-ink); cursor:pointer; font:600 .875rem/1 var(--font-sans); }
@@ -57,26 +100,30 @@
     .tree__generation-band[data-tone="2"],.tree__generation-label-track[data-tone="2"] { --generation-fill:#edf3ed; --generation-ink:#9baa9a; }
     .tree__generation-band[data-tone="3"],.tree__generation-label-track[data-tone="3"] { --generation-fill:#edf1f7; --generation-ink:#9aa9c0; }
     .tree__generation-band[data-tone="4"],.tree__generation-label-track[data-tone="4"] { --generation-fill:#f4edf2; --generation-ink:#b4a0b0; }
-    .tree__generation-label { position:absolute; left:var(--generation-label-left,0px); top:0; display:flex; align-items:center; justify-content:center; width:48px; height:100%; max-height:100%; padding:12px 0; color:var(--generation-ink); font:600 1.25rem/1.5 var(--font-serif); letter-spacing:.12em; writing-mode:vertical-rl; text-orientation:upright; white-space:nowrap; background:rgba(255,255,255,.22); }
+    .tree__generation-label { position:absolute; left:var(--generation-label-left,0px); top:0; display:flex; align-items:center; justify-content:center; width:48px; height:100%; max-height:100%; padding:12px 0; color:var(--generation-ink); font:600 var(--generation-label-size)/1.5 var(--font-serif); letter-spacing:.12em; writing-mode:vertical-rl; text-orientation:upright; white-space:nowrap; background:rgba(255,255,255,.22); }
     .tree__connectors { position:absolute; z-index:2; inset:0; width:100%; height:100%; pointer-events:none; }
     .tree__rows { position:relative; z-index:1; }
-    .intermediate-node { position:absolute; z-index:3; transform:translate(-50%,-50%); width:28px; height:28px; padding:0; border:2px solid #347045; border-radius:50%; background:white; color:#347045; font:bold 20px/24px sans-serif; cursor:pointer; }
-    .intermediate-slot { flex:none; width:176px; min-height:124px; }
+    .intermediate-node { position:absolute; z-index:3; transform:translate(-50%,-50%); width:var(--intermediate-size); height:var(--intermediate-size); padding:0; border:2px solid #347045; border-radius:50%; background:white; color:#347045; font:bold var(--intermediate-font-size)/1 sans-serif; cursor:pointer; }
+    .intermediate-slot { flex:none; width:var(--intermediate-slot-width); min-height:var(--intermediate-slot-height); }
     .intermediate-node:hover { background:#e2f0e4; }
     .intermediate-node:focus-visible { outline:3px solid #286e86; outline-offset:3px; }
-    .generation { display:flex; justify-content:center; align-items:stretch; gap:48px; }
+    .generation { display:flex; justify-content:center; align-items:stretch; gap:var(--generation-gap); }
     .generation:last-child { margin-bottom:0 !important; }
-    .couple-group { display:flex; gap:24px; align-items:stretch; }
-    .person { position:relative; flex:none; width:176px; min-height:108px; padding:12px 16px; background:white; border:1px solid var(--color-line); border-radius:10px; cursor:pointer; }
+    .couple-group { display:flex; gap:var(--couple-gap); align-items:stretch; }
+    .person { position:relative; flex:none; width:var(--person-width); min-height:var(--person-min-height); padding:var(--person-padding-y) var(--person-padding-x); background:white; border:1px solid var(--color-line); border-radius:10px; cursor:pointer; }
     .person > span { display:block; }
-    .person__name { font:1.25rem/1.4 var(--font-serif); white-space:nowrap; }
-    .person__location,.person__position { font-size:.875rem; color:var(--color-ink-soft); overflow-wrap:anywhere; }
-    .person__order { margin-top:6px; font-size:.75rem; color:var(--color-ink-soft); }
-    /* At very small desktop zoom levels, keep the exact card geometry used by connector routing.
-       Hidden details stay in layout so crossing the 60% threshold never moves cards after paths are measured. */
-    .tree__canvas.is-desktop-name-only .person > span:not(.person__name) { visibility:hidden; }
-    .tree__canvas.is-desktop-name-only .person__name { color:transparent; }
-    .tree__canvas.is-desktop-name-only .person__name::after { content:attr(data-compact-name); position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:12px 16px; color:var(--color-ink); font:1.25rem/1.4 var(--font-serif); text-align:center; white-space:nowrap; pointer-events:none; }
+    .person__name { font:var(--person-name-size)/1.4 var(--font-serif); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .person__location,.person__position { font-size:var(--person-meta-size); color:var(--color-ink-soft); overflow-wrap:anywhere; }
+    .person__order { margin-top:6px; font-size:var(--person-order-size); color:var(--color-ink-soft); }
+    .tree__canvas[data-zoom-level="overview"] .person,
+    .tree__canvas[data-zoom-level="compact"] .person { display:flex; align-items:center; justify-content:center; text-align:center; }
+    .tree__canvas[data-zoom-level="overview"] .person > span:not(.person__name),
+    .tree__canvas[data-zoom-level="compact"] .person > span:not(.person__name) { display:none; }
+    .tree__canvas[data-zoom-level="overview"] .person__name,
+    .tree__canvas[data-zoom-level="compact"] .person__name { width:100%; }
+    .tree__canvas[data-zoom-level="condensed"] .person__position,
+    .tree__canvas[data-zoom-level="condensed"] .person__order,
+    .tree__canvas[data-zoom-level="medium"] .person__order { display:none; }
     .person[aria-pressed="true"] { outline:3px solid var(--color-accent); outline-offset:3px; }
     .person:focus-visible { outline:3px solid #286e86; outline-offset:3px; }
     .member-tooltip { --tooltip-arrow-x:50%; --tooltip-arrow-y:50%; position:fixed; z-index:20; width:max-content; max-width:min(320px,calc(100vw - 24px)); border:1px solid #d8cbb8; border-radius:12px; background:rgba(255,255,255,.98); box-shadow:0 10px 30px #2b211926,0 2px 8px #2b211914; pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .15s ease,transform .15s ease; filter:drop-shadow(0 1px 0 rgba(255,255,255,.35)); }
@@ -140,7 +187,8 @@
     .relationship-entry__badge { display:inline-block; padding:1px 7px; border-radius:4px; background:#f1e9de; color:#715443; font-size:.75rem; }
     .relationship-entry__context { margin-top:5px; color:var(--color-ink-soft); font-size:.75rem; line-height:1.5; }
     .tree__error { padding:24px; color:var(--color-accent); }
-    .relation-label { font:600 12px var(--font-sans); paint-order:stroke; stroke:var(--color-paper); stroke-width:5px; stroke-linejoin:round; }
+    .relation-label { font:600 var(--relation-label-size) var(--font-sans); paint-order:stroke; stroke:var(--color-paper); stroke-width:3px; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+    .tree__connectors path,.tree__connectors circle { vector-effect:non-scaling-stroke; }
     .primary-button { background:var(--color-accent); color:white; border:0; padding:7px 14px; border-radius:6px; cursor:pointer; white-space:nowrap; }
     button:disabled { opacity:.55; cursor:wait; }
     .save-status { position:absolute; z-index:24; left:16px; bottom:24px; max-width:min(520px,calc(100% - 32px)); margin:0; padding:9px 14px; background:#fffdf8; border:1px solid var(--color-line); border-radius:9px; box-shadow:0 8px 24px #2b211922; font-size:.875rem; line-height:1.45; pointer-events:auto; display:flex; gap:10px; align-items:center; }
@@ -463,9 +511,9 @@
       }
       .tree::-webkit-scrollbar { display:none; width:0; height:0; }
       .tree__canvas { padding:44px 28px 48px; }
-      .tree__generation-label { width:34px; padding:8px 0; font-size:1rem; }
+      .tree__generation-label { width:34px; padding:8px 0; font-size:var(--generation-label-size); }
 
-      .person { min-height:104px; }
+      .person { min-height:var(--person-min-height); }
       button, .select-trigger { touch-action:manipulation; }
       .tree .person, .tree .intermediate-node { touch-action:none; }
 

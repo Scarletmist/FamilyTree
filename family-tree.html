@@ -18,6 +18,8 @@
     .page-header__identity { display:flex; align-items:center; gap:8px; min-width:0; }
     .page-header__identity .details-icon { flex:none; width:32px; height:32px; }
     .tree-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-left:auto; }
+    .tree-control-icon { display:none; align-items:center; justify-content:center; width:22px; height:22px; }
+    .tree-control-icon svg { width:22px; height:22px; display:block; }
     select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px; background:white; max-width:260px; }
     .legend-panel { flex:none; background:white; padding:8px 24px; border-bottom:1px solid var(--color-line); }
     .legend-panel summary { cursor:pointer; color:var(--color-ink-soft); font-size:.8rem; }
@@ -25,13 +27,22 @@
     .legend__item { display:flex; align-items:center; gap:6px; white-space:nowrap; }
     .legend__item svg { width:64px; height:24px; overflow:visible; }
     .workspace { position:relative; flex:1; min-height:0; min-width:0; }
-    .tree { width:100%; height:100%; overflow:auto; scrollbar-gutter:stable; scrollbar-color:#a89782 #eee7dc; cursor:grab; touch-action:pan-x pan-y; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; background:var(--color-paper); }
+    .tree { position:relative; width:100%; height:100%; overflow:auto; scrollbar-gutter:stable; scrollbar-color:#a89782 #eee7dc; cursor:grab; touch-action:pan-x pan-y; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; background:var(--color-paper); }
     .tree::-webkit-scrollbar { width:14px; height:14px; }
     .tree::-webkit-scrollbar-track,.tree::-webkit-scrollbar-corner { background:#eee7dc; }
     .tree::-webkit-scrollbar-thumb { background:#a89782; border:3px solid #eee7dc; border-radius:8px; }
     .tree.is-dragging,.tree.is-dragging * { cursor:grabbing !important; user-select:none; }
     .tree:focus-visible { outline:2px solid #286e86; outline-offset:-3px; }
-    .tree__canvas { position:relative; width:max-content; min-width:100%; min-height:100%; padding:80px 64px 64px; }
+    .tree__canvas { position:absolute; left:0; top:0; width:max-content; min-width:100%; min-height:100%; padding:80px 64px 64px; transform-origin:0 0; will-change:transform; }
+    .tree__zoom-spacer { width:100%; height:100%; visibility:hidden; pointer-events:none; }
+    .tree-zoom-controls { position:absolute; z-index:6; left:50%; bottom:16px; transform:translateX(-50%); display:inline-flex; align-items:center; gap:4px; padding:5px; border:1px solid #d8cbb8; border-radius:10px; background:rgba(255,253,247,.96); box-shadow:0 4px 18px #2b211926; backdrop-filter:blur(6px); }
+    .tree-zoom-controls button { display:inline-flex; align-items:center; justify-content:center; height:36px; min-width:36px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:var(--color-ink); cursor:pointer; font:600 .875rem/1 var(--font-sans); }
+    .tree-zoom-controls button:hover { background:#f0e7da; }
+    .tree-zoom-controls button:focus-visible { outline:2px solid #286e86; outline-offset:1px; }
+    .tree-zoom-controls button:disabled { opacity:.4; cursor:default; background:transparent; }
+    .tree-zoom-controls svg { width:18px; height:18px; }
+    #tree-zoom-value { min-width:58px; font-variant-numeric:tabular-nums; }
+    #tree-zoom-fit { gap:6px; padding-inline:10px; }
     /* Four soft tones repeat by actual generation number, not by visible row. */
     .tree__generation-bands,.tree__generation-labels { position:absolute; inset:0; pointer-events:none; }
     .tree__generation-bands { z-index:0; }
@@ -216,6 +227,8 @@
 
     /* Mobile is intentionally a separate layout strategy instead of a shrunken desktop layout. */
     @media (max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse) {
+      .tree__canvas { position:relative; left:auto; top:auto; transform:none !important; will-change:auto; }
+      .tree__zoom-spacer,.tree-zoom-controls { display:none; }
       html,body { width:100%; height:100%; min-height:100%; }
       body { height:100dvh; min-height:0; }
 
@@ -238,8 +251,11 @@
       .tree-controls { width:100%; margin-left:0; gap:6px; padding:1px 0; font-size:.78rem; }
       .tree-controls > *, .relationship-search > * { flex:none; }
       .tree-controls label { white-space:nowrap; }
-      .tree-controls select { width:auto; min-width:112px; max-width:152px; min-height:36px; padding:5px 8px; }
-      .tree-controls button { min-height:36px; padding:5px 9px; }
+      .tree-controls .family-filter-label { display:none; }
+      .tree-controls select { width:auto; min-width:112px; max-width:152px; min-height:44px; padding:5px 8px; }
+      .tree-controls .mobile-icon-control { display:inline-flex; align-items:center; justify-content:center; width:44px; min-width:44px; height:44px; min-height:44px; padding:0; }
+      .tree-controls .mobile-icon-control .tree-control-icon { display:inline-flex; }
+      .tree-controls .mobile-icon-control .tree-control-text { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
       .relationship-search { gap:6px; padding:5px 8px; min-height:46px; align-items:center; }
       .relationship-search label { flex:none; }
@@ -392,12 +408,24 @@
         </button>
       </div>
       <div class="tree-controls">
-        <label for="family-filter">顯示範圍</label>
-        <select id="family-filter"><option value="">所有關係</option></select>
-        <button type="button" id="show-member-list" class="plain-button">所有成員</button>
-        <button type="button" id="add-member" class="primary-button" disabled>＋ 新增成員</button>
-        <button type="button" id="import-json" class="plain-button" disabled>匯入 JSON</button>
-        <button type="button" id="export-json" class="plain-button" disabled>匯出 JSON</button>
+        <label for="family-filter" class="family-filter-label">顯示範圍</label>
+        <select id="family-filter" aria-label="顯示範圍"><option value="">所有關係</option></select>
+        <button type="button" id="show-member-list" class="plain-button mobile-icon-control" aria-label="所有成員" title="所有成員">
+          <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1" fill="currentColor" stroke="none"/></svg></span>
+          <span class="tree-control-text">所有成員</span>
+        </button>
+        <button type="button" id="add-member" class="primary-button mobile-icon-control" aria-label="新增成員" title="新增成員" disabled>
+          <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3.5 19c.6-4 2.5-6 5.5-6s4.9 2 5.5 6"/><path d="M18 13v6M15 16h6"/></svg></span>
+          <span class="tree-control-text">＋ 新增成員</span>
+        </button>
+        <button type="button" id="import-json" class="plain-button mobile-icon-control" aria-label="匯入 JSON" title="匯入 JSON" disabled>
+          <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M5 18v2h14v-2"/></svg></span>
+          <span class="tree-control-text">匯入</span>
+        </button>
+        <button type="button" id="export-json" class="plain-button mobile-icon-control" aria-label="匯出 JSON" title="匯出 JSON" disabled>
+          <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 18v2h14v-2"/></svg></span>
+          <span class="tree-control-text">匯出</span>
+        </button>
         <input type="file" id="import-file" accept=".json,application/json" hidden />
       </div>
     </div>
@@ -426,7 +454,21 @@
     <section id="relationship-summary" class="relationship-summary" aria-live="polite" aria-label="兩人關係結果" hidden></section>
     <main class="tree" tabindex="0" aria-label="族譜關係圖，可用捲軸、方向鍵或按住拖曳移動">
       <div class="tree__canvas" id="tree-canvas"></div>
+      <div class="tree__zoom-spacer" id="tree-zoom-spacer" aria-hidden="true"></div>
     </main>
+    <div class="tree-zoom-controls" id="tree-zoom-controls" role="group" aria-label="族譜縮放控制">
+      <button type="button" id="tree-zoom-out" aria-label="縮小族譜" title="縮小">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+      </button>
+      <button type="button" id="tree-zoom-value" aria-label="重設族譜縮放為 100%" title="重設為 100%">100%</button>
+      <button type="button" id="tree-zoom-in" aria-label="放大族譜" title="放大">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button type="button" id="tree-zoom-fit" aria-label="讓族譜適應畫布寬度" title="適應畫布寬度">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7H4v4M16 7h4v4M8 17H4v-4M16 17h4v-4"/><path d="m4 7 5 5-5 5M20 7l-5 5 5 5" opacity=".45"/></svg>
+        <span>適應寬度</span>
+      </button>
+    </div>
     <section class="relationship-details" id="relationship-details" aria-label="成員關係詳情" hidden></section>
     <div id="member-tooltip" class="member-tooltip" role="tooltip" hidden>
       <div class="member-tooltip__header"><span class="member-tooltip__label">成員備註</span><span id="member-tooltip-name"></span></div>

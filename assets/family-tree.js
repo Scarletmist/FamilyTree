@@ -32,6 +32,123 @@
     nameToggle.setAttribute('aria-label', label); nameToggle.title = label;
     render();
   });
+  const desktopZoom = (() => {
+    const MOBILE_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)';
+    const MIN_SCALE = 0.25;
+    const MAX_SCALE = 2;
+    const STEP = 0.1;
+    let scale = 1;
+    let naturalWidth = 0;
+    let naturalHeight = 0;
+    let rendering = false;
+
+    const viewport = () => document.querySelector('.tree');
+    const canvas = () => document.getElementById('tree-canvas');
+    const spacer = () => document.getElementById('tree-zoom-spacer');
+    const isMobileLayout = () => matchMedia(MOBILE_QUERY).matches;
+    const roundScale = value => Math.round(value * 1000) / 1000;
+    const clampScale = value => Math.max(MIN_SCALE, Math.min(MAX_SCALE, roundScale(value)));
+
+    function updateControls() {
+      const value = document.getElementById('tree-zoom-value');
+      const out = document.getElementById('tree-zoom-out');
+      const plus = document.getElementById('tree-zoom-in');
+      if (value) value.textContent = `${Math.round(scale * 100)}%`;
+      if (out) out.disabled = scale <= MIN_SCALE + .001;
+      if (plus) plus.disabled = scale >= MAX_SCALE - .001;
+    }
+
+    function updateSpacer() {
+      const view = viewport(), root = canvas(), space = spacer();
+      if (!view || !root || !space || isMobileLayout()) return;
+      naturalWidth = Math.max(root.offsetWidth, root.scrollWidth);
+      naturalHeight = Math.max(root.offsetHeight, root.scrollHeight);
+      space.style.width = Math.max(view.clientWidth, Math.ceil(naturalWidth * scale)) + 'px';
+      space.style.height = Math.max(view.clientHeight, Math.ceil(naturalHeight * scale)) + 'px';
+    }
+
+    function applyScale() {
+      const root = canvas();
+      if (!root) return;
+      if (isMobileLayout()) {
+        root.style.transform = '';
+        const space = spacer();
+        if (space) { space.style.width = ''; space.style.height = ''; }
+        return;
+      }
+      root.style.transform = `scale(${scale})`;
+      updateSpacer();
+    }
+
+    function setScale(next, anchor) {
+      if (isMobileLayout()) return;
+      const view = viewport();
+      if (!view) return;
+      next = clampScale(next);
+      if (Math.abs(next - scale) < .001) return;
+      const oldScale = scale;
+      const anchorX = anchor?.x ?? view.clientWidth / 2;
+      const anchorY = anchor?.y ?? view.clientHeight / 2;
+      const logicalX = (view.scrollLeft + anchorX) / oldScale;
+      const logicalY = (view.scrollTop + anchorY) / oldScale;
+      scale = next;
+      applyScale();
+      view.scrollLeft = Math.max(0, logicalX * scale - anchorX);
+      view.scrollTop = Math.max(0, logicalY * scale - anchorY);
+      updateControls();
+      memberTooltip.hide(null, true);
+    }
+
+    function fitWidth() {
+      if (isMobileLayout()) return;
+      const view = viewport(), root = canvas();
+      if (!view || !root) return;
+      const width = naturalWidth || Math.max(root.offsetWidth, root.scrollWidth);
+      if (!width) return;
+      const target = Math.min(1, Math.max(MIN_SCALE, (view.clientWidth - 24) / width));
+      setScale(target, { x: view.clientWidth / 2, y: 0 });
+      view.scrollLeft = Math.max(0, (width * scale - view.clientWidth) / 2);
+      view.scrollTop = 0;
+    }
+
+    function beforeRender() {
+      const root = canvas();
+      rendering = true;
+      if (root) root.style.transform = 'none';
+    }
+
+    function afterRender() {
+      rendering = false;
+      const root = canvas();
+      if (!root) return;
+      if (isMobileLayout()) {
+        root.style.transform = '';
+        return;
+      }
+      naturalWidth = Math.max(root.offsetWidth, root.scrollWidth);
+      naturalHeight = Math.max(root.offsetHeight, root.scrollHeight);
+      applyScale();
+      updateControls();
+    }
+
+    function bind() {
+      const out = document.getElementById('tree-zoom-out');
+      const plus = document.getElementById('tree-zoom-in');
+      const value = document.getElementById('tree-zoom-value');
+      const fit = document.getElementById('tree-zoom-fit');
+      if (!out || out.dataset.bound) return;
+      out.addEventListener('click', () => setScale(scale - STEP));
+      plus?.addEventListener('click', () => setScale(scale + STEP));
+      value?.addEventListener('click', () => setScale(1));
+      fit?.addEventListener('click', fitWidth);
+      out.dataset.bound = 'true';
+      updateControls();
+    }
+
+    bind();
+    return { beforeRender, afterRender, setScale, fitWidth, getScale: () => scale, isRendering: () => rendering };
+  })();
+
   let suppressClick = false;
   const memberTooltip = (() => {
     const tooltip = document.getElementById('member-tooltip');
@@ -256,7 +373,7 @@
     }, true);
     viewport.addEventListener('dragstart', event => event.preventDefault());
   }
-  function render() {
+  function renderTree() {
     const canvas = document.getElementById('tree-canvas');
     if (!canvas) return;
     buildLegend();
@@ -752,6 +869,14 @@
       viewport.scrollLeft = Math.max(0, center - viewport.clientWidth / 2);
       viewport.scrollTop = firstRealGeneration > firstGeneration ? Math.max(0, Math.min(...topPeople.map(p => p.top)) - 32) : 0;
       viewport.dataset.scope = scope;
+    }
+  }
+  function render() {
+    desktopZoom.beforeRender();
+    try {
+      return renderTree();
+    } finally {
+      desktopZoom.afterRender();
     }
   }
   window.renderFamilyTree = render;

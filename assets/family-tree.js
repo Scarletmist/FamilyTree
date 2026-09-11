@@ -32,9 +32,10 @@
     nameToggle.setAttribute('aria-label', label); nameToggle.title = label;
     render();
   });
-  const desktopZoom = (() => {
+  const treeZoom = (() => {
     const MOBILE_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)';
-    const MIN_SCALE = 0.25;
+    const DESKTOP_MIN_SCALE = 0.25;
+    const MOBILE_MIN_SCALE = 0.5;
     const MAX_SCALE = 2;
     const STEP = 0.1;
     let scale = 1;
@@ -46,21 +47,22 @@
     const canvas = () => document.getElementById('tree-canvas');
     const spacer = () => document.getElementById('tree-zoom-spacer');
     const isMobileLayout = () => matchMedia(MOBILE_QUERY).matches;
+    const minScale = () => isMobileLayout() ? MOBILE_MIN_SCALE : DESKTOP_MIN_SCALE;
     const roundScale = value => Math.round(value * 1000) / 1000;
-    const clampScale = value => Math.max(MIN_SCALE, Math.min(MAX_SCALE, roundScale(value)));
+    const clampScale = value => Math.max(minScale(), Math.min(MAX_SCALE, roundScale(value)));
 
     function updateControls() {
       const value = document.getElementById('tree-zoom-value');
       const out = document.getElementById('tree-zoom-out');
       const plus = document.getElementById('tree-zoom-in');
       if (value) value.textContent = `${Math.round(scale * 100)}%`;
-      if (out) out.disabled = scale <= MIN_SCALE + .001;
+      if (out) out.disabled = scale <= minScale() + .001;
       if (plus) plus.disabled = scale >= MAX_SCALE - .001;
     }
 
     function updateSpacer() {
       const view = viewport(), root = canvas(), space = spacer();
-      if (!view || !root || !space || isMobileLayout()) return;
+      if (!view || !root || !space) return;
       naturalWidth = Math.max(root.offsetWidth, root.scrollWidth);
       naturalHeight = Math.max(root.offsetHeight, root.scrollHeight);
       space.style.width = Math.max(view.clientWidth, Math.ceil(naturalWidth * scale)) + 'px';
@@ -70,42 +72,49 @@
     function applyScale() {
       const root = canvas();
       if (!root) return;
-      if (isMobileLayout()) {
-        root.style.transform = '';
-        const space = spacer();
-        if (space) { space.style.width = ''; space.style.height = ''; }
-        return;
-      }
       root.style.transform = `scale(${scale})`;
       updateSpacer();
     }
 
-    function setScale(next, anchor) {
-      if (isMobileLayout()) return;
+    function positionLogicalAtAnchor(logical, anchor) {
       const view = viewport();
       if (!view) return;
+      view.scrollLeft = Math.max(0, logical.x * scale - anchor.x);
+      view.scrollTop = Math.max(0, logical.y * scale - anchor.y);
+    }
+
+    function setScaleAroundLogical(next, logical, anchor) {
+      const view = viewport();
+      if (!view) return scale;
       next = clampScale(next);
-      if (Math.abs(next - scale) < .001) return;
-      const oldScale = scale;
-      const anchorX = anchor?.x ?? view.clientWidth / 2;
-      const anchorY = anchor?.y ?? view.clientHeight / 2;
-      const logicalX = (view.scrollLeft + anchorX) / oldScale;
-      const logicalY = (view.scrollTop + anchorY) / oldScale;
       scale = next;
       applyScale();
-      view.scrollLeft = Math.max(0, logicalX * scale - anchorX);
-      view.scrollTop = Math.max(0, logicalY * scale - anchorY);
+      positionLogicalAtAnchor(logical, anchor);
       updateControls();
       memberTooltip.hide(null, true);
+      return scale;
+    }
+
+    function setScale(next, anchor) {
+      const view = viewport();
+      if (!view) return scale;
+      next = clampScale(next);
+      const anchorX = anchor?.x ?? view.clientWidth / 2;
+      const anchorY = anchor?.y ?? view.clientHeight / 2;
+      if (Math.abs(next - scale) < .001) return scale;
+      const logical = {
+        x: (view.scrollLeft + anchorX) / scale,
+        y: (view.scrollTop + anchorY) / scale
+      };
+      return setScaleAroundLogical(next, logical, { x: anchorX, y: anchorY });
     }
 
     function fitWidth() {
-      if (isMobileLayout()) return;
       const view = viewport(), root = canvas();
       if (!view || !root) return;
       const width = naturalWidth || Math.max(root.offsetWidth, root.scrollWidth);
       if (!width) return;
-      const target = Math.min(1, Math.max(MIN_SCALE, (view.clientWidth - 24) / width));
+      const target = Math.min(1, Math.max(minScale(), (view.clientWidth - 24) / width));
       setScale(target, { x: view.clientWidth / 2, y: 0 });
       view.scrollLeft = Math.max(0, (width * scale - view.clientWidth) / 2);
       view.scrollTop = 0;
@@ -121,10 +130,7 @@
       rendering = false;
       const root = canvas();
       if (!root) return;
-      if (isMobileLayout()) {
-        root.style.transform = '';
-        return;
-      }
+      scale = clampScale(scale);
       naturalWidth = Math.max(root.offsetWidth, root.scrollWidth);
       naturalHeight = Math.max(root.offsetHeight, root.scrollHeight);
       applyScale();
@@ -146,7 +152,18 @@
     }
 
     bind();
-    return { beforeRender, afterRender, setScale, fitWidth, getScale: () => scale, isRendering: () => rendering };
+    return {
+      beforeRender,
+      afterRender,
+      setScale,
+      setScaleAroundLogical,
+      fitWidth,
+      getScale: () => scale,
+      isMobileLayout,
+      getMinScale: minScale,
+      getMaxScale: () => MAX_SCALE,
+      isRendering: () => rendering
+    };
   })();
 
   let suppressClick = false;
@@ -333,41 +350,215 @@
   function bindPanning(viewport) {
     if (viewport.dataset.panBound) return;
     viewport.dataset.panBound = 'true';
-    let drag = null;
+
+    let mouseDrag = null;
+    const touchPointers = new Map();
+    let singleTouch = null;
+    let pinch = null;
+    let inertiaFrame = 0;
+
+    const now = () => performance.now();
+    const stopInertia = () => {
+      if (inertiaFrame) cancelAnimationFrame(inertiaFrame);
+      inertiaFrame = 0;
+    };
+    const capture = id => {
+      try { if (!viewport.hasPointerCapture(id)) viewport.setPointerCapture(id); } catch (_) {}
+    };
+    const release = id => {
+      try { if (viewport.hasPointerCapture(id)) viewport.releasePointerCapture(id); } catch (_) {}
+    };
+    const localPoint = point => {
+      const box = viewport.getBoundingClientRect();
+      return { x: point.x - box.left, y: point.y - box.top };
+    };
+    const pointerPair = () => [...touchPointers.values()].slice(0, 2);
+
+    function beginSingle(point, alreadyMoved = false) {
+      singleTouch = {
+        id: point.id,
+        x: point.x,
+        y: point.y,
+        left: viewport.scrollLeft,
+        top: viewport.scrollTop,
+        moved: alreadyMoved,
+        lastTime: point.time,
+        lastLeft: viewport.scrollLeft,
+        lastTop: viewport.scrollTop,
+        vx: 0,
+        vy: 0
+      };
+      if (alreadyMoved) {
+        capture(point.id);
+        viewport.classList.add('is-dragging');
+      }
+    }
+
+    function beginPinch() {
+      const pair = pointerPair();
+      if (pair.length < 2) return;
+      const [a, b] = pair;
+      const mid = localPoint({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      const scale = treeZoom.getScale();
+      pinch = {
+        ids: [a.id, b.id],
+        distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        scale,
+        logical: {
+          x: (viewport.scrollLeft + mid.x) / scale,
+          y: (viewport.scrollTop + mid.y) / scale
+        }
+      };
+      singleTouch = null;
+      suppressClick = true;
+      capture(a.id);
+      capture(b.id);
+      viewport.classList.add('is-dragging');
+    }
+
+    function updatePinch(event) {
+      if (!pinch) return;
+      const a = touchPointers.get(pinch.ids[0]);
+      const b = touchPointers.get(pinch.ids[1]);
+      if (!a || !b) {
+        if (touchPointers.size >= 2) beginPinch();
+        return;
+      }
+      const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      const mid = localPoint({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      treeZoom.setScaleAroundLogical(pinch.scale * (distance / pinch.distance), pinch.logical, mid);
+      suppressClick = true;
+      event.preventDefault();
+    }
+
+    function startInertia(vx, vy) {
+      stopInertia();
+      if (Math.hypot(vx, vy) < .04) return;
+      let last = now();
+      function frame(time) {
+        const dt = Math.min(32, Math.max(1, time - last));
+        last = time;
+        const oldLeft = viewport.scrollLeft;
+        const oldTop = viewport.scrollTop;
+        viewport.scrollLeft += vx * dt;
+        viewport.scrollTop += vy * dt;
+        if (Math.abs(viewport.scrollLeft - oldLeft) < .1) vx = 0;
+        if (Math.abs(viewport.scrollTop - oldTop) < .1) vy = 0;
+        const decay = Math.pow(.92, dt / 16.67);
+        vx *= decay;
+        vy *= decay;
+        if (Math.hypot(vx, vy) < .025) { inertiaFrame = 0; return; }
+        inertiaFrame = requestAnimationFrame(frame);
+      }
+      inertiaFrame = requestAnimationFrame(frame);
+    }
+
     viewport.addEventListener('pointerdown', event => {
-      // Touch/pen use the browser's native two-axis overflow panning. It is
-      // substantially more reliable on iOS/Android than competing with the
-      // browser through a custom pointer gesture. Desktop mouse keeps the
-      // click-and-drag canvas interaction.
+      if (treeZoom.isMobileLayout() && event.pointerType !== 'mouse') {
+        stopInertia();
+        if (touchPointers.size === 0) suppressClick = false;
+        touchPointers.set(event.pointerId, { id: event.pointerId, x: event.clientX, y: event.clientY, time: now() });
+        if (touchPointers.size === 1) beginSingle(touchPointers.get(event.pointerId));
+        else if (touchPointers.size === 2) beginPinch();
+        return;
+      }
+
       if (event.pointerType && event.pointerType !== 'mouse') return;
       if (!event.isPrimary || event.button !== 0) return;
-      // Leave native scrollbar interaction to the browser.
       const box = viewport.getBoundingClientRect();
       if (event.clientX >= box.left + viewport.clientWidth || event.clientY >= box.top + viewport.clientHeight) return;
       suppressClick = false;
-      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop, moved: false };
+      mouseDrag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop, moved: false };
     });
+
     viewport.addEventListener('pointermove', event => {
-      if (!drag || event.pointerId !== drag.id) return;
-      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
-      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
-      drag.moved = true;
+      if (treeZoom.isMobileLayout() && event.pointerType !== 'mouse') {
+        const point = touchPointers.get(event.pointerId);
+        if (!point) return;
+        point.x = event.clientX;
+        point.y = event.clientY;
+        point.time = now();
+        if (touchPointers.size >= 2) {
+          updatePinch(event);
+          return;
+        }
+        if (!singleTouch || event.pointerId !== singleTouch.id) return;
+        const dx = event.clientX - singleTouch.x;
+        const dy = event.clientY - singleTouch.y;
+        if (!singleTouch.moved && Math.hypot(dx, dy) < 6) return;
+        if (!singleTouch.moved) {
+          singleTouch.moved = true;
+          suppressClick = true;
+          capture(event.pointerId);
+          viewport.classList.add('is-dragging');
+        }
+        viewport.scrollLeft = singleTouch.left - dx;
+        viewport.scrollTop = singleTouch.top - dy;
+        const time = now();
+        const dt = Math.max(1, time - singleTouch.lastTime);
+        const instantVx = (viewport.scrollLeft - singleTouch.lastLeft) / dt;
+        const instantVy = (viewport.scrollTop - singleTouch.lastTop) / dt;
+        singleTouch.vx = singleTouch.vx * .55 + instantVx * .45;
+        singleTouch.vy = singleTouch.vy * .55 + instantVy * .45;
+        singleTouch.lastTime = time;
+        singleTouch.lastLeft = viewport.scrollLeft;
+        singleTouch.lastTop = viewport.scrollTop;
+        event.preventDefault();
+        return;
+      }
+
+      if (!mouseDrag || event.pointerId !== mouseDrag.id) return;
+      const dx = event.clientX - mouseDrag.x, dy = event.clientY - mouseDrag.y;
+      if (!mouseDrag.moved && Math.hypot(dx, dy) < 6) return;
+      mouseDrag.moved = true;
       suppressClick = true;
-      viewport.setPointerCapture(event.pointerId);
+      capture(event.pointerId);
       viewport.classList.add('is-dragging');
-      viewport.scrollLeft = drag.left - dx;
-      viewport.scrollTop = drag.top - dy;
+      viewport.scrollLeft = mouseDrag.left - dx;
+      viewport.scrollTop = mouseDrag.top - dy;
       event.preventDefault();
     });
-    function finish(event) {
-      if (!drag || event.pointerId !== drag.id) return;
-      if (viewport.hasPointerCapture(drag.id)) viewport.releasePointerCapture(drag.id);
-      drag = null;
+
+    function finishTouch(event, cancelled = false) {
+      const point = touchPointers.get(event.pointerId);
+      if (!point) return;
+      const endedSingle = singleTouch && singleTouch.id === event.pointerId ? singleTouch : null;
+      touchPointers.delete(event.pointerId);
+      release(event.pointerId);
+
+      if (touchPointers.size >= 2) {
+        beginPinch();
+        return;
+      }
+      if (touchPointers.size === 1) {
+        const remaining = [...touchPointers.values()][0];
+        beginSingle(remaining, !!pinch || !!endedSingle?.moved);
+        pinch = null;
+        return;
+      }
+
+      pinch = null;
+      singleTouch = null;
+      viewport.classList.remove('is-dragging');
+      if (!cancelled && endedSingle?.moved) startInertia(endedSingle.vx, endedSingle.vy);
+    }
+
+    function finish(event, cancelled = false) {
+      if (treeZoom.isMobileLayout() && event.pointerType !== 'mouse') {
+        finishTouch(event, cancelled);
+        return;
+      }
+      if (!mouseDrag || event.pointerId !== mouseDrag.id) return;
+      release(mouseDrag.id);
+      mouseDrag = null;
       viewport.classList.remove('is-dragging');
     }
-    viewport.addEventListener('pointerup', finish);
-    viewport.addEventListener('pointercancel', finish);
-    viewport.addEventListener('lostpointercapture', finish);
+
+    viewport.addEventListener('pointerup', event => finish(event, false));
+    viewport.addEventListener('pointercancel', event => finish(event, true));
+    viewport.addEventListener('lostpointercapture', event => {
+      if (event.pointerType === 'mouse') finish(event, true);
+    });
     viewport.addEventListener('click', event => {
       if (suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); suppressClick = false; }
     }, true);
@@ -670,7 +861,7 @@
       button.dataset.gen = plan.generation + displayShift;
       button.setAttribute('aria-label', plan.title); button.title = plan.title;
       button.style.left = x + 'px'; button.style.top = y + 'px';
-      button.addEventListener('pointerdown', event => { suppressClick = false; event.stopPropagation(); });
+      button.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') { suppressClick = false; event.stopPropagation(); } });
       button.addEventListener('click', event => { event.stopPropagation(); window.addIntermediateMember(plan.id); });
       intermediateButtons.push(button);
     }
@@ -872,11 +1063,11 @@
     }
   }
   function render() {
-    desktopZoom.beforeRender();
+    treeZoom.beforeRender();
     try {
       return renderTree();
     } finally {
-      desktopZoom.afterRender();
+      treeZoom.afterRender();
     }
   }
   window.renderFamilyTree = render;

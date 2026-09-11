@@ -773,7 +773,7 @@
           node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
           if (FamilyModel.knownDiscipleOrder(p)) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
           memberTooltip.bind(node, p);
-          node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches); showDetails(); });
+          node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px) and (orientation:portrait)').matches); showDetails(); });
           nodes.set(p.id, node);
           group.appendChild(node);
         });
@@ -1126,7 +1126,7 @@
   window.renderFamilyTree = render;
   window.selectFamilyMember = id => {
     selectedId = id;
-    if (id) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches);
+    if (id) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px) and (orientation:portrait)').matches);
     render();
     const node = [...document.querySelectorAll('.person')].find(n => n.dataset.personId === id);
     node?.scrollIntoView({ block: 'center', inline: 'center' });

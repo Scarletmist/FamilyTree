@@ -38,10 +38,12 @@
     const MOBILE_MIN_SCALE = 0.5;
     const MAX_SCALE = 2;
     const STEP = 0.1;
+    const DESKTOP_NAME_ONLY_MAX_SCALE = 0.6;
     let scale = 1;
     let naturalWidth = 0;
     let naturalHeight = 0;
     let rendering = false;
+    let generationLabelFrame = 0;
 
     const viewport = () => document.querySelector('.tree');
     const canvas = () => document.getElementById('tree-canvas');
@@ -69,11 +71,41 @@
       space.style.height = Math.max(view.clientHeight, Math.ceil(naturalHeight * scale)) + 'px';
     }
 
+    function updateGenerationLabelPosition() {
+      const view = viewport(), root = canvas();
+      if (!view || !root) return;
+      const screenInset = 0;
+      const labelWidth = isMobileLayout() ? 34 : 48;
+      const width = naturalWidth || Math.max(root.offsetWidth, root.scrollWidth);
+      const safeScale = Math.max(.001, scale);
+      const logicalInset = screenInset / safeScale;
+      const requested = (view.scrollLeft + screenInset) / safeScale;
+      const maxLeft = Math.max(logicalInset, width - labelWidth - logicalInset);
+      const left = Math.max(logicalInset, Math.min(maxLeft, requested));
+      root.style.setProperty('--generation-label-left', `${left}px`);
+    }
+
+    function scheduleGenerationLabelPosition() {
+      if (generationLabelFrame) return;
+      generationLabelFrame = requestAnimationFrame(() => {
+        generationLabelFrame = 0;
+        updateGenerationLabelPosition();
+      });
+    }
+
+    function updateCardDetailMode() {
+      const root = canvas();
+      if (!root) return;
+      root.classList.toggle('is-desktop-name-only', !isMobileLayout() && scale <= DESKTOP_NAME_ONLY_MAX_SCALE + .001);
+    }
+
     function applyScale() {
       const root = canvas();
       if (!root) return;
+      updateCardDetailMode();
       root.style.transform = `scale(${scale})`;
       updateSpacer();
+      updateGenerationLabelPosition();
     }
 
     function positionLogicalAtAnchor(logical, anchor) {
@@ -90,6 +122,7 @@
       scale = next;
       applyScale();
       positionLogicalAtAnchor(logical, anchor);
+      updateGenerationLabelPosition();
       updateControls();
       memberTooltip.hide(null, true);
       return scale;
@@ -118,6 +151,7 @@
       setScale(target, { x: view.clientWidth / 2, y: 0 });
       view.scrollLeft = Math.max(0, (width * scale - view.clientWidth) / 2);
       view.scrollTop = 0;
+      updateGenerationLabelPosition();
     }
 
     function beforeRender() {
@@ -147,8 +181,10 @@
       plus?.addEventListener('click', () => setScale(scale + STEP));
       value?.addEventListener('click', () => setScale(1));
       fit?.addEventListener('click', fitWidth);
+      viewport()?.addEventListener('scroll', scheduleGenerationLabelPosition, { passive: true });
       out.dataset.bound = 'true';
       updateControls();
+      updateGenerationLabelPosition();
     }
 
     bind();
@@ -729,7 +765,9 @@
           if (queryView.active && p.id === queryView.bId) node.classList.add('pair-b');
           node.dataset.personId = p.id;
           node.setAttribute('aria-pressed', String(selectedId === p.id));
-          node.appendChild(element('span', 'person__name', hideCanvasNames ? 'OOO' : p.name));
+          const nameNode = element('span', 'person__name', hideCanvasNames ? 'OOO' : p.name);
+          nameNode.dataset.compactName = hideCanvasNames ? 'OOO' : p.name;
+          node.appendChild(nameNode);
           node.appendChild(element('span', 'person__location', '所在地：' + (p.location || '未填寫')));
           node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
           node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));

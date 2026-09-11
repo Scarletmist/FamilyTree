@@ -39,8 +39,8 @@
         <button type="button" class="landscape-more-action" data-action="family-name">${svg('<path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z"/>')}<span>編輯家族名稱</span></button>
         <button type="button" class="landscape-more-action" data-action="canvas-names">${svg('<path d="M2 2h6v6H2zM16 2h6v6h-6zM9 9h6v6H9zM2 16h6v6H2zM16 16h6v6h-6z"/>')}<span data-label>隱藏畫布姓名</span></button>
         <button type="button" class="landscape-more-action" data-action="legend">${svg('<path d="M4 6h16M4 12h10M4 18h16"/>')}<span>關係圖例</span></button>
-        <button type="button" class="landscape-more-action" data-action="import">${svg('<path d="M12 15V4m-4 4 4-4 4 4M5 18v2h14v-2"/>')}<span>匯入 JSON</span></button>
-        <button type="button" class="landscape-more-action" data-action="export">${svg('<path d="M12 3v11m-4-4 4 4 4-4M5 18v2h14v-2"/>')}<span>匯出 JSON</span></button>
+        <button type="button" class="landscape-more-action" data-action="import">${svg('<path d="M12 15V4m-4 4 4-4 4 4M5 18v2h14v-2"/>')}<span>匯入族譜</span></button>
+        <button type="button" class="landscape-more-action" data-action="export">${svg('<path d="M12 3v11m-4-4 4 4 4-4M5 18v2h14v-2"/>')}<span>匯出族譜</span></button>
         <div class="landscape-more-legend" data-legend hidden></div>
       </div>
     </div>`;

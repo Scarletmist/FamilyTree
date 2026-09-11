@@ -393,6 +393,13 @@
       .save-status { left:8px; bottom:12px; max-width:calc(100% - 60px); }
     }
 
+    /* Portrait mobile keeps cloud/import/export as the final icon group in that order. */
+    @media (max-width:700px) and (orientation:portrait) {
+      .tree-controls #cloud-sync { order:10; }
+      .tree-controls #import-json { order:11; }
+      .tree-controls #export-json { order:12; }
+    }
+
     /* Landscape phones: make the family tree the primary surface and float one compact toolbar above it. */
     .landscape-toolbar-control { display:none; }
     .landscape-more-sheet { display:none; }
@@ -696,11 +703,11 @@
           <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3.5 19c.6-4 2.5-6 5.5-6s4.9 2 5.5 6"/><path d="M18 13v6M15 16h6"/></svg></span>
           <span class="tree-control-text">＋ 新增成員</span>
         </button>
-        <button type="button" id="import-json" class="plain-button mobile-icon-control" aria-label="匯入 JSON" title="匯入 JSON" disabled>
+        <button type="button" id="import-json" class="plain-button mobile-icon-control" aria-label="匯入族譜" title="匯入族譜" disabled>
           <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M5 18v2h14v-2"/></svg></span>
           <span class="tree-control-text">匯入</span>
         </button>
-        <button type="button" id="export-json" class="plain-button mobile-icon-control" aria-label="匯出 JSON" title="匯出 JSON" disabled>
+        <button type="button" id="export-json" class="plain-button mobile-icon-control" aria-label="匯出族譜" title="匯出族譜" disabled>
           <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 18v2h14v-2"/></svg></span>
           <span class="tree-control-text">匯出</span>
         </button>
@@ -831,8 +838,7 @@
         <strong id="cloud-sync-message">讀取同步狀態中…</strong>
         <p id="cloud-sync-meta"></p>
       </div>
-      <p>同步資料會儲存在目前 Google 帳號的 Drive <code>appDataFolder</code>，一般 Drive 檔案列表看不到，也不會上傳到此網站的 GitHub repository。</p>
-      <p class="cloud-sync-help">本機仍以 IndexedDB 為主要儲存。Google 短效授權會暫存在此分頁的 sessionStorage，重新整理頁面後可在權杖有效期間內繼續同步；關閉分頁或權杖過期後仍需重新授權。連線後會在本機變更時延遲同步，並在重新聚焦頁面或每分鐘檢查遠端更新。若偵測到此裝置與 Google Drive 都有修改，系統不會自動覆蓋，而會要求選擇版本。</p>
+      <p class="cloud-sync-help">跨裝置同步的雲端資料只會儲存在您授權的 Google 帳號中；本網站不會在伺服端留存或集中保存您的族譜資料。使用同一 Google 帳號即可在不同裝置同步同一份族譜。</p>
     </div>
     <div class="form-actions">
       <button type="button" id="cloud-sync-disconnect" class="plain-button" hidden>中斷連結</button>
@@ -855,7 +861,7 @@
     </div>
   </dialog>
   <dialog id="import-dialog" aria-labelledby="import-title">
-    <div class="dialog-header"><h2 id="import-title">匯入族譜 JSON</h2></div>
+    <div class="dialog-header"><h2 id="import-title">匯入族譜</h2></div>
     <div class="dialog-scroll">
       <p id="import-summary"></p>
       <p class="form-note">匯入會取代目前全部成員與關係。匯入前會自動保留上一份資料備份。</p>

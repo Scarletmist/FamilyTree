@@ -104,11 +104,12 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
   try {
     const controller = Details.createController();
     const panel = new FakeElement('section');
-    let edited = null, closed = false;
-    const options = { onEdit: id => { edited = id; }, onClose: () => { closed = true; } };
+    let edited = null, queried = null, closed = false;
+    const options = { onEdit: id => { edited = id; }, onQuery: id => { queried = id; }, onClose: () => { closed = true; } };
     controller.render(panel, graph, 'p11', options);
     const content = panel.querySelector('.relationship-details__content');
     const edit = panel.querySelector('.edit-member');
+    const query = panel.querySelector('.query-relationship');
     const collapse = panel.querySelector('.details-collapse');
     const tab = panel.querySelector('.relationship-details__tab');
     assert.equal(edit.tagName, 'button');
@@ -118,6 +119,8 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     assert.equal(edit.children[0].tagName, 'svg');
     assert.equal(edit.children[0].attributes['aria-hidden'], 'true');
     edit.click(); assert.equal(edited, 'p11');
+    assert.match(query.attributes['aria-label'], /查詢其他成員與陳建國的關係/);
+    query.click(); assert.equal(queried, 'p11');
     let groups = panel.querySelectorAll('details[data-group]');
     assert.deepEqual(groups.map(d => d.dataset.group), ['parents', 'spouses', 'children', 'siblings', 'students']);
     assert.equal(groups[0].open, true);

@@ -26,10 +26,44 @@
   const nameForm = document.getElementById('family-name-form');
   const nameInput = document.getElementById('family-name-input');
   const nameError = document.getElementById('family-name-error');
+  const ignoredDialog = document.getElementById('ignored-intermediate-dialog');
+  const ignoredList = document.getElementById('ignored-intermediate-list');
+  const ignoredEmpty = document.getElementById('ignored-intermediate-empty');
+  const ignoredError = document.getElementById('ignored-intermediate-error');
+  const unsavedDialog = document.getElementById('unsaved-changes-dialog');
+  const keepEditingButton = document.getElementById('keep-editing-member');
+  const discardChangesButton = document.getElementById('discard-member-changes');
+  let memberBaseline = '', pendingMemberClose = null;
   let nameVersion = null, savingName = false;
   const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接設定）', biaoCousin: '表兄弟姊妹（直接設定）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
+  function memberFormState() {
+    const field = name => String(form.elements.namedItem(name)?.value ?? '');
+    return JSON.stringify({
+      fields: {
+        name: field('name'), location: field('location'), position: field('position'), notes: field('notes'),
+        gender: field('gender'), siblingOrder: field('siblingOrder'), discipleOrder: field('discipleOrder')
+      },
+      intermediateChoice: document.getElementById('intermediate-choice')?.value || '',
+      relationships: [...relations.children].map(row => ({
+        target: row.querySelector('.relation-target')?.value || '',
+        type: row.querySelector('.relation-type')?.value || '',
+        kind: row.querySelector('.relation-kind')?.value || '',
+        seniority: row.querySelector('.relation-cousin-seniority')?.value || ''
+      }))
+    });
+  }
+  function resetMemberBaseline() { memberBaseline = memberFormState(); }
+  function memberFormDirty() { return dialog.open && memberBaseline !== memberFormState(); }
+  function closeMemberNow() { pendingMemberClose = null; if (unsavedDialog?.open) unsavedDialog.close(); dialog.close(); }
+  function requestMemberClose() {
+    if (saving) return;
+    if (!memberFormDirty()) { closeMemberNow(); return; }
+    pendingMemberClose = true;
+    if (!unsavedDialog.open) unsavedDialog.showModal();
+    keepEditingButton.focus();
+  }
   function updateTargets(select) {
     const previous = select.value;
     select.replaceChildren(option('', '選擇現有成員'));
@@ -52,6 +86,8 @@
     addButton.disabled = restored;
     document.getElementById('import-json').disabled = restored;
     document.getElementById('export-json').disabled = false;
+    if (ignoredDialog?.open) renderIgnoredIntermediatePlans();
+    window.dispatchEvent(new CustomEvent('familyintermediatechange'));
   }
   async function load() {
     const response = await FamilyRepository.request('/api/family', { cache: 'no-store' });
@@ -115,6 +151,18 @@
       form.elements.namedItem('gender').value = plan.gender;
       const context = document.createElement('div'); context.id = 'intermediate-context'; context.className = 'form-note';
       const note = document.createElement('p'); note.textContent = '已帶入親生關係，請確認後填寫新成員資料。儲存後會更新連線中的節點。'; context.appendChild(note);
+      const contextActions = document.createElement('div'); contextActions.className = 'intermediate-context-actions';
+      const ignore = document.createElement('button'); ignore.type = 'button'; ignore.className = 'plain-button intermediate-ignore-button'; ignore.textContent = '不再顯示此待補親屬';
+      ignore.addEventListener('click', async () => {
+        if (saving) return;
+        error.textContent = ''; ignore.disabled = true;
+        try {
+          await updateIntermediateIgnored(plan.id, true);
+          closeMemberNow();
+          status.textContent = `已忽略待補項目「${plan.title}」，可從「已忽略待補項目」恢復。`;
+        } catch (e) { error.textContent = e.message; ignore.disabled = false; }
+      });
+      contextActions.appendChild(ignore); context.appendChild(contextActions);
       function fill(choice) {
         relations.replaceChildren();
         plan.relationships.forEach(addRelation);
@@ -133,6 +181,7 @@
       [...relations.children].forEach(row => row.updatePreview());
     }
     setSaving(false);
+    resetMemberBaseline();
     dialog.showModal(); document.getElementById('member-name').focus();
   }
   window.addIntermediateMember = planId => {
@@ -140,6 +189,51 @@
     if (plan) openMember(null, plan);
     else status.textContent = '此中間關係已更新，請重新整理後再選擇。';
   };
+  async function updateIntermediateIgnored(planId, ignored) {
+    const response = await FamilyRepository.request('/api/family/intermediate-ignore', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId, ignored, version: snapshot.version })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || '無法更新待補項目。');
+    accept(payload);
+    return payload;
+  }
+  function renderIgnoredIntermediatePlans() {
+    if (!ignoredList || !snapshot) return;
+    ignoredError.textContent = '';
+    const ignored = new Set(FamilyModel.ignoredIntermediatePlanIds(snapshot.data));
+    const seenSlots = new Set();
+    const plans = FamilyModel.intermediatePlans(snapshot.data, { includeIgnored: true }).filter(plan => ignored.has(plan.id) && !seenSlots.has(plan.slotId) && seenSlots.add(plan.slotId));
+    ignoredList.replaceChildren();
+    ignoredEmpty.hidden = plans.length > 0;
+    plans.forEach(plan => {
+      const item = document.createElement('div'); item.className = 'ignored-intermediate-item';
+      const text = document.createElement('div');
+      const title = document.createElement('strong'); title.textContent = plan.title;
+      const note = document.createElement('p'); note.className = 'form-note'; note.textContent = '恢復後會重新在族譜圖上顯示待補「＋」。';
+      text.append(title, note);
+      const restore = document.createElement('button'); restore.type = 'button'; restore.className = 'plain-button'; restore.textContent = '恢復待補';
+      restore.addEventListener('click', async () => {
+        restore.disabled = true; ignoredError.textContent = '';
+        try {
+          await updateIntermediateIgnored(plan.id, false);
+          status.textContent = `已恢復待補項目「${plan.title}」。`;
+          renderIgnoredIntermediatePlans();
+        } catch (e) { ignoredError.textContent = e.message; }
+        finally { restore.disabled = false; }
+      });
+      item.append(text, restore); ignoredList.appendChild(item);
+    });
+  }
+  window.openIgnoredIntermediatePlans = () => {
+    if (!snapshot || !ignoredDialog) return;
+    renderIgnoredIntermediatePlans();
+    ignoredDialog.showModal();
+  };
+  document.getElementById('close-ignored-intermediates')?.addEventListener('click', () => ignoredDialog.close());
+
   function setNameSaving(value) {
     savingName = value;
     document.getElementById('family-name-fields').disabled = value;
@@ -186,8 +280,15 @@
   });
   addButton.addEventListener('click', () => openMember());
   window.editFamilyMember = openMember;
-  ['close-member-dialog', 'cancel-member'].forEach(id => document.getElementById(id).addEventListener('click', () => dialog.close()));
-  dialog.addEventListener('cancel', event => { if (saving) event.preventDefault(); });
+  ['close-member-dialog', 'cancel-member'].forEach(id => document.getElementById(id).addEventListener('click', requestMemberClose));
+  dialog.addEventListener('cancel', event => {
+    event.preventDefault();
+    requestMemberClose();
+  });
+  keepEditingButton.addEventListener('click', () => { pendingMemberClose = null; unsavedDialog.close(); dialog.focus(); });
+  discardChangesButton.addEventListener('click', () => { if (pendingMemberClose) closeMemberNow(); });
+  unsavedDialog.addEventListener('cancel', event => { event.preventDefault(); pendingMemberClose = null; unsavedDialog.close(); dialog.focus(); });
+  dialog.addEventListener('close', () => { pendingMemberClose = null; memberBaseline = ''; });
   document.getElementById('add-relation').addEventListener('click', () => addRelation());
   document.getElementById('member-disciple-order').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   document.getElementById('member-name').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
@@ -195,7 +296,7 @@
     error.textContent = '';
     try {
       await load();
-      if (editingId) { populateMember(); error.textContent = '已載入此成員的最新資料，請重新套用修改。'; }
+      if (editingId) { populateMember(); resetMemberBaseline(); error.textContent = '已載入此成員的最新資料，請重新套用修改。'; }
       else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); status.textContent = '已更新資料，表單內容已保留。'; }
     }
     catch (e) { error.textContent = e.message; }
@@ -223,7 +324,7 @@
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || '儲存失敗，請重試。');
       document.getElementById('family-filter').value = '';
-      accept(payload); dialog.close();
+      accept(payload); closeMemberNow();
       // Keep the diagram available for filling the next intermediate slot.
       window.selectFamilyMember(document.getElementById('intermediate-context') ? null : payload.memberId);
       status.textContent = `已${editingId ? '更新' : '新增'}「${member.name}」，並儲存至${FamilyRepository.isStatic ? '此瀏覽器 IndexedDB' : '族譜檔案'}。`;

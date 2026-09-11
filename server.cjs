@@ -72,6 +72,18 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
     // Preserve all members, relationships and unknown top-level metadata.
     return [200, await persist({ ...current.data, familyName })];
   }
+  async function updateIntermediateIgnore(body) {
+    const current = await read();
+    if (body?.version !== current.version) return [409, { error: '資料已被其他操作更新，請更新目前資料後再操作。' }];
+    if (typeof body?.planId !== 'string' || !body.planId || body.planId.length > 500 || typeof body?.ignored !== 'boolean') return [400, { error: '待補項目設定格式不正確。' }];
+    const allPlans = Model.intermediatePlans(current.data, { includeIgnored: true });
+    const ignored = new Set(Model.ignoredIntermediatePlanIds(current.data));
+    const target = allPlans.find(plan => plan.id === body.planId);
+    if (body.ignored && !target) return [409, { error: '此待補項目已不存在，請更新資料後再試。' }];
+    const slotIds = target ? allPlans.filter(plan => plan.slotId === target.slotId).map(plan => plan.id) : [body.planId];
+    slotIds.forEach(id => body.ignored ? ignored.add(id) : ignored.delete(id));
+    return [200, await persist({ ...current.data, ignoredIntermediatePlans: [...ignored].sort() })];
+  }
   async function importFamily(body) {
     const current = await read();
     if (body?.version !== current.version) return [409, { error: '目前資料已更新，請按「更新目前資料」確認後再匯入。' }];
@@ -105,7 +117,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
       const editMatch = /^\/api\/members\/([a-zA-Z0-9_-]{1,80})$/.exec(url.pathname);
       const isImport = req.method === 'POST' && url.pathname === '/api/family/import';
       const isNameUpdate = req.method === 'PUT' && url.pathname === '/api/family/name';
-      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate) {
+      const isIntermediateIgnore = req.method === 'PUT' && url.pathname === '/api/family/intermediate-ignore';
+      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore) {
         if (req.headers.origin !== `http://${req.headers.host}` || req.headers['content-type']?.split(';')[0] !== 'application/json') return reply(res, 403, { error: '只允許從本網站提交表單。' });
         const chunks = []; let bytes = 0;
         for await (const chunk of req) {
@@ -115,7 +128,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
         }
         let body;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return reply(res, 400, { error: 'JSON 格式不正確。' }); }
-        const operation = writes.then(() => isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : editMatch ? edit(editMatch[1], body) : add(body));
+        const operation = writes.then(() => isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : isIntermediateIgnore ? updateIntermediateIgnore(body) : editMatch ? edit(editMatch[1], body) : add(body));
         writes = operation.catch(() => {});
         const [status, payload] = await operation;
         return reply(res, status, payload);

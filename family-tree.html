@@ -44,6 +44,7 @@
     .tree-zoom-controls svg { width:18px; height:18px; }
     #tree-zoom-value { min-width:58px; font-variant-numeric:tabular-nums; }
     #tree-zoom-fit { gap:6px; padding-inline:10px; }
+    .mobile-tree-fit { display:none; }
     /* Four soft tones repeat by actual generation number, not by visible row. */
     .tree__generation-bands,.tree__generation-labels { position:absolute; inset:0; pointer-events:none; }
     .tree__generation-bands { z-index:0; }
@@ -104,13 +105,13 @@
     .relationship-details__tab:focus-visible { outline:2px solid #286e86; outline-offset:-3px; }
     .relationship-details__tab-arrow { font:600 1.5rem/1 var(--font-sans); }
     .relationship-details__tab-text { writing-mode:vertical-rl; text-orientation:upright; max-height:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:.12em; }
-    .relationship-details__header { display:grid; grid-template-columns:36px minmax(0,1fr) 36px 36px; align-items:center; gap:6px; margin-bottom:12px; }
+    .relationship-details__header { display:grid; grid-template-columns:36px 36px minmax(0,1fr) 36px 36px; align-items:center; gap:6px; margin-bottom:12px; }
     .relationship-details h2 { font-size:1.1rem; text-align:center; overflow-wrap:anywhere; line-height:1.4; }
     .details-icon { display:flex; align-items:center; justify-content:center; width:36px; height:36px; padding:0; border:1px solid var(--color-line); border-radius:8px; background:#f6f2eb; cursor:pointer; transition:background .15s,border-color .15s; }
     .details-icon:hover { background:#eee4d6; border-color:#c5b8a6; }
     .details-icon:focus-visible,.relationship-group summary:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
     .details-icon.details-collapse { color:var(--color-ink-soft); }
-    .details-icon.edit-member { color:var(--color-accent); }
+    .details-icon.edit-member,.details-icon.query-relationship { color:var(--color-accent); }
     .relationship-details__profile { padding:0 2px 12px; border-bottom:1px solid var(--color-line); font-size:.875rem; color:var(--color-ink-soft); overflow-wrap:anywhere; }
     .relationship-details__profile p + p { margin-top:2px; }
     .relationship-details__empty { margin-top:14px; font-size:.875rem; color:var(--color-ink-soft); }
@@ -128,6 +129,9 @@
     .relationship-entry + .relationship-entry { border-top:1px solid #eee7dc; }
     .relationship-entry__main { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
     .relationship-entry__name { font-weight:600; }
+    .relationship-entry__person { padding:0; border:0; background:none; color:inherit; font:600 inherit; text-align:left; cursor:pointer; text-decoration:underline; text-decoration-color:transparent; text-underline-offset:3px; }
+    .relationship-entry__person:hover { color:var(--color-accent); text-decoration-color:currentColor; }
+    .relationship-entry__person:focus-visible { outline:2px solid #286e86; outline-offset:3px; border-radius:3px; }
     .relationship-entry__role { color:var(--color-accent); font-size:.8125rem; }
     .relationship-entry__badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
     .relationship-entry__badge { display:inline-block; padding:1px 7px; border-radius:4px; background:#f1e9de; color:#715443; font-size:.75rem; }
@@ -150,7 +154,7 @@
     .form-fields { margin:0; padding:0; border:0; min-width:0; }
     .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .field-grid label { display:flex; flex-direction:column; gap:4px; font-size:.875rem; }
-    .family-name-dialog { width:min(480px,calc(100vw - 24px)); }
+    .family-name-dialog,.unsaved-changes-dialog { width:min(480px,calc(100vw - 24px)); }
     .family-name-dialog label { display:flex; flex-direction:column; gap:6px; font-size:.875rem; }
     .family-name-dialog .form-error { line-height:1.6; }
     dialog input,dialog select { width:100%; max-width:none; font:inherit; padding:8px; border:1px solid #c5b8a6; border-radius:6px; background:white; }
@@ -183,7 +187,7 @@
       .legend { gap:4px 12px; max-height:92px; overflow:auto; }
       .relationship-details { width:calc(100% - 24px); max-width:none; right:12px; top:auto; bottom:12px; max-height:min(55%,440px); padding:12px; }
       .relationship-details[data-collapsed="true"] { top:16px; bottom:auto; right:0; width:44px; max-width:44px; max-height:min(55%,360px); padding:0; }
-      .relationship-details__header { grid-template-columns:32px minmax(0,1fr) 32px 32px; gap:4px; }
+      .relationship-details__header { grid-template-columns:32px 32px minmax(0,1fr) 32px 32px; gap:4px; }
       .relationship-details__header .details-icon { width:32px; height:32px; }
       .relationship-details h2 { font-size:1rem; }
       .page-header__identity { flex:1 1 auto; }
@@ -219,10 +223,27 @@
     .select-search-status:empty { display:none; }
     .kinship-source { display:block; margin-top:8px; font-size:11px; line-height:1.5; }
     .member-list-scroll { overflow:auto; }
+    .member-list-toolbar { display:flex; gap:10px; align-items:end; justify-content:space-between; margin-bottom:12px; }
+    .member-list-search-label { flex:1 1 320px; display:grid; gap:5px; font-size:.8rem; color:var(--color-ink-soft); }
+    .member-list-search-label input { width:100%; }
+    .member-list-secondary { flex:none; white-space:nowrap; }
     .member-list-table { width:100%; border-collapse:collapse; text-align:left; }
     .member-list-table th, .member-list-table td { padding:10px; border-bottom:1px solid #d8cbb8; overflow-wrap:anywhere; }
     .member-list-table th { white-space:nowrap; background:#f5f0e8; }
     .member-list-unlinked { background:#fff0c7; color:#714b16; }
+    .member-list-row { cursor:pointer; }
+    .member-list-row:hover { background:#f8f2e9; }
+    .member-list-row.member-list-unlinked:hover { background:#ffe7a7; }
+    .member-list-row:focus-visible { outline:2px solid #286e86; outline-offset:-2px; }
+    .member-list-name-button { border:0; padding:0; background:none; color:inherit; font:600 inherit; text-align:left; cursor:pointer; }
+    .member-list-name-button:hover { color:var(--color-accent); text-decoration:underline; text-underline-offset:3px; }
+    .member-list-empty { padding:20px 8px; text-align:center; color:var(--color-ink-soft); }
+    .ignored-intermediate-list { display:grid; gap:10px; }
+    .ignored-intermediate-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:12px; border:1px solid var(--color-line); border-radius:9px; background:#fffaf4; }
+    .ignored-intermediate-item strong { display:block; overflow-wrap:anywhere; }
+    .ignored-intermediate-empty { color:var(--color-ink-soft); }
+    .intermediate-context-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+    .intermediate-ignore-button { color:#7b3f2d; }
     .unlinked-badge { display:block; font-size:11px; margin-top:3px; }
     @media(max-width:600px) { .relationship-search .searchable-select { width:140px; } }
     .member-notes__text { white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; }
@@ -255,6 +276,29 @@
       .tree { touch-action:none; }
       .tree__canvas { position:absolute; left:0; top:0; will-change:transform; }
       .tree-zoom-controls { display:none; }
+      .mobile-tree-fit {
+        position:absolute;
+        z-index:7;
+        right:calc(12px + env(safe-area-inset-right));
+        bottom:calc(12px + env(safe-area-inset-bottom));
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:44px;
+        height:44px;
+        padding:0;
+        border:1px solid rgba(187,161,122,.95);
+        border-radius:12px;
+        background:rgba(255,253,247,.95);
+        color:var(--color-ink);
+        box-shadow:0 4px 16px #2b211926;
+        backdrop-filter:blur(6px);
+        -webkit-backdrop-filter:blur(6px);
+        touch-action:manipulation;
+      }
+      .mobile-tree-fit svg { width:22px; height:22px; }
+      .mobile-tree-fit:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+      .relationship-details { z-index:8; }
       html,body { width:100%; height:100%; min-height:100%; }
       body { height:100dvh; min-height:0; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 
@@ -366,8 +410,48 @@
       }
       dialog form, dialog fieldset, dialog .field-grid, dialog .relation-row { min-width:0; max-width:100%; }
       dialog input, dialog select, dialog textarea, dialog .select-trigger { max-width:100%; box-sizing:border-box; }
-      .member-list-scroll { overflow-x:auto; }
-      .member-list-table { min-width:570px; }
+      .member-list-scroll { overflow-x:hidden; }
+      /* Reset the desktop flex-basis when the toolbar becomes vertical on mobile.
+         Otherwise the 320px search flex-basis turns into 320px of vertical space. */
+      .member-list-toolbar {
+        display:grid;
+        grid-template-columns:minmax(0,1fr);
+        align-items:stretch;
+        gap:8px;
+      }
+      .member-list-search-label {
+        flex:none;
+        min-width:0;
+        width:100%;
+      }
+      .member-list-search-label input {
+        width:100%;
+        min-width:0;
+        min-height:44px;
+      }
+      .member-list-secondary {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width:100%;
+        min-width:0;
+        min-height:44px;
+        max-width:100%;
+        white-space:normal;
+        text-align:center;
+      }
+      .member-list-table { min-width:0; display:block; }
+      .member-list-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+      .member-list-table tbody { display:grid; gap:8px; }
+      .member-list-table tr { display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; padding:10px 12px; border:1px solid #ded2c1; border-radius:9px; background:white; }
+      .member-list-table tr.member-list-unlinked { background:#fff0c7; }
+      .member-list-table td { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:6px; align-items:baseline; padding:0; border:0; min-width:0; }
+      .member-list-table td::before { content:attr(data-label) '：'; color:var(--color-ink-soft); font-size:.75rem; white-space:nowrap; }
+      .member-list-table td:first-child { grid-column:1/-1; font-size:1rem; }
+      .member-list-table td:first-child::before { content:''; display:none; }
+      .member-list-name-button { min-height:36px; display:inline-flex; align-items:center; }
+      .ignored-intermediate-item { grid-template-columns:1fr; }
+      .ignored-intermediate-item button { justify-self:start; min-height:40px; }
       dialog > .form-actions, dialog form > .form-actions {
         flex:0 0 auto;
         display:grid;
@@ -405,6 +489,10 @@
     .landscape-more-sheet { display:none; }
     @media (max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape) {
       body { position:relative; }
+      /* Landscape has horizontal room but very little height: keep search and the
+         ignored-items entry on one compact row. */
+      .member-list-toolbar { grid-template-columns:minmax(0,1fr) auto; align-items:end; }
+      .member-list-secondary { width:auto; max-width:min(42vw,220px); white-space:nowrap; }
       /* Constrain ordinary modal forms to the visual viewport instead of 100vw/100dvh.
          This avoids iOS Safari safe-area and dynamic-toolbar overflow in landscape. */
       dialog:not(.relationship-sheet):not(.relationship-result-sheet):not(.landscape-more-sheet),
@@ -574,7 +662,8 @@
       .relationship-details__tab-arrow { transform:rotate(90deg); }
       .relationship-details .details-collapse svg { transform:rotate(90deg); }
       .relationship-details .details-icon { min-width:44px; min-height:44px; }
-      .relationship-details__header { grid-template-columns:44px minmax(0,1fr) 44px 44px; gap:4px; }
+      .relationship-details__header { grid-template-columns:44px 44px minmax(0,1fr) 44px 44px; gap:4px; }
+      #relationship-details-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal; }
       .relationship-details__header .details-icon { width:44px; height:44px; }
       .relationship-details__content,.relationship-details__header { min-width:0; max-width:100%; }
     }
@@ -600,7 +689,7 @@
       .relationship-details__content { height:100%; min-height:0; }
       .relationship-details__header {
         flex:none;
-        grid-template-columns:44px minmax(0,1fr) 44px 44px;
+        grid-template-columns:44px 44px minmax(0,1fr) 44px 44px;
         min-height:52px;
         margin:0;
         padding:4px 8px;
@@ -758,6 +847,9 @@
         <span>適應寬度</span>
       </button>
     </div>
+    <button type="button" id="mobile-tree-fit" class="mobile-tree-fit" aria-label="讓族譜適應目前畫面" title="適應畫面">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/><path d="M4 8 9 13M20 8l-5 5M4 16l5-5M20 16l-5-5" opacity=".45"/></svg>
+    </button>
     <section class="relationship-details" id="relationship-details" aria-label="成員關係詳情" hidden></section>
     <div id="member-tooltip" class="member-tooltip" role="tooltip" hidden>
       <div class="member-tooltip__header"><span class="member-tooltip__label">成員備註</span><span id="member-tooltip-name"></span></div>
@@ -769,8 +861,22 @@
   <dialog id="member-list-dialog" aria-labelledby="member-list-title">
     <div class="dialog-header"><h2 id="member-list-title">所有成員</h2><button type="button" id="close-member-list" class="details-icon" aria-label="關閉成員清單" title="關閉成員清單"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
     <div class="dialog-scroll member-list-scroll">
+      <div class="member-list-toolbar">
+        <label class="member-list-search-label" for="member-list-search">搜尋成員<input id="member-list-search" type="search" autocomplete="off" placeholder="姓名、所在地、職位或代別" /></label>
+        <button type="button" id="open-ignored-intermediates" class="plain-button member-list-secondary">已忽略待補項目 <span id="ignored-intermediate-count"></span></button>
+      </div>
       <p id="member-list-count"></p>
+      <p id="member-list-empty" class="member-list-empty" hidden>找不到符合的成員。</p>
       <table class="member-list-table"><thead><tr><th scope="col">姓名</th><th scope="col">所在地</th><th scope="col">職位</th><th scope="col">代別</th></tr></thead><tbody id="member-list-body"></tbody></table>
+    </div>
+  </dialog>
+  <dialog id="ignored-intermediate-dialog" aria-labelledby="ignored-intermediate-title">
+    <div class="dialog-header"><h2 id="ignored-intermediate-title">已忽略待補項目</h2><button type="button" id="close-ignored-intermediates" class="details-icon" aria-label="關閉已忽略待補項目" title="關閉已忽略待補項目"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
+    <div class="dialog-scroll">
+      <p class="form-note">這些待補親屬已被設為不顯示；需要繼續補登時可隨時恢復。</p>
+      <div id="ignored-intermediate-list" class="ignored-intermediate-list"></div>
+      <p id="ignored-intermediate-empty" class="ignored-intermediate-empty" hidden>目前沒有已忽略的待補項目。</p>
+      <p id="ignored-intermediate-error" class="form-error" role="alert"></p>
     </div>
   </dialog>
   <dialog id="family-name-dialog" class="family-name-dialog" aria-labelledby="family-name-dialog-title">
@@ -827,6 +933,16 @@
         <button type="submit" id="save-member" class="primary-button">儲存成員</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="unsaved-changes-dialog" class="unsaved-changes-dialog" aria-labelledby="unsaved-changes-title">
+    <div class="dialog-header"><h2 id="unsaved-changes-title">捨棄未儲存的修改？</h2></div>
+    <div class="dialog-scroll">
+      <p>目前表單還有尚未儲存的內容。若現在離開，這些修改將不會保留。</p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="keep-editing-member" class="plain-button">繼續編輯</button>
+      <button type="button" id="discard-member-changes" class="primary-button">捨棄修改</button>
+    </div>
   </dialog>
   <dialog id="cloud-sync-dialog" class="cloud-sync-dialog" aria-labelledby="cloud-sync-title">
     <div class="dialog-header">

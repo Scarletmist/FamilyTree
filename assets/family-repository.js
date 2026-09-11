@@ -230,6 +230,16 @@
     if (adding) data = { ...current.data, people: [...current.data.people, member] };
     else if (memberId) data = FamilyModel.replaceMember(current.data, member);
     else if (url === '/api/family/name') data = { ...current.data, familyName: FamilyModel.normalizeFamilyName(body.familyName) };
+    else if (url === '/api/family/intermediate-ignore' && method === 'PUT') {
+      if (typeof body.planId !== 'string' || !body.planId || body.planId.length > 500 || typeof body.ignored !== 'boolean') return response({ error: '待補項目設定格式不正確。' }, 400);
+      const allPlans = FamilyModel.intermediatePlans(current.data, { includeIgnored: true });
+      const ignored = new Set(FamilyModel.ignoredIntermediatePlanIds(current.data));
+      const target = allPlans.find(plan => plan.id === body.planId);
+      if (body.ignored && !target) return response({ error: '此待補項目已不存在，請更新資料後再試。' }, 409);
+      const slotIds = target ? allPlans.filter(plan => plan.slotId === target.slotId).map(plan => plan.id) : [body.planId];
+      slotIds.forEach(id => body.ignored ? ignored.add(id) : ignored.delete(id));
+      data = { ...current.data, ignoredIntermediatePlans: [...ignored].sort() };
+    }
     else if (url === '/api/family/import') {
       FamilyModel.build(body.data);
       try { await backupBeforeImport(current); }

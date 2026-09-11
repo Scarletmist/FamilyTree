@@ -39,6 +39,7 @@
         <button type="button" class="landscape-more-action" data-action="family-name">${svg('<path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z"/>')}<span>編輯家族名稱</span></button>
         <button type="button" class="landscape-more-action" data-action="canvas-names">${svg('<path d="M2 2h6v6H2zM16 2h6v6h-6zM9 9h6v6H9zM2 16h6v6H2zM16 16h6v6h-6z"/>')}<span data-label>隱藏畫布姓名</span></button>
         <button type="button" class="landscape-more-action" data-action="legend">${svg('<path d="M4 6h16M4 12h10M4 18h16"/>')}<span>關係圖例</span></button>
+        <button type="button" class="landscape-more-action" data-action="ignored">${svg('<circle cx="8" cy="8" r="3"/><path d="M3.5 19c.6-4 2.5-6 5.5-6 1.7 0 3 .6 4 1.7M16 8h5M18.5 5.5v5"/><path d="M15.5 16.5h6"/>')}<span data-ignored-label>已忽略待補項目</span></button>
         <button type="button" class="landscape-more-action" data-action="import">${svg('<path d="M12 15V4m-4 4 4-4 4 4M5 18v2h14v-2"/>')}<span>匯入族譜</span></button>
         <button type="button" class="landscape-more-action" data-action="export">${svg('<path d="M12 3v11m-4-4 4 4 4-4M5 18v2h14v-2"/>')}<span>匯出族譜</span></button>
         <div class="landscape-more-legend" data-legend hidden></div>
@@ -48,7 +49,7 @@
 
   const action = name => dialog.querySelector(`[data-action="${name}"]`);
   const nameAction = action('family-name'), canvasAction = action('canvas-names');
-  const legendAction = action('legend'), importAction = action('import'), exportAction = action('export');
+  const legendAction = action('legend'), ignoredAction = action('ignored'), importAction = action('import'), exportAction = action('export');
   const legendPanel = dialog.querySelector('[data-legend]');
 
   function closeMore() { if (dialog.open) dialog.close(); }
@@ -63,6 +64,9 @@
     const namesHidden = canvasNames.getAttribute('aria-pressed') === 'true';
     canvasAction.setAttribute('aria-pressed', String(namesHidden));
     canvasAction.querySelector('[data-label]').textContent = namesHidden ? '顯示畫布姓名' : '隱藏畫布姓名';
+    const ignored = new Set(window.FAMILY ? FamilyModel.ignoredIntermediatePlanIds(window.FAMILY) : []);
+    const ignoredVisible = window.FAMILY ? new Set(FamilyModel.intermediatePlans(window.FAMILY, { includeIgnored:true }).filter(plan => ignored.has(plan.id)).map(plan => plan.slotId)).size : 0;
+    ignoredAction.querySelector('[data-ignored-label]').textContent = ignoredVisible ? `已忽略待補項目（${ignoredVisible}）` : '已忽略待補項目';
     const relationshipActive = mobileSearchEnd && !mobileSearchEnd.hidden;
     relationshipButton.setAttribute('aria-pressed', String(relationshipActive));
     relationshipButton.setAttribute('aria-label', relationshipActive ? '修改兩人關係查詢' : '查詢兩人關係');
@@ -77,6 +81,7 @@
 
   nameAction.addEventListener('click', () => { closeMore(); editFamilyName.click(); });
   canvasAction.addEventListener('click', () => { canvasNames.click(); syncState(); });
+  ignoredAction.addEventListener('click', () => { closeMore(); window.openIgnoredIntermediatePlans?.(); });
   importAction.addEventListener('click', () => { closeMore(); importJson.click(); });
   exportAction.addEventListener('click', () => { closeMore(); exportJson.click(); });
   legendAction.addEventListener('click', () => {
@@ -92,6 +97,7 @@
   observer.observe(exportJson, { attributes:true, attributeFilter:['disabled'] });
   observer.observe(canvasNames, { attributes:true, attributeFilter:['aria-pressed','aria-label'] });
   if (mobileSearchEnd) observer.observe(mobileSearchEnd, { attributes:true, attributeFilter:['hidden'] });
+  window.addEventListener('familyintermediatechange', syncState);
   new MutationObserver(() => { if (!legendPanel.hidden) refreshLegend(); }).observe(legend, { childList:true, subtree:true });
 
   function layoutChanged() {

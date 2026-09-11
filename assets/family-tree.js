@@ -154,6 +154,21 @@
       updateGenerationLabelPosition();
     }
 
+    function fitView() {
+      const view = viewport(), root = canvas();
+      if (!view || !root) return;
+      const width = naturalWidth || Math.max(root.offsetWidth, root.scrollWidth);
+      const height = naturalHeight || Math.max(root.offsetHeight, root.scrollHeight);
+      if (!width || !height) return;
+      const availableWidth = Math.max(1, view.clientWidth - 24);
+      const availableHeight = Math.max(1, view.clientHeight - 24);
+      const target = Math.min(1, Math.max(minScale(), Math.min(availableWidth / width, availableHeight / height)));
+      setScale(target, { x: view.clientWidth / 2, y: 0 });
+      view.scrollLeft = Math.max(0, (width * scale - view.clientWidth) / 2);
+      view.scrollTop = 0;
+      updateGenerationLabelPosition();
+    }
+
     function beforeRender() {
       const root = canvas();
       rendering = true;
@@ -176,11 +191,13 @@
       const plus = document.getElementById('tree-zoom-in');
       const value = document.getElementById('tree-zoom-value');
       const fit = document.getElementById('tree-zoom-fit');
+      const mobileFit = document.getElementById('mobile-tree-fit');
       if (!out || out.dataset.bound) return;
       out.addEventListener('click', () => setScale(scale - STEP));
       plus?.addEventListener('click', () => setScale(scale + STEP));
       value?.addEventListener('click', () => setScale(1));
       fit?.addEventListener('click', fitWidth);
+      mobileFit?.addEventListener('click', fitView);
       viewport()?.addEventListener('scroll', scheduleGenerationLabelPosition, { passive: true });
       out.dataset.bound = 'true';
       updateControls();
@@ -194,6 +211,7 @@
       setScale,
       setScaleAroundLogical,
       fitWidth,
+      fitView,
       getScale: () => scale,
       isMobileLayout,
       getMinScale: minScale,
@@ -383,6 +401,40 @@
     legend.dataset.responsiveDefaultApplied = 'true';
     if (window.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches) legend.open = false;
   }
+  function closeSelectedDetails({ focusCanvas = false } = {}) {
+    if (!selectedId) return false;
+    selectedId = null;
+    render();
+    if (focusCanvas) requestAnimationFrame(() => document.querySelector('.tree')?.focus({ preventScroll: true }));
+    return true;
+  }
+
+  function hasOpenPopover() {
+    try { return !!document.querySelector(':popover-open'); } catch (_) { return false; }
+  }
+
+  function bindGlobalDismiss() {
+    if (document.documentElement.dataset.familyDismissBound) return;
+    document.documentElement.dataset.familyDismissBound = 'true';
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const openDialogs = [...document.querySelectorAll('dialog[open]')];
+      const hasModal = openDialogs.some(dialog => {
+        try { return dialog.matches(':modal'); } catch (_) { return false; }
+      });
+      // Native dialog cancellation owns Escape while any modal is in the top layer.
+      if (hasModal) return;
+      const resultSheet = document.getElementById('relationship-result-sheet');
+      if (resultSheet?.open) {
+        event.preventDefault();
+        document.getElementById('relationship-result-sheet-close')?.click();
+        return;
+      }
+      if (openDialogs.length || hasOpenPopover()) return;
+      if (closeSelectedDetails({ focusCanvas: true })) event.preventDefault();
+    });
+  }
+
   function bindPanning(viewport) {
     if (viewport.dataset.panBound) return;
     viewport.dataset.panBound = 'true';
@@ -598,6 +650,11 @@
     viewport.addEventListener('click', event => {
       if (suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); suppressClick = false; }
     }, true);
+    viewport.addEventListener('click', event => {
+      if (!selectedId || event.defaultPrevented) return;
+      if (event.target.closest?.('.person,.intermediate-node')) return;
+      closeSelectedDetails();
+    });
     viewport.addEventListener('dragstart', event => event.preventDefault());
   }
   function renderTree() {
@@ -606,6 +663,7 @@
     buildLegend();
     applyResponsiveDefaults();
     bindPanning(canvas.parentElement);
+    bindGlobalDismiss();
     memberTooltip.hide(null, true);
     canvas.replaceChildren();
     canvas.style.paddingBottom = '';
@@ -645,7 +703,7 @@
       const union = graph.unions.find(u => u.id === d.union);
       union?.partners.forEach(id => visibleEdges.add(FamilyModel.intermediateKey('親生祖孫', [id, d.child])));
     }
-    const intermediatePlans = FamilyModel.intermediatePlans({ schemaVersion: 2, people: FAMILY.people }).filter(p => visibleIds.has(p.near) && visibleIds.has(p.other) && visibleEdges.has(p.edgeKey));
+    const intermediatePlans = FamilyModel.intermediatePlans(FAMILY).filter(p => visibleIds.has(p.near) && visibleIds.has(p.other) && visibleEdges.has(p.edgeKey));
     const displayShift = Math.max(0, 1 - Math.min(1, ...intermediatePlans.map(p => p.generation)));
     const uncertainGeneration = Math.max(0, ...FAMILY.people.filter(p => connectedIds.has(p.id)).map(p => p.gen)) + displayShift + 1;
     const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id))
@@ -1094,6 +1152,8 @@
       });
       relationshipDetails.render(panel, FAMILY, visibleId, {
         onEdit: id => window.editFamilyMember(id),
+        onSelect: id => window.selectFamilyMember(id, { preserveDetailsState: true }),
+        onQuery: id => relationshipSearch.startWithMember(id),
         onClose: () => {
           const id = selectedId;
           selectedId = null;
@@ -1124,9 +1184,12 @@
     }
   }
   window.renderFamilyTree = render;
-  window.selectFamilyMember = id => {
+  window.selectFamilyMember = (id, { preserveDetailsState = false, expandDetails = false } = {}) => {
     selectedId = id;
-    if (id) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px) and (orientation:portrait)').matches);
+    if (id && !preserveDetailsState) {
+      const collapse = expandDetails ? false : matchMedia('(max-width:700px) and (orientation:portrait)').matches;
+      relationshipDetails.setCollapsed(document.getElementById('relationship-details'), collapse);
+    }
     render();
     const node = [...document.querySelectorAll('.person')].find(n => n.dataset.personId === id);
     node?.scrollIntoView({ block: 'center', inline: 'center' });

@@ -184,12 +184,13 @@
       if (button) button.setAttribute('aria-expanded', String(!collapsed));
       if (focus) (collapsed ? tab : button)?.focus({ preventScroll: true });
     }
-    function render(panel, graph, personId, { onEdit, onClose } = {}) {
+    function render(panel, graph, personId, { onEdit, onSelect, onQuery, onClose } = {}) {
       // Redrawing must not strand keyboard focus in a removed control.
       const active = document.activeElement;
       const focused = active && panel.contains(active) ?
         { className: active.classList.contains('relationship-details__tab') ? 'relationship-details__tab' :
           active.classList.contains('edit-member') ? 'edit-member' :
+          active.classList.contains('query-relationship') ? 'query-relationship' :
           active.classList.contains('details-collapse') ? 'details-collapse' :
           active.classList.contains('details-close') ? 'details-close' : '',
           group: active.closest('details[data-group]')?.dataset.group } : null;
@@ -204,6 +205,8 @@
       const header = element('div', 'relationship-details__header');
       const edit = iconButton('edit-member', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
       edit.addEventListener('click', () => onEdit?.(person.id));
+      const query = iconButton('query-relationship', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
+      query.addEventListener('click', () => onQuery?.(person.id));
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
       const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches;
       const portraitMobile = globalThis.matchMedia?.('(max-width:700px)').matches;
@@ -216,7 +219,7 @@
       close.addEventListener('click', () => onClose?.());
       const title = element('h2', '', person.name + '的關係');
       title.id = 'relationship-details-title';
-      header.append(edit, title, collapse, close);
+      header.append(edit, query, title, collapse, close);
       content.appendChild(header);
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
@@ -247,7 +250,12 @@
           group.entries.forEach(entry => {
             const item = element('li', 'relationship-entry');
             const main = element('div', 'relationship-entry__main');
-            main.appendChild(element('span', 'relationship-entry__name', entry.name));
+            const personButton = element('button', 'relationship-entry__person', entry.name);
+            personButton.type = 'button';
+            personButton.dataset.personId = entry.personId;
+            personButton.setAttribute('aria-label', '查看' + entry.name + '的關係詳情');
+            personButton.addEventListener('click', () => onSelect?.(entry.personId));
+            main.appendChild(personButton);
             if (entry.role) main.appendChild(element('span', 'relationship-entry__role', entry.role));
             item.appendChild(main);
             if (entry.badges.length) {

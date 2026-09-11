@@ -53,6 +53,7 @@
 
     open.addEventListener('click', openSheet); close.addEventListener('click', () => closeSheet());
     dialog.addEventListener('cancel', event => { event.preventDefault(); closeSheet(); });
+    dialog.addEventListener('click', event => { if (mobile.matches && event.target === dialog) closeSheet(); });
     end.addEventListener('click', () => document.getElementById('relationship-reset').click());
     resultClose.addEventListener('click', closeResultDetails);
     resultDialog.addEventListener('cancel', event => { event.preventDefault(); closeResultDetails(); });
@@ -176,7 +177,24 @@
 
       return { active: true, graph: engine.project(fullGraph, path, [a.value, b.value]), scope: [a.value, b.value, pathIndex].join('|'), aId: a.value, bId: b.value };
     }
+    function startWithMember(personId) {
+      if (!graph?.people.some(person => person.id === personId)) return false;
+      a.value = '';
+      b.value = personId;
+      active = false;
+      pathIndex = 0;
+      closeResultDetails();
+      // Dispatching change also refreshes the custom searchable-select trigger text.
+      b.dispatchEvent(new Event('change', { bubbles: true }));
+      if (mobile.matches) {
+        if (!dialog.open) openSheet();
+      } else {
+        const trigger = a.closest('.searchable-select')?.querySelector('.select-trigger');
+        (trigger || a).focus({ preventScroll: false });
+      }
+      return true;
+    }
     load();
-    return { update };
+    return { update, startWithMember };
   } };
 })();

@@ -72,6 +72,12 @@
     return next;
   }
   const intermediateKey = (kind, members) => [kind, ...members.slice().sort()].join('|');
+  function ignoredIntermediatePlanIds(data) {
+    const value = data?.ignoredIntermediatePlans;
+    if (value === undefined) return [];
+    if (!Array.isArray(value) || value.length > 1000 || value.some(id => typeof id !== 'string' || !id || id.length > 500 || /[\u0000-\u001f\u007f]/u.test(id))) fail('已忽略待補項目格式不正確。');
+    return [...new Set(value)];
+  }
   function completedCousins(graph) {
     const parents = new Map(graph.people.map(p => [p.id, new Set()]));
     const unions = new Map(graph.unions.map(u => [u.id, u]));
@@ -90,7 +96,8 @@
     return result;
   }
   // Suggestions are derived from biological edges only; placeholders never enter JSON.
-  function intermediatePlans(data) {
+  function intermediatePlans(data, { includeIgnored = false } = {}) {
+    const ignored = new Set(ignoredIntermediatePlanIds(data));
     const graph = build(data), byId = new Map(graph.people.map(p => [p.id, p]));
     const parents = new Map(graph.people.map(p => [p.id, []]));
     const unions = new Map(graph.unions.map(u => [u.id, u]));
@@ -146,10 +153,11 @@
     });
     // Only an established family generation may reserve a new ancestor row.
     // An isolated peer relationship still has no evidence for generation zero.
-    return plans.map((plan, i) => {
+    const result = plans.map((plan, i) => {
       const person = byId.get(plan.near);
       return { ...plan, slotId: slotIds.get(rootOf(i)), generation: Math.max(person.generationKnown ? 0 : 1, person.gen - 1) };
     });
+    return includeIgnored ? result : result.filter(plan => !ignored.has(plan.id));
   }
   function fail(message) { throw new Error(message); }
   function validateMember(p) {
@@ -177,6 +185,7 @@
   function build(data) {
     if (!data || data.schemaVersion !== 2 || !Array.isArray(data.people)) fail('族譜 JSON 格式不正確。');
     const familyName = normalizeFamilyName(data.familyName);
+    const ignoredIntermediatePlans = ignoredIntermediatePlanIds(data);
     const people = data.people.map(p => ({ ...p }));
     const byId = new Map();
     for (const p of people) {
@@ -372,7 +381,7 @@
     for (const [a, b] of siblings.values()) {
       if (knownOrder(byId.get(a)) && knownOrder(byId.get(b)) && compareOrder(byId.get(a), byId.get(b)) === 0) fail('手足次序重複，請填入其他數字或留空。');
     }
-    return { familyName, people, unions: [...groups.values()], descents,
+    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, people, unions: [...groups.values()], descents,
       bonds: [...cousins.values()].concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
@@ -413,5 +422,5 @@
     });
     return result;
   }
-  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, intermediatePlans, completedCousins, connectorGroups };
+  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
 });

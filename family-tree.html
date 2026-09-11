@@ -105,13 +105,15 @@
     .relationship-details__tab:focus-visible { outline:2px solid #286e86; outline-offset:-3px; }
     .relationship-details__tab-arrow { font:600 1.5rem/1 var(--font-sans); }
     .relationship-details__tab-text { writing-mode:vertical-rl; text-orientation:upright; max-height:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:.12em; }
-    .relationship-details__header { display:grid; grid-template-columns:36px 36px minmax(0,1fr) 36px 36px; align-items:center; gap:6px; margin-bottom:12px; }
+    .relationship-details__tab-summary { display:none; }
+    .relationship-details__header { display:grid; grid-template-columns:36px 36px 36px minmax(0,1fr) 36px 36px; align-items:center; gap:6px; margin-bottom:12px; }
     .relationship-details h2 { font-size:1.1rem; text-align:center; overflow-wrap:anywhere; line-height:1.4; }
     .details-icon { display:flex; align-items:center; justify-content:center; width:36px; height:36px; padding:0; border:1px solid var(--color-line); border-radius:8px; background:#f6f2eb; cursor:pointer; transition:background .15s,border-color .15s; }
     .details-icon:hover { background:#eee4d6; border-color:#c5b8a6; }
     .details-icon:focus-visible,.relationship-group summary:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
     .details-icon.details-collapse { color:var(--color-ink-soft); }
-    .details-icon.edit-member,.details-icon.query-relationship { color:var(--color-accent); }
+    .details-icon.details-back,.details-icon.edit-member,.details-icon.query-relationship { color:var(--color-accent); }
+    .details-back--placeholder { visibility:hidden; pointer-events:none; }
     .relationship-details__profile { padding:0 2px 12px; border-bottom:1px solid var(--color-line); font-size:.875rem; color:var(--color-ink-soft); overflow-wrap:anywhere; }
     .relationship-details__profile p + p { margin-top:2px; }
     .relationship-details__empty { margin-top:14px; font-size:.875rem; color:var(--color-ink-soft); }
@@ -140,8 +142,15 @@
     .relation-label { font:600 12px var(--font-sans); paint-order:stroke; stroke:var(--color-paper); stroke-width:5px; stroke-linejoin:round; }
     .primary-button { background:var(--color-accent); color:white; border:0; padding:7px 14px; border-radius:6px; cursor:pointer; white-space:nowrap; }
     button:disabled { opacity:.55; cursor:wait; }
-    .save-status { position:absolute; z-index:4; left:16px; bottom:24px; padding:8px 14px; background:white; border:1px solid var(--color-line); border-radius:6px; font-size:.875rem; }
-    .save-status:empty { display:none; }
+    .save-status { position:absolute; z-index:24; left:16px; bottom:24px; max-width:min(520px,calc(100% - 32px)); margin:0; padding:9px 14px; background:#fffdf8; border:1px solid var(--color-line); border-radius:9px; box-shadow:0 8px 24px #2b211922; font-size:.875rem; line-height:1.45; pointer-events:auto; display:flex; gap:10px; align-items:center; }
+    .save-status__message { min-width:0; }
+    .save-status__action { flex:none; min-height:32px; padding:5px 10px; border:1px solid #bda98f; border-radius:7px; background:white; color:var(--color-accent); font:600 inherit; cursor:pointer; }
+    .save-status__action:hover { background:#f5eadc; }
+    .save-status[data-kind=success] { border-color:#9bb89d; }
+    .save-status[data-kind=info] { border-color:#9eb5bd; }
+    .save-status[data-kind=warning] { border-color:#c99a43; background:#fff9e9; }
+    .save-status[data-kind=error] { border-color:#c66d66; background:#fff3f1; color:#8b211b; }
+    .save-status:empty,.save-status[hidden] { display:none; }
     dialog { width:min(760px,calc(100vw - 24px)); max-height:calc(100dvh - 32px); overflow:hidden; border:1px solid var(--color-line); border-radius:12px; padding:0; color:var(--color-ink); }
     dialog[open] { display:flex; flex-direction:column; }
     dialog::backdrop { background:#2b211980; }
@@ -154,16 +163,24 @@
     .form-fields { margin:0; padding:0; border:0; min-width:0; }
     .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .field-grid label { display:flex; flex-direction:column; gap:4px; font-size:.875rem; }
-    .family-name-dialog,.unsaved-changes-dialog { width:min(480px,calc(100vw - 24px)); }
+    .family-name-dialog,.unsaved-changes-dialog,.member-draft-dialog { width:min(480px,calc(100vw - 24px)); }
     .family-name-dialog label { display:flex; flex-direction:column; gap:6px; font-size:.875rem; }
     .family-name-dialog .form-error { line-height:1.6; }
     dialog input,dialog select { width:100%; max-width:none; font:inherit; padding:8px; border:1px solid #c5b8a6; border-radius:6px; background:white; }
     .form-note { margin:12px 0; color:var(--color-ink-soft); font-size:.8rem; }
-    .relation-row { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:8px; padding:12px; margin:10px 0; background:#f6f2eb; border-radius:8px; }
+    .relation-row { margin:10px 0; overflow:hidden; border:1px solid #ded2c1; border-radius:9px; background:#f6f2eb; }
+    .relation-row__header { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; min-height:48px; padding:8px 10px 8px 12px; }
+    .relation-row__summary { display:flex; min-width:0; flex-direction:column; gap:2px; line-height:1.35; }
+    .relation-row__summary-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.875rem; }
+    .relation-row__summary-hint { color:var(--color-ink-soft); font-size:.75rem; }
+    .relation-row__summary-hint:empty { display:none; }
+    .relation-row__toggle { min-width:58px; min-height:34px; }
+    .relation-row__editor { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:8px; padding:12px; border-top:1px solid #ded2c1; background:#fbf8f3; }
+    .relation-row__editor[hidden] { display:none; }
     .relation-row label { display:flex; flex-direction:column; gap:6px; font-size:.8rem; min-width:0; }
     .relation-row .remove-relation { grid-column:4; }
     .relation-row .searchable-select, .field-grid .searchable-select { display:flex; width:100%; }
-    .relation-preview { grid-column:1/-1; font-size:.8rem; color:var(--color-ink-soft); }
+    .relation-preview { grid-column:1/-1; margin:2px 0 0; font-size:.8rem; color:var(--color-ink-soft); }
     .relation-kind-field[hidden], .relation-cousin-field[hidden] { display:none; }
     .form-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
     dialog > .form-actions,dialog form > .form-actions { flex:none; margin-top:0; padding:14px 24px 18px; border-top:1px solid var(--color-line); background:white; }
@@ -171,7 +188,7 @@
     @media(max-width:600px) {
       .tree-controls { flex-wrap:wrap; }
       .field-grid { grid-template-columns:1fr; }
-      .relation-row { grid-template-columns:1fr; }
+      .relation-row__editor { grid-template-columns:1fr; }
       .relation-row .remove-relation { grid-column:1; justify-self:end; }
       .dialog-header { grid-template-columns:minmax(0,1fr) 32px; padding:14px 16px 12px; }
       .dialog-header .details-icon { width:32px; height:32px; }
@@ -187,7 +204,7 @@
       .legend { gap:4px 12px; max-height:92px; overflow:auto; }
       .relationship-details { width:calc(100% - 24px); max-width:none; right:12px; top:auto; bottom:12px; max-height:min(55%,440px); padding:12px; }
       .relationship-details[data-collapsed="true"] { top:16px; bottom:auto; right:0; width:44px; max-width:44px; max-height:min(55%,360px); padding:0; }
-      .relationship-details__header { grid-template-columns:32px 32px minmax(0,1fr) 32px 32px; gap:4px; }
+      .relationship-details__header { grid-template-columns:32px 32px 32px minmax(0,1fr) 32px 32px; gap:4px; }
       .relationship-details__header .details-icon { width:32px; height:32px; }
       .relationship-details h2 { font-size:1rem; }
       .page-header__identity { flex:1 1 auto; }
@@ -227,6 +244,15 @@
     .member-list-search-label { flex:1 1 320px; display:grid; gap:5px; font-size:.8rem; color:var(--color-ink-soft); }
     .member-list-search-label input { width:100%; }
     .member-list-secondary { flex:none; white-space:nowrap; }
+    .member-list-filters { display:flex; flex-wrap:wrap; gap:6px; margin:-2px 0 12px; align-items:center; }
+    .member-list-recent { margin:0 0 12px; padding:10px 12px; border:1px solid #ded2c1; border-radius:9px; background:#fffaf4; }
+    .member-list-recent__title { display:block; margin-bottom:7px; font-size:.8rem; color:var(--color-ink-soft); }
+    .member-list-recent__items { display:flex; flex-wrap:wrap; gap:7px; }
+    .member-list-recent__item { min-height:36px; padding:6px 10px; border:1px solid #c5b8a6; border-radius:999px; background:white; color:inherit; font:inherit; cursor:pointer; }
+    .member-list-recent__item:hover { border-color:var(--color-accent); color:var(--color-accent); }
+    .member-list-filter-label { margin-right:2px; font-size:.8rem; color:var(--color-ink-soft); }
+    .member-list-filter { min-height:34px; padding:6px 11px; border:1px solid #c5b8a6; border-radius:999px; background:#fffaf2; color:inherit; font:inherit; cursor:pointer; }
+    .member-list-filter[aria-pressed="true"] { border-color:var(--color-accent); background:#8b3928; color:white; }
     .member-list-table { width:100%; border-collapse:collapse; text-align:left; }
     .member-list-table th, .member-list-table td { padding:10px; border-bottom:1px solid #d8cbb8; overflow-wrap:anywhere; }
     .member-list-table th { white-space:nowrap; background:#f5f0e8; }
@@ -238,6 +264,11 @@
     .member-list-name-button { border:0; padding:0; background:none; color:inherit; font:600 inherit; text-align:left; cursor:pointer; }
     .member-list-name-button:hover { color:var(--color-accent); text-decoration:underline; text-underline-offset:3px; }
     .member-list-empty { padding:20px 8px; text-align:center; color:var(--color-ink-soft); }
+    .tree-empty-state { width:min(520px,calc(100vw - 40px)); margin:clamp(36px,10vh,100px) auto 0; padding:22px; border:1px solid #ded2c1; border-radius:14px; background:#fffdf8f2; box-shadow:0 8px 24px #2b211912; text-align:center; }
+    .tree-empty-state h2 { margin:0 0 8px; font-size:1.15rem; }
+    .tree-empty-state p { margin:0; color:var(--color-ink-soft); line-height:1.6; }
+    .tree-empty-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:16px; }
+    .tree-empty-actions button { min-height:42px; }
     .ignored-intermediate-list { display:grid; gap:10px; }
     .ignored-intermediate-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:12px; border:1px solid var(--color-line); border-radius:9px; background:#fffaf4; }
     .ignored-intermediate-item strong { display:block; overflow-wrap:anywhere; }
@@ -429,6 +460,8 @@
         min-width:0;
         min-height:44px;
       }
+      .member-list-filters { margin-top:0; margin-bottom:10px; gap:7px; }
+      .member-list-filter { min-height:40px; padding:7px 12px; }
       .member-list-secondary {
         display:inline-flex;
         align-items:center;
@@ -466,7 +499,10 @@
       dialog > .form-actions::-webkit-scrollbar, dialog form > .form-actions::-webkit-scrollbar { display:none; }
       dialog > .form-actions button, dialog form > .form-actions button { min-height:40px; margin:0; white-space:nowrap; }
       .field-grid { grid-template-columns:1fr; gap:10px; }
-      .relation-row { grid-template-columns:1fr; padding:10px; margin:8px 0; }
+      .relation-row { margin:8px 0; }
+      .relation-row__header { min-height:50px; padding:8px 8px 8px 10px; }
+      .relation-row__editor { grid-template-columns:1fr; padding:10px; }
+      .relation-row__toggle { min-height:40px; }
       .relation-row .remove-relation { grid-column:1; justify-self:end; min-height:38px; }
       dialog input, dialog select, dialog textarea, .select-trigger { font-size:16px; }
       dialog textarea { resize:none; }
@@ -475,6 +511,9 @@
 
       .select-dropdown { max-width:calc(100vw - 16px); }
       .save-status { left:8px; bottom:12px; max-width:calc(100% - 60px); }
+      .tree-empty-state { width:calc(100vw - 24px); margin-top:72px; padding:18px 14px; }
+      .tree-empty-actions { display:grid; grid-template-columns:1fr; }
+      .tree-empty-actions button { width:100%; min-height:44px; }
     }
 
     /* Portrait mobile keeps cloud/import/export as the final icon group in that order. */
@@ -656,13 +695,14 @@
       .relationship-result-sheet__body .kinship-source { display:inline-block; margin-top:10px; }
       .relationship-details,.relationship-details[data-collapsed="true"] { top:auto; bottom:max(8px,env(safe-area-inset-bottom)); left:8px; right:8px; width:auto; max-width:none; border-radius:12px; }
       .relationship-details { max-height:min(48dvh,440px); padding:12px; }
-      .relationship-details[data-collapsed="true"] { max-height:56px; padding:0; }
-      .relationship-details__tab { flex-direction:row; justify-content:space-between; min-height:48px; max-height:56px; padding:10px 14px; }
-      .relationship-details__tab-text { writing-mode:horizontal-tb; max-height:none; letter-spacing:normal; order:-1; text-align:left; }
-      .relationship-details__tab-arrow { transform:rotate(90deg); }
+      .relationship-details[data-collapsed="true"] { max-height:92px; padding:0; }
+      .relationship-details__tab { display:grid; grid-template-columns:minmax(0,1fr) 28px; grid-template-rows:auto auto; gap:2px 8px; min-height:72px; max-height:92px; padding:10px 14px; text-align:left; }
+      .relationship-details__tab-text { grid-column:1; grid-row:1; writing-mode:horizontal-tb; max-height:none; letter-spacing:normal; order:initial; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+      .relationship-details__tab-summary { display:block; grid-column:1; grid-row:2; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--color-ink-soft); font-size:.78rem; line-height:1.35; }
+      .relationship-details__tab-arrow { grid-column:2; grid-row:1 / span 2; align-self:center; justify-self:center; transform:rotate(90deg); }
       .relationship-details .details-collapse svg { transform:rotate(90deg); }
       .relationship-details .details-icon { min-width:44px; min-height:44px; }
-      .relationship-details__header { grid-template-columns:44px 44px minmax(0,1fr) 44px 44px; gap:4px; }
+      .relationship-details__header { grid-template-columns:44px 44px 44px minmax(0,1fr) 44px 44px; gap:4px; }
       #relationship-details-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal; }
       .relationship-details__header .details-icon { width:44px; height:44px; }
       .relationship-details__content,.relationship-details__header { min-width:0; max-width:100%; }
@@ -689,7 +729,7 @@
       .relationship-details__content { height:100%; min-height:0; }
       .relationship-details__header {
         flex:none;
-        grid-template-columns:44px 44px minmax(0,1fr) 44px 44px;
+        grid-template-columns:44px 44px 44px minmax(0,1fr) 44px 44px;
         min-height:52px;
         margin:0;
         padding:4px 8px;
@@ -865,6 +905,15 @@
         <label class="member-list-search-label" for="member-list-search">搜尋成員<input id="member-list-search" type="search" autocomplete="off" placeholder="姓名、所在地、職位或代別" /></label>
         <button type="button" id="open-ignored-intermediates" class="plain-button member-list-secondary">已忽略待補項目 <span id="ignored-intermediate-count"></span></button>
       </div>
+      <div class="member-list-filters" role="group" aria-label="成員狀態篩選">
+        <span class="member-list-filter-label">狀態</span>
+        <button type="button" class="member-list-filter" data-member-filter="all" aria-pressed="true">全部</button>
+        <button type="button" class="member-list-filter" data-member-filter="unlinked" aria-pressed="false">未設定關係</button>
+      </div>
+      <section id="member-list-recent" class="member-list-recent" aria-labelledby="member-list-recent-title" hidden>
+        <strong id="member-list-recent-title" class="member-list-recent__title">最近查看</strong>
+        <div id="member-list-recent-items" class="member-list-recent__items"></div>
+      </section>
       <p id="member-list-count"></p>
       <p id="member-list-empty" class="member-list-empty" hidden>找不到符合的成員。</p>
       <table class="member-list-table"><thead><tr><th scope="col">姓名</th><th scope="col">所在地</th><th scope="col">職位</th><th scope="col">代別</th></tr></thead><tbody id="member-list-body"></tbody></table>
@@ -942,6 +991,17 @@
     <div class="form-actions">
       <button type="button" id="keep-editing-member" class="plain-button">繼續編輯</button>
       <button type="button" id="discard-member-changes" class="primary-button">捨棄修改</button>
+    </div>
+  </dialog>
+  <dialog id="member-draft-dialog" class="member-draft-dialog" aria-labelledby="member-draft-title">
+    <div class="dialog-header"><h2 id="member-draft-title">找到尚未完成的成員資料</h2></div>
+    <div class="dialog-scroll">
+      <p id="member-draft-message">找到尚未完成的成員資料。</p>
+      <p class="form-note">草稿只保留在目前瀏覽器分頁中，不會同步到 Google Drive。</p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="discard-member-draft" class="plain-button">捨棄草稿</button>
+      <button type="button" id="resume-member-draft" class="primary-button">繼續編輯</button>
     </div>
   </dialog>
   <dialog id="cloud-sync-dialog" class="cloud-sync-dialog" aria-labelledby="cloud-sync-title">

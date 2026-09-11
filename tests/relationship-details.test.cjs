@@ -108,13 +108,17 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     const options = { onEdit: id => { edited = id; }, onQuery: id => { queried = id; }, onClose: () => { closed = true; } };
     controller.render(panel, graph, 'p11', options);
     const content = panel.querySelector('.relationship-details__content');
+    const back = panel.querySelector('.details-back');
     const edit = panel.querySelector('.edit-member');
     const query = panel.querySelector('.query-relationship');
     const collapse = panel.querySelector('.details-collapse');
     const tab = panel.querySelector('.relationship-details__tab');
     assert.equal(edit.tagName, 'button');
     assert.equal(edit.type, 'button');
-    assert.equal(content.children[0].children[0], edit, 'Edit icon is the first header control');
+    assert.equal(content.children[0].children[0], back, 'Back navigation reserves the first header control');
+    assert.equal(content.children[0].children[1], edit, 'Edit icon follows the back control');
+    assert.equal(back.disabled, true);
+    assert.equal(back.classList.contains('details-back--placeholder'), true);
     assert.match(edit.attributes['aria-label'], /編輯陳建國/);
     assert.equal(edit.children[0].tagName, 'svg');
     assert.equal(edit.children[0].attributes['aria-hidden'], 'true');
@@ -160,6 +164,28 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     controller.render(panel, graph, null, options);
     assert.equal(panel.hidden, true);
     assert.equal(panel.children.length, 0);
+  } finally { global.document = previous; }
+});
+
+test('drawer keeps a short member navigation history for relative-to-relative browsing', () => {
+  const previous = global.document;
+  global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
+  try {
+    const controller = Details.createController();
+    const panel = new FakeElement('section');
+    let options;
+    options = { onSelect: id => controller.render(panel, graph, id, options) };
+    controller.render(panel, graph, 'p11', options);
+    const relative = panel.querySelector('.relationship-entry__person');
+    const target = relative.dataset.personId;
+    relative.click();
+    assert.equal(panel.dataset.memberId, target);
+    const back = panel.querySelector('.details-back');
+    assert.equal(back.disabled, false);
+    assert.equal(back.classList.contains('details-back--placeholder'), false);
+    back.click();
+    assert.equal(panel.dataset.memberId, 'p11');
+    assert.equal(panel.querySelector('.details-back').disabled, true);
   } finally { global.document = previous; }
 });
 

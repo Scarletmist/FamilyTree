@@ -9,6 +9,7 @@
   const legacyKey = 'family-static-v1:' + storagePath;
   const dbName = 'family-tree-v2:' + storagePath;
   const storeName = 'records';
+  const HISTORY_LIMIT = 10;
   const response = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
   const defaultData = () => ({ schemaVersion: 2, familyName: '我的家族', people: [] });
   let dbPromise = null;
@@ -122,14 +123,33 @@
   function emitChange(payload, source) {
     window.dispatchEvent(new CustomEvent('familyrepositorychange', { detail: { payload, source } }));
   }
-  async function persist(data) {
+  async function persist(data, { previous = null, label = '修改族譜' } = {}) {
     FamilyModel.build(data);
     const saved = { data, version: crypto.randomUUID(), savedAt: Date.now() };
     const sync = { ...(await getSyncState()), dirty: true };
-    try { await recordPutMany([['current', saved], ['sync', sync]]); }
+    const entries = [['current', saved], ['sync', sync]];
+    if (previous?.data) {
+      const history = await recordGet('history');
+      entries.push(['history', [{ data: previous.data, version: previous.version, savedAt: Date.now(), label }, ...(Array.isArray(history) ? history : [])].slice(0, HISTORY_LIMIT)]);
+    }
+    try { await recordPutMany(entries); }
     catch { throw new Error('瀏覽器 IndexedDB 儲存空間不足或不允許儲存，本次變更尚未儲存。'); }
     emitChange(saved, 'local');
     return saved;
+  }
+  async function undoLast(expectedVersion) {
+    const current = await read();
+    if (expectedVersion && current.version !== expectedVersion) return { error: '資料已被其他操作更新，無法復原舊版本。請先更新資料。', status: 409 };
+    const history = await recordGet('history');
+    if (!Array.isArray(history) || !history.length) return { error: '目前沒有可復原的修改。', status: 409 };
+    const target = history[0];
+    FamilyModel.build(target.data);
+    const saved = { data: target.data, version: crypto.randomUUID(), savedAt: Date.now() };
+    const sync = { ...(await getSyncState()), dirty: true };
+    try { await recordPutMany([['current', saved], ['sync', sync], ['history', history.slice(1)]]); }
+    catch { throw new Error('瀏覽器 IndexedDB 儲存空間不足或不允許儲存，本次復原尚未完成。'); }
+    emitChange(saved, 'local');
+    return { saved, undone: target };
   }
   async function replaceFromCloud(data, remote = {}, expectedLocalVersion = null) {
     if (!isStatic) throw new Error('開發模式不支援以 Google Drive 取代本機 API 資料。');
@@ -162,7 +182,10 @@
           connected: true,
           lastSyncedAt: Date.now()
         };
-        if (changed) store.put({ key: 'current', value: saved });
+        if (changed) {
+          store.put({ key: 'current', value: saved });
+          store.put({ key: 'history', value: [] });
+        }
         store.put({ key: 'sync', value: sync });
       };
       currentRequest.onsuccess = apply;
@@ -226,10 +249,14 @@
       if (existing) return JSON.stringify(existing) === JSON.stringify(member) ? response({ ...current, memberId: member.id }) : response({ error: '此成員已新增，請重新開啟表單。' }, 409);
     }
     if (body.version !== current.version) return response({ error: '資料已在其他分頁或雲端更新，請更新資料後再儲存。' }, 409);
-    let data;
-    if (adding) data = { ...current.data, people: [...current.data.people, member] };
-    else if (memberId) data = FamilyModel.replaceMember(current.data, member);
-    else if (url === '/api/family/name') data = { ...current.data, familyName: FamilyModel.normalizeFamilyName(body.familyName) };
+    if (url === '/api/family/undo' && method === 'POST') {
+      const result = await undoLast(current.version);
+      return result.error ? response({ error: result.error }, result.status || 409) : response({ ...result.saved, undoneLabel: result.undone?.label || '上一項修改' });
+    }
+    let data, historyLabel = '修改族譜';
+    if (adding) { data = { ...current.data, people: [...current.data.people, member] }; historyLabel = `新增成員「${member.name}」`; }
+    else if (memberId) { data = FamilyModel.replaceMember(current.data, member); historyLabel = `更新成員「${member.name}」`; }
+    else if (url === '/api/family/name') { data = { ...current.data, familyName: FamilyModel.normalizeFamilyName(body.familyName) }; historyLabel = '修改家族名稱'; }
     else if (url === '/api/family/intermediate-ignore' && method === 'PUT') {
       if (typeof body.planId !== 'string' || !body.planId || body.planId.length > 500 || typeof body.ignored !== 'boolean') return response({ error: '待補項目設定格式不正確。' }, 400);
       const allPlans = FamilyModel.intermediatePlans(current.data, { includeIgnored: true });
@@ -239,14 +266,16 @@
       const slotIds = target ? allPlans.filter(plan => plan.slotId === target.slotId).map(plan => plan.id) : [body.planId];
       slotIds.forEach(id => body.ignored ? ignored.add(id) : ignored.delete(id));
       data = { ...current.data, ignoredIntermediatePlans: [...ignored].sort() };
+      historyLabel = body.ignored ? '忽略待補親屬' : '恢復待補親屬';
     }
     else if (url === '/api/family/import') {
       FamilyModel.build(body.data);
       try { await backupBeforeImport(current); }
       catch { throw new Error('無法保留匯入前的 IndexedDB 備份，尚未匯入。請先匯出目前資料並清理瀏覽器空間。'); }
       data = body.data;
+      historyLabel = '匯入族譜';
     } else return response({ error: '不支援的操作。' }, 404);
-    const saved = await persist(data);
+    const saved = await persist(data, { previous: current, label: historyLabel });
     return response({ ...saved, ...(member ? { memberId: member.id } : {}), ...(url.endsWith('/import') ? { backupCreated: true } : {}) });
   }
   async function request(url, options = {}) {

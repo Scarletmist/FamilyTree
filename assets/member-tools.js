@@ -116,6 +116,33 @@
   const empty = document.getElementById('member-list-empty');
   const ignoredOpen = document.getElementById('open-ignored-intermediates');
   const ignoredCount = document.getElementById('ignored-intermediate-count');
+  const filterButtons = [...document.querySelectorAll('[data-member-filter]')];
+  const recentSection = document.getElementById('member-list-recent');
+  const recentItems = document.getElementById('member-list-recent-items');
+  const RECENT_KEY = 'family-tree:recent-members:v1:' + location.pathname;
+  const RECENT_LIMIT = 6;
+  let memberFilter = 'all';
+
+  function readRecentMembers() {
+    try {
+      const ids = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      return Array.isArray(ids) ? ids.filter(id => typeof id === 'string').slice(0, RECENT_LIMIT) : [];
+    } catch (_) { return []; }
+  }
+  function writeRecentMembers(ids) {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, RECENT_LIMIT))); } catch (_) {}
+  }
+  window.clearRecentFamilyMembers = () => {
+    try { localStorage.removeItem(RECENT_KEY); } catch (_) {}
+    if (dialog.open) renderMemberList();
+  };
+  function rememberRecentMember(id) {
+    if (!id) return;
+    const people = window.FAMILY?.people || [];
+    if (!people.some(person => person.id === id)) return;
+    writeRecentMembers([id, ...readRecentMembers().filter(value => value !== id)]);
+    if (dialog.open) renderMemberList();
+  }
 
   function currentIgnoredCount() {
     if (!window.FAMILY?.people) return 0;
@@ -136,10 +163,26 @@
     people.forEach(person => person.relationships.forEach(r => { linked.add(person.id); linked.add(r.personId); }));
     const keyword = normalized(searchMembers?.value.trim() || '');
     const visible = people.filter(person => {
-      if (!keyword) return true;
       const connected = linked.has(person.id);
+      if (memberFilter === 'unlinked' && connected) return false;
+      if (!keyword) return true;
       return normalized([person.name, person.location, person.position, connected ? `第 ${person.gen} 代` : '未設定關係'].join(' ')).includes(keyword);
     });
+    if (recentSection && recentItems) {
+      const byId = new Map(people.map(person => [person.id, person]));
+      const recentIds = readRecentMembers().filter(id => byId.has(id));
+      if (recentIds.length !== readRecentMembers().length) writeRecentMembers(recentIds);
+      recentItems.replaceChildren();
+      const showRecent = !keyword && memberFilter === 'all' && recentIds.length > 0;
+      recentSection.hidden = !showRecent;
+      if (showRecent) recentIds.forEach(id => {
+        const person = byId.get(id);
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'member-list-recent__item';
+        button.textContent = person.name; button.title = [person.location, person.position].filter(Boolean).join(' · ');
+        button.addEventListener('click', () => navigateToMember(id));
+        recentItems.appendChild(button);
+      });
+    }
     body.replaceChildren();
     visible.forEach(person => {
       const row = document.createElement('tr'); const connected = linked.has(person.id);
@@ -163,18 +206,33 @@
       body.append(row);
     });
     empty.hidden = visible.length > 0;
-    count.textContent = keyword
-      ? `顯示 ${visible.length} / 共 ${people.length} 位成員。點選成員可定位到族譜圖並開啟關係詳情。`
-      : `共 ${people.length} 位成員；淡黃色列表示未設定關係，代別留空。點選成員可定位到族譜圖並開啟關係詳情。`;
+    filterButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.memberFilter === memberFilter)));
+    const unlinkedCount = people.filter(person => !linked.has(person.id)).length;
+    const unlinkedButton = filterButtons.find(button => button.dataset.memberFilter === 'unlinked');
+    if (unlinkedButton) unlinkedButton.textContent = `未設定關係${unlinkedCount ? `（${unlinkedCount}）` : ''}`;
+    if (memberFilter === 'unlinked') {
+      count.textContent = keyword
+        ? `顯示 ${visible.length} / ${unlinkedCount} 位未設定關係成員。點選成員可定位到族譜圖並開啟關係詳情。`
+        : `共 ${unlinkedCount} 位未設定關係成員。點選成員可定位到族譜圖並開啟關係詳情。`;
+    } else {
+      count.textContent = keyword
+        ? `顯示 ${visible.length} / 共 ${people.length} 位成員。點選成員可定位到族譜圖並開啟關係詳情。`
+        : `共 ${people.length} 位成員；淡黃色列表示未設定關係，代別留空。點選成員可定位到族譜圖並開啟關係詳情。`;
+    }
     refreshIgnoredCount();
   }
   document.getElementById('show-member-list').addEventListener('click', () => {
     if (searchMembers) searchMembers.value = '';
+    memberFilter = 'all';
     renderMemberList();
     dialog.showModal();
     searchMembers?.focus();
   });
   searchMembers?.addEventListener('input', renderMemberList);
+  filterButtons.forEach(button => button.addEventListener('click', () => {
+    memberFilter = button.dataset.memberFilter || 'all';
+    renderMemberList();
+  }));
   ignoredOpen?.addEventListener('click', () => {
     if (dialog.open) dialog.close();
     window.openIgnoredIntermediatePlans?.();
@@ -182,5 +240,6 @@
   document.getElementById('close-member-list').addEventListener('click', () => dialog.close());
   window.addEventListener('familyintermediatechange', () => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); });
   window.addEventListener('familyrepositorychange', () => { queueMicrotask(() => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); }); });
+  window.addEventListener('familymemberviewed', event => rememberRecentMember(event.detail?.id));
   refreshIgnoredCount();
 })();

@@ -6,16 +6,37 @@
   const error = document.getElementById('member-error');
   const status = document.getElementById('save-status');
   const backupStatus = document.getElementById('backup-status');
-  // Every new message gets its own ten seconds, including repeated messages.
-  for (const element of [status, backupStatus]) {
+  // Backup information is secondary and may quietly disappear. Action feedback uses
+  // showStatus() below so success toasts are short-lived while errors stay visible.
+  {
     let timer;
     const refresh = () => {
       clearTimeout(timer);
-      element.hidden = !element.textContent.trim();
-      if (!element.hidden) timer = setTimeout(() => { element.hidden = true; }, 10000);
+      backupStatus.hidden = !backupStatus.textContent.trim();
+      if (!backupStatus.hidden) timer = setTimeout(() => { backupStatus.hidden = true; }, 10000);
     };
-    new MutationObserver(refresh).observe(element, { childList: true, characterData: true, subtree: true });
+    new MutationObserver(refresh).observe(backupStatus, { childList: true, characterData: true, subtree: true });
     refresh();
+  }
+  let statusTimer;
+  function showStatus(message, kind = 'success', timeout, action = null) {
+    clearTimeout(statusTimer);
+    status.replaceChildren();
+    status.dataset.kind = kind;
+    status.hidden = !message;
+    if (!message) return;
+    const text = document.createElement('span'); text.className = 'save-status__message'; text.textContent = message;
+    status.appendChild(text);
+    if (action?.label && typeof action.onClick === 'function') {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'save-status__action'; button.textContent = action.label;
+      button.addEventListener('click', async () => {
+        clearTimeout(statusTimer); button.disabled = true;
+        try { await action.onClick(); } finally { if (button.isConnected) button.disabled = false; }
+      });
+      status.appendChild(button);
+    }
+    const duration = timeout === undefined ? (kind === 'error' || kind === 'warning' ? 0 : action ? 6000 : 3000) : timeout;
+    if (duration > 0) statusTimer = setTimeout(() => { status.hidden = true; }, duration);
   }
   const backup = FamilyStorage.create(window, FamilyModel.build);
   let restoredBackup = false;
@@ -33,14 +54,19 @@
   const unsavedDialog = document.getElementById('unsaved-changes-dialog');
   const keepEditingButton = document.getElementById('keep-editing-member');
   const discardChangesButton = document.getElementById('discard-member-changes');
-  let memberBaseline = '', pendingMemberClose = null;
+  const draftDialog = document.getElementById('member-draft-dialog');
+  const draftMessage = document.getElementById('member-draft-message');
+  const resumeDraftButton = document.getElementById('resume-member-draft');
+  const discardDraftButton = document.getElementById('discard-member-draft');
+  const MEMBER_DRAFT_KEY = 'family-tree:member-form-draft:v1';
+  let memberBaseline = '', pendingMemberClose = null, currentPlanId = null, pendingDraft = null, draftTimer = null;
   let nameVersion = null, savingName = false;
   const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接設定）', biaoCousin: '表兄弟姊妹（直接設定）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
-  function memberFormState() {
+  function memberFormSnapshot() {
     const field = name => String(form.elements.namedItem(name)?.value ?? '');
-    return JSON.stringify({
+    return {
       fields: {
         name: field('name'), location: field('location'), position: field('position'), notes: field('notes'),
         gender: field('gender'), siblingOrder: field('siblingOrder'), discipleOrder: field('discipleOrder')
@@ -52,11 +78,70 @@
         kind: row.querySelector('.relation-kind')?.value || '',
         seniority: row.querySelector('.relation-cousin-seniority')?.value || ''
       }))
-    });
+    };
   }
+  function memberFormState() { return JSON.stringify(memberFormSnapshot()); }
   function resetMemberBaseline() { memberBaseline = memberFormState(); }
   function memberFormDirty() { return dialog.open && memberBaseline !== memberFormState(); }
-  function closeMemberNow() { pendingMemberClose = null; if (unsavedDialog?.open) unsavedDialog.close(); dialog.close(); }
+  function draftContext() { return editingId ? 'edit:' + editingId : currentPlanId ? 'plan:' + currentPlanId : 'new'; }
+  function readMemberDraft() {
+    try { return JSON.parse(sessionStorage.getItem(MEMBER_DRAFT_KEY) || 'null'); } catch (_) { return null; }
+  }
+  function clearMemberDraft() {
+    clearTimeout(draftTimer);
+    const draft = readMemberDraft();
+    try { if (!draft || draft.context === draftContext()) sessionStorage.removeItem(MEMBER_DRAFT_KEY); } catch (_) {}
+    pendingDraft = null;
+  }
+  function persistMemberDraft() {
+    clearTimeout(draftTimer);
+    if (!dialog.open || saving || !memberFormDirty()) {
+      const draft = readMemberDraft();
+      try { if (draft?.context === draftContext()) sessionStorage.removeItem(MEMBER_DRAFT_KEY); } catch (_) {}
+      return;
+    }
+    try {
+      sessionStorage.setItem(MEMBER_DRAFT_KEY, JSON.stringify({
+        version: 1, context: draftContext(), savedAt: Date.now(), state: memberFormSnapshot()
+      }));
+    } catch (_) {}
+  }
+  function scheduleMemberDraft() {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(persistMemberDraft, 180);
+  }
+  function restoreMemberDraft(draft) {
+    if (!draft?.state) return;
+    const state = draft.state;
+    Object.entries(state.fields || {}).forEach(([name, value]) => {
+      const control = form.elements.namedItem(name);
+      if (control) control.value = value ?? '';
+    });
+    const choice = document.getElementById('intermediate-choice');
+    if (choice && state.intermediateChoice && [...choice.options].some(option => option.value === state.intermediateChoice)) choice.value = state.intermediateChoice;
+    relations.replaceChildren();
+    (state.relationships || []).forEach(relation => addRelation({
+      personId: relation.target, type: relation.type, kind: relation.kind, seniority: relation.seniority
+    }, { expanded: false }));
+    [...relations.children].forEach(row => row.updatePreview?.());
+    scheduleMemberDraft();
+  }
+  function offerMemberDraft() {
+    const draft = readMemberDraft();
+    if (!draft || draft.context !== draftContext() || JSON.stringify(draft.state) === memberBaseline) return;
+    pendingDraft = draft;
+    const minutes = Math.max(0, Math.round((Date.now() - Number(draft.savedAt || Date.now())) / 60000));
+    draftMessage.textContent = `找到${minutes ? `約 ${minutes} 分鐘前` : '剛才'}尚未完成的${editingId ? '成員修改' : '新增成員資料'}。`;
+    draftDialog.showModal();
+    resumeDraftButton.focus();
+  }
+  function closeMemberNow(clearDraft = false) {
+    pendingMemberClose = null;
+    if (clearDraft) clearMemberDraft();
+    if (unsavedDialog?.open) unsavedDialog.close();
+    if (draftDialog?.open) draftDialog.close();
+    dialog.close();
+  }
   function requestMemberClose() {
     if (saving) return;
     if (!memberFormDirty()) { closeMemberNow(); return; }
@@ -95,12 +180,44 @@
     if (!response.ok) throw new Error(payload.error || '無法載入族譜。');
     accept(payload);
   }
-  function addRelation(initial = null) {
+  async function undoLastChange(expectedVersion) {
+    const response = await FamilyRepository.request('/api/family/undo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: expectedVersion })
+    });
+    const payload = await response.json();
+    if (!response.ok) { showStatus(payload.error || '無法復原上一項修改。', 'error'); return; }
+    document.getElementById('family-filter').value = '';
+    delete document.querySelector('.tree').dataset.scope;
+    window.clearFamilyViewState?.();
+    accept(payload);
+    window.selectFamilyMember(null);
+    showStatus(`已復原「${payload.undoneLabel || '上一項修改'}」。`, 'info');
+  }
+  function showUndoStatus(message, payload) {
+    showStatus(message, 'success', 6000, { label: '復原', onClick: () => undoLastChange(payload.version) });
+  }
+  function addRelation(initial = null, { expanded = initial == null } = {}) {
     const row = document.createElement('div'); row.className = 'relation-row';
+    const header = document.createElement('div'); header.className = 'relation-row__header';
+    const summary = document.createElement('div'); summary.className = 'relation-row__summary';
+    const summaryTitle = document.createElement('strong'); summaryTitle.className = 'relation-row__summary-title';
+    const summaryHint = document.createElement('span'); summaryHint.className = 'relation-row__summary-hint';
+    summary.append(summaryTitle, summaryHint);
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'plain-button relation-row__toggle';
+    const editor = document.createElement('div'); editor.className = 'relation-row__editor';
+    header.append(summary, toggle); row.append(header, editor);
+    function setExpanded(value, { focus = false } = {}) {
+      row.dataset.expanded = String(Boolean(value));
+      editor.hidden = !value;
+      toggle.textContent = value ? '收合' : '編輯';
+      toggle.setAttribute('aria-expanded', String(Boolean(value)));
+      if (focus && value) editor.querySelector('select,button,input')?.focus();
+    }
+    toggle.addEventListener('click', () => setExpanded(row.dataset.expanded !== 'true', { focus: row.dataset.expanded !== 'true' }));
     function field(title, className) {
       const label = document.createElement('label'); label.textContent = title;
       const select = document.createElement('select'); select.className = className; select.required = true;
-      label.appendChild(select); row.appendChild(label); return select;
+      label.appendChild(select); editor.appendChild(label); return select;
     }
     const target = field('現有成員', 'relation-target'); updateTargets(target);
     const type = field('是這位成員的', 'relation-type'); type.appendChild(option('', '選擇關係'));
@@ -110,8 +227,8 @@
     const seniority = field('對方的長幼', 'relation-cousin-seniority'); seniority.parentElement.className = 'relation-cousin-field';
     seniority.append(option('unknown', '未確認'), option('older', '對方比此成員年長'), option('younger', '對方比此成員年幼'));
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'plain-button remove-relation'; remove.textContent = '移除';
-    remove.addEventListener('click', () => row.remove()); row.appendChild(remove);
-    const preview = document.createElement('p'); preview.className = 'relation-preview'; row.appendChild(preview);
+    remove.addEventListener('click', () => { row.remove(); scheduleMemberDraft(); }); editor.appendChild(remove);
+    const preview = document.createElement('p'); preview.className = 'relation-preview'; editor.appendChild(preview);
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
       kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
@@ -119,11 +236,13 @@
       const person = snapshot.data.people.find(p => p.id === target.value);
       const role = person && FamilyModel.isCousin(type.value) ? FamilyModel.cousinRole(person, type.value, seniority.value) : person && type.value === 'fellowDisciple' ? FamilyModel.fellowRole(person, { discipleOrder: Number(document.getElementById('member-disciple-order').value) || null }) : type.value === 'sibling' && document.getElementById('intermediate-context') ? '親生手足' : labels[type.value];
       preview.textContent = person && type.value ? `${person.name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${role}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
+      summaryTitle.textContent = person && type.value ? `${person.name} · ${role || labels[type.value] || type.value}` : '尚未完成的關係';
+      summaryHint.textContent = person && type.value && isParent ? kind.value : person && type.value && FamilyModel.isCousin(type.value) && seniority.value !== 'unknown' ? (seniority.value === 'older' ? '對方年長' : '對方年幼') : '';
     }
-    row.addEventListener('change', update);
+    row.addEventListener('change', () => { update(); scheduleMemberDraft(); });
     row.updatePreview = update;
     if (initial) { target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind; seniority.value = initial.seniority || 'unknown'; }
-    relations.appendChild(row); update(); if (!initial) target.focus();
+    relations.appendChild(row); update(); setExpanded(expanded); scheduleMemberDraft(); if (!initial) target.focus();
   }
   function setSaving(value) {
     saving = value;
@@ -139,9 +258,9 @@
     FamilyModel.relationshipsFor(snapshot.data, editingId).forEach(addRelation);
   }
   function openMember(id = null, plan = null) {
-    if (restoredBackup) { status.textContent = '目前為瀏覽器備份，請重新連線並重新整理後再編輯。'; return; }
-    editingId = id;
-    form.reset(); relations.replaceChildren(); error.textContent = ''; status.textContent = ''; requestId = crypto.randomUUID();
+    if (restoredBackup) { showStatus('目前為瀏覽器備份，請重新連線並重新整理後再編輯。', 'warning'); return; }
+    editingId = id; currentPlanId = plan?.id || null;
+    form.reset(); relations.replaceChildren(); error.textContent = ''; showStatus(''); requestId = crypto.randomUUID();
     document.getElementById('intermediate-context')?.remove();
     document.getElementById('member-dialog-title').textContent = editingId ? '編輯成員與關係' : '新增成員';
     document.getElementById('refresh-family').textContent = editingId ? '重新載入成員' : '更新資料';
@@ -157,9 +276,9 @@
         if (saving) return;
         error.textContent = ''; ignore.disabled = true;
         try {
-          await updateIntermediateIgnored(plan.id, true);
-          closeMemberNow();
-          status.textContent = `已忽略待補項目「${plan.title}」，可從「已忽略待補項目」恢復。`;
+          const payload = await updateIntermediateIgnored(plan.id, true);
+          closeMemberNow(true);
+          showUndoStatus(`已忽略待補項目「${plan.title}」，可從「已忽略待補項目」恢復。`, payload);
         } catch (e) { error.textContent = e.message; ignore.disabled = false; }
       });
       contextActions.appendChild(ignore); context.appendChild(contextActions);
@@ -182,12 +301,14 @@
     }
     setSaving(false);
     resetMemberBaseline();
-    dialog.showModal(); document.getElementById('member-name').focus();
+    dialog.showModal();
+    offerMemberDraft();
+    if (!draftDialog.open) document.getElementById('member-name').focus();
   }
   window.addIntermediateMember = planId => {
     const plan = FamilyModel.intermediatePlans(snapshot.data).find(p => p.id === planId);
     if (plan) openMember(null, plan);
-    else status.textContent = '此中間關係已更新，請重新整理後再選擇。';
+    else showStatus('此中間關係已更新，請重新整理後再選擇。', 'warning');
   };
   async function updateIntermediateIgnored(planId, ignored) {
     const response = await FamilyRepository.request('/api/family/intermediate-ignore', {
@@ -218,8 +339,8 @@
       restore.addEventListener('click', async () => {
         restore.disabled = true; ignoredError.textContent = '';
         try {
-          await updateIntermediateIgnored(plan.id, false);
-          status.textContent = `已恢復待補項目「${plan.title}」。`;
+          const payload = await updateIntermediateIgnored(plan.id, false);
+          showUndoStatus(`已恢復待補項目「${plan.title}」。`, payload);
           renderIgnoredIntermediatePlans();
         } catch (e) { ignoredError.textContent = e.message; }
         finally { restore.disabled = false; }
@@ -274,7 +395,7 @@
       if (!response.ok) throw new Error(payload.error || '儲存名稱失敗，請重試。');
       accept(payload);
       nameDialog.close();
-      status.textContent = `已將家族名稱更新為「${familyName}」，並儲存至${FamilyRepository.isStatic ? '此瀏覽器 IndexedDB' : '族譜檔案'}。`;
+      showUndoStatus(`已將家族名稱更新為「${familyName}」。`, payload);
     } catch (e) { nameError.textContent = e.message || '連線中斷，請重試。'; }
     finally { setNameSaving(false); }
   });
@@ -286,9 +407,20 @@
     requestMemberClose();
   });
   keepEditingButton.addEventListener('click', () => { pendingMemberClose = null; unsavedDialog.close(); dialog.focus(); });
-  discardChangesButton.addEventListener('click', () => { if (pendingMemberClose) closeMemberNow(); });
+  discardChangesButton.addEventListener('click', () => { if (pendingMemberClose) closeMemberNow(true); });
   unsavedDialog.addEventListener('cancel', event => { event.preventDefault(); pendingMemberClose = null; unsavedDialog.close(); dialog.focus(); });
-  dialog.addEventListener('close', () => { pendingMemberClose = null; memberBaseline = ''; });
+  resumeDraftButton.addEventListener('click', () => {
+    const draft = pendingDraft; pendingDraft = null; draftDialog.close();
+    restoreMemberDraft(draft); dialog.focus();
+  });
+  discardDraftButton.addEventListener('click', () => {
+    clearMemberDraft(); draftDialog.close(); document.getElementById('member-name').focus();
+  });
+  draftDialog.addEventListener('cancel', event => { event.preventDefault(); });
+  dialog.addEventListener('close', () => { pendingMemberClose = null; memberBaseline = ''; currentPlanId = null; pendingDraft = null; });
+  form.addEventListener('input', scheduleMemberDraft);
+  form.addEventListener('change', scheduleMemberDraft);
+  window.addEventListener('pagehide', persistMemberDraft);
   document.getElementById('add-relation').addEventListener('click', () => addRelation());
   document.getElementById('member-disciple-order').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   document.getElementById('member-name').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
@@ -296,8 +428,8 @@
     error.textContent = '';
     try {
       await load();
-      if (editingId) { populateMember(); resetMemberBaseline(); error.textContent = '已載入此成員的最新資料，請重新套用修改。'; }
-      else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); status.textContent = '已更新資料，表單內容已保留。'; }
+      if (editingId) { populateMember(); resetMemberBaseline(); clearMemberDraft(); error.textContent = '已載入此成員的最新資料，請重新套用修改。'; }
+      else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); showStatus('已更新資料，表單內容已保留。', 'info'); }
     }
     catch (e) { error.textContent = e.message; }
   });
@@ -324,10 +456,11 @@
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || '儲存失敗，請重試。');
       document.getElementById('family-filter').value = '';
-      accept(payload); closeMemberNow();
+      clearMemberDraft();
+      accept(payload); closeMemberNow(true);
       // Keep the diagram available for filling the next intermediate slot.
       window.selectFamilyMember(document.getElementById('intermediate-context') ? null : payload.memberId);
-      status.textContent = `已${editingId ? '更新' : '新增'}「${member.name}」，並儲存至${FamilyRepository.isStatic ? '此瀏覽器 IndexedDB' : '族譜檔案'}。`;
+      showUndoStatus(`已${editingId ? '更新' : '新增'}「${member.name}」。`, payload);
     } catch (e) { error.textContent = e.message || '連線中斷，請重試。'; }
     finally { setSaving(false); }
   });
@@ -341,7 +474,7 @@
   document.getElementById('import-json').addEventListener('click', () => { importFile.value = ''; importFile.click(); });
   importFile.addEventListener('change', async () => {
     const file = importFile.files[0]; if (!file) return;
-    stagedImport = null; status.textContent = ''; importError.textContent = '';
+    stagedImport = null; showStatus(''); importError.textContent = '';
     try {
       if (file.size > 5 * 1024 * 1024) throw new Error('JSON 檔案不能超過 5 MB。');
       let data;
@@ -349,7 +482,7 @@
       FamilyModel.build(data);
       stagedImport = { data, name: file.name }; importVersion = snapshot.version;
       importSummary(); importDialog.showModal();
-    } catch (e) { status.textContent = '無法匯入：' + e.message; }
+    } catch (e) { showStatus('無法匯入：' + e.message, 'error'); }
   });
   document.getElementById('cancel-import').addEventListener('click', () => { stagedImport = null; importDialog.close(); });
   importDialog.addEventListener('cancel', event => { if (importing) event.preventDefault(); else stagedImport = null; });
@@ -367,9 +500,11 @@
       if (!response.ok) throw new Error(payload.error || '匯入失敗，請重試。');
       document.getElementById('family-filter').value = '';
       delete document.querySelector('.tree').dataset.scope;
+      window.clearRecentFamilyMembers?.();
+      window.clearFamilyViewState?.();
       accept(payload); window.selectFamilyMember(null);
       importDialog.close(); stagedImport = null;
-      status.textContent = `已匯入 ${payload.data.people.length} 位成員，並保留匯入前的資料備份。`;
+      showUndoStatus(`已匯入 ${payload.data.people.length} 位成員，並保留匯入前備份。`, payload);
     } catch (e) { importError.textContent = e.message; }
     finally { importing = false; ['confirm-import', 'cancel-import', 'refresh-import'].forEach(id => document.getElementById(id).disabled = false); }
   });
@@ -383,22 +518,22 @@
       const link = document.createElement('a'); link.href = url; link.download = 'family.json';
       document.body.appendChild(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      status.textContent = '已匯出目前儲存的族譜資料。';
-    } catch (e) { status.textContent = '無法匯出：' + e.message; }
+      showStatus('已匯出目前族譜資料。');
+    } catch (e) { showStatus('無法匯出：' + e.message, 'error'); }
     finally { button.disabled = false; }
   });
   window.addEventListener('familyrepositorychange', event => {
     if (event.detail?.source !== 'cloud' || !event.detail.payload) return;
     const editing = dialog.open || nameDialog.open || importDialog.open;
     if (editing) {
-      status.textContent = 'Google Drive 已下載較新的族譜；目前表單仍保留原輸入。請按「更新資料」後再儲存，避免覆蓋雲端版本。';
+      showStatus('Google Drive 已下載較新的族譜；目前表單仍保留原輸入。請按「更新資料」後再儲存，避免覆蓋雲端版本。', 'warning');
       return;
     }
     accept(event.detail.payload);
     document.getElementById('family-filter').value = '';
     delete document.querySelector('.tree').dataset.scope;
     window.selectFamilyMember(null);
-    status.textContent = '已從 Google Drive 載入較新的族譜資料。';
+    showStatus('已從 Google Drive 載入較新的族譜資料。', 'info');
   });
   load().catch(e => {
     const cached = FamilyRepository.isStatic ? null : backup.read();

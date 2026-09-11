@@ -128,3 +128,33 @@ test('edit reconciles inverse relationships; import/export round trips with back
     await fs.unlink(dataFile); await fs.rm(dataFile + '.backup.json', { force: true }); await fs.rmdir(directory);
   }
 });
+
+test('undo restores the previous saved dataset and rejects stale or exhausted undo requests', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'family-undo-test-'));
+  const dataFile = path.join(directory, 'family.json');
+  await fs.writeFile(dataFile, JSON.stringify(demo));
+  const server = createFamilyServer({ dataFile });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const send = (route, method, body) => fetch(base + route, { method, headers: { 'Content-Type': 'application/json', Origin: base }, body: JSON.stringify(body) });
+  try {
+    const first = await (await fetch(base + '/api/family')).json();
+    const changed = await send('/api/family/name', 'PUT', { familyName: 'Undo 測試家族', version: first.version });
+    assert.equal(changed.status, 200);
+    const saved = await changed.json();
+    assert.equal(saved.data.familyName, 'Undo 測試家族');
+    const stale = await send('/api/family/undo', 'POST', { version: first.version });
+    assert.equal(stale.status, 409);
+    const undoneResponse = await send('/api/family/undo', 'POST', { version: saved.version });
+    assert.equal(undoneResponse.status, 200);
+    const undone = await undoneResponse.json();
+    assert.equal(Model.build(undone.data).familyName, Model.build(first.data).familyName);
+    assert.equal(Object.hasOwn(undone.data, 'familyName'), Object.hasOwn(first.data, 'familyName'));
+    assert.match(undone.undoneLabel, /家族名稱/);
+    const exhausted = await send('/api/family/undo', 'POST', { version: undone.version });
+    assert.equal(exhausted.status, 409);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});

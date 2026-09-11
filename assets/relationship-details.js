@@ -163,6 +163,8 @@
     // Keep disclosure and drawer choices when the graph is redrawn.
     const openStates = new Map();
     let collapsed = false;
+    let currentPersonId = null, pendingNavigationTarget = null;
+    const navigationHistory = [];
     function remember(panel) {
       const id = panel.dataset.memberId;
       if (!id) return;
@@ -185,10 +187,18 @@
       if (focus) (collapsed ? tab : button)?.focus({ preventScroll: true });
     }
     function render(panel, graph, personId, { onEdit, onSelect, onQuery, onClose } = {}) {
+      if (!personId) {
+        navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null;
+      } else if (personId !== currentPersonId) {
+        if (pendingNavigationTarget === personId) pendingNavigationTarget = null;
+        else { navigationHistory.length = 0; pendingNavigationTarget = null; }
+        currentPersonId = personId;
+      }
       // Redrawing must not strand keyboard focus in a removed control.
       const active = document.activeElement;
       const focused = active && panel.contains(active) ?
         { className: active.classList.contains('relationship-details__tab') ? 'relationship-details__tab' :
+          active.classList.contains('details-back') ? 'details-back' :
           active.classList.contains('edit-member') ? 'edit-member' :
           active.classList.contains('query-relationship') ? 'query-relationship' :
           active.classList.contains('details-collapse') ? 'details-collapse' :
@@ -203,6 +213,15 @@
       const content = element('div', 'relationship-details__content');
       content.id = 'relationship-details-content';
       const header = element('div', 'relationship-details__header');
+      const back = iconButton('details-back', '返回上一位成員', 'M15 18l-6-6 6-6');
+      back.disabled = !navigationHistory.length;
+      if (!navigationHistory.length) back.className += ' details-back--placeholder';
+      back.addEventListener('click', () => {
+        const target = navigationHistory.pop();
+        if (!target) return;
+        pendingNavigationTarget = target;
+        onSelect?.(target);
+      });
       const edit = iconButton('edit-member', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
       edit.addEventListener('click', () => onEdit?.(person.id));
       const query = iconButton('query-relationship', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
@@ -216,10 +235,10 @@
       collapse.setAttribute('aria-controls', content.id);
       collapse.addEventListener('click', () => setCollapsed(panel, true, { focus: true }));
       const close = iconButton('details-close', '關閉關係詳情', 'M18 6 6 18 M6 6l12 12');
-      close.addEventListener('click', () => onClose?.());
+      close.addEventListener('click', () => { navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null; onClose?.(); });
       const title = element('h2', '', person.name + '的關係');
       title.id = 'relationship-details-title';
-      header.append(edit, query, title, collapse, close);
+      header.append(back, edit, query, title, collapse, close);
       content.appendChild(header);
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
@@ -254,7 +273,12 @@
             personButton.type = 'button';
             personButton.dataset.personId = entry.personId;
             personButton.setAttribute('aria-label', '查看' + entry.name + '的關係詳情');
-            personButton.addEventListener('click', () => onSelect?.(entry.personId));
+            personButton.addEventListener('click', () => {
+              if (entry.personId === currentPersonId) return;
+              if (currentPersonId) navigationHistory.push(currentPersonId);
+              pendingNavigationTarget = entry.personId;
+              onSelect?.(entry.personId);
+            });
             main.appendChild(personButton);
             if (entry.role) main.appendChild(element('span', 'relationship-entry__role', entry.role));
             item.appendChild(main);
@@ -279,7 +303,13 @@
       tab.title = '展開關係詳情';
       const arrow = element('span', 'relationship-details__tab-arrow', '‹');
       arrow.setAttribute('aria-hidden', 'true');
-      tab.append(arrow, element('span', 'relationship-details__tab-text', person.name + '的關係'));
+      const tabText = element('span', 'relationship-details__tab-text', person.name + '的關係');
+      const preferredPeekGroups = ['spouses', 'children', 'siblings', 'parents', 'teachers', 'students', 'fellowDisciples', 'cousins', 'grandparents', 'grandchildren'];
+      const peekLabels = { spouses:'配偶', children:'子女', siblings:'手足', parents:'父母', teachers:'師父', students:'徒弟', fellowDisciples:'師兄弟姊妹', cousins:'堂表親', grandparents:'祖父母', grandchildren:'孫子女' };
+      const peekParts = preferredPeekGroups.map(id => groups.find(group => group.id === id)).filter(Boolean).slice(0, 3)
+        .map(group => `${peekLabels[group.id] || group.title} ${group.entries.length}`);
+      const tabSummary = element('span', 'relationship-details__tab-summary', peekParts.length ? peekParts.join(' · ') : '尚未記錄關係');
+      tab.append(arrow, tabText, tabSummary);
       tab.addEventListener('click', () => setCollapsed(panel, false, { focus: true }));
       panel.append(content, tab);
       setCollapsed(panel, collapsed);

@@ -23,6 +23,48 @@
   const relationshipSearch = FamilyRelationshipSearch.createController({ onChange: () => { selectedId = null; render(); } });
   const orderKey = FamilyModel.orderKey;
   let selectedId = null;
+  const VIEW_STATE_KEY = 'family-tree:canvas-view:v1:' + location.pathname;
+  let initialViewState = (() => {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(VIEW_STATE_KEY) || 'null');
+      return value && typeof value === 'object' ? value : null;
+    } catch (_) { return null; }
+  })();
+  let viewStateReady = false, viewStateRestoring = false, viewStateTimer = 0;
+  function saveCanvasViewState() {
+    clearTimeout(viewStateTimer);
+    if (!viewStateReady || viewStateRestoring) return;
+    const view = document.querySelector('.tree');
+    if (!view || typeof treeZoom === 'undefined') return;
+    const querySummary = document.getElementById('relationship-summary');
+    if (querySummary && !querySummary.hidden) return;
+    try {
+      sessionStorage.setItem(VIEW_STATE_KEY, JSON.stringify({
+        scale: treeZoom.getScale(), scrollLeft: view.scrollLeft, scrollTop: view.scrollTop,
+        filter: document.getElementById('family-filter')?.value || '', savedAt: Date.now()
+      }));
+    } catch (_) {}
+  }
+  function scheduleCanvasViewStateSave() {
+    if (!viewStateReady || viewStateRestoring) return;
+    clearTimeout(viewStateTimer);
+    viewStateTimer = setTimeout(saveCanvasViewState, 120);
+  }
+  function clearCanvasViewState({ reset = true } = {}) {
+    clearTimeout(viewStateTimer);
+    try { sessionStorage.removeItem(VIEW_STATE_KEY); } catch (_) {}
+    initialViewState = null;
+    if (reset) {
+      viewStateRestoring = true;
+      try {
+        const view = document.querySelector('.tree');
+        if (typeof treeZoom !== 'undefined') treeZoom.setScale(1);
+        if (view) { view.scrollLeft = 0; view.scrollTop = 0; }
+      } catch (_) {}
+      finally { viewStateRestoring = false; }
+    }
+  }
+  window.clearFamilyViewState = clearCanvasViewState;
   let hideCanvasNames = false;
   const nameToggle = document.getElementById('toggle-canvas-names');
   nameToggle.addEventListener('click', () => {
@@ -39,7 +81,7 @@
     const MAX_SCALE = 2;
     const STEP = 0.1;
     const DESKTOP_NAME_ONLY_MAX_SCALE = 0.6;
-    let scale = 1;
+    let scale = Number(initialViewState?.scale) || 1;
     let naturalWidth = 0;
     let naturalHeight = 0;
     let rendering = false;
@@ -125,6 +167,7 @@
       updateGenerationLabelPosition();
       updateControls();
       memberTooltip.hide(null, true);
+      scheduleCanvasViewStateSave();
       return scale;
     }
 
@@ -199,6 +242,7 @@
       fit?.addEventListener('click', fitWidth);
       mobileFit?.addEventListener('click', fitView);
       viewport()?.addEventListener('scroll', scheduleGenerationLabelPosition, { passive: true });
+      viewport()?.addEventListener('scroll', scheduleCanvasViewStateSave, { passive: true });
       out.dataset.bound = 'true';
       updateControls();
       updateGenerationLabelPosition();
@@ -435,6 +479,60 @@
     });
   }
 
+  function closeTopUiForMobileBack() {
+    let popover = null;
+    try { popover = document.querySelector(':popover-open'); } catch (_) {}
+    if (popover) {
+      try { popover.hidePopover(); } catch (_) {}
+      return true;
+    }
+    const openDialogs = [...document.querySelectorAll('dialog[open]')];
+    if (openDialogs.length) {
+      const dialog = openDialogs[openDialogs.length - 1];
+      const cancel = new Event('cancel', { cancelable: true });
+      const shouldClose = dialog.dispatchEvent(cancel);
+      if (shouldClose && dialog.open) dialog.close();
+      return true;
+    }
+    return closeSelectedDetails({ focusCanvas: true });
+  }
+
+  function bindMobileBackNavigation() {
+    if (document.documentElement.dataset.familyMobileBackBound) return;
+    document.documentElement.dataset.familyMobileBackBound = 'true';
+    const mobile = window.matchMedia?.('(max-width:950px) and (pointer:coarse)');
+    if (!mobile) return;
+    const ROOT = '__familyTreeMobileRoot';
+    const GUARD = '__familyTreeMobileGuard';
+    const hadPreviousEntry = history.length > 1;
+    let leaving = false;
+
+    function arm() {
+      if (!mobile.matches || leaving) return;
+      const state = history.state || {};
+      if (state[GUARD]) return;
+      if (!state[ROOT]) history.replaceState({ ...state, [ROOT]: true }, '');
+      history.pushState({ ...(history.state || {}), [GUARD]: true }, '');
+    }
+
+    window.addEventListener('popstate', () => {
+      if (!mobile.matches || leaving) return;
+      if (closeTopUiForMobileBack()) {
+        requestAnimationFrame(() => arm());
+        return;
+      }
+      // The guard entry has already been consumed by this Back action. With no
+      // in-page UI left to dismiss, continue to the actual previous page when
+      // one existed before the guard was installed. A directly-opened tab has
+      // nowhere to go, so restore the guard instead of disabling future Back UX.
+      if (hadPreviousEntry) {
+        leaving = true;
+        history.back();
+      } else requestAnimationFrame(() => arm());
+    });
+    arm();
+  }
+
   function bindPanning(viewport) {
     if (viewport.dataset.panBound) return;
     viewport.dataset.panBound = 'true';
@@ -664,6 +762,7 @@
     applyResponsiveDefaults();
     bindPanning(canvas.parentElement);
     bindGlobalDismiss();
+    bindMobileBackNavigation();
     memberTooltip.hide(null, true);
     canvas.replaceChildren();
     canvas.style.paddingBottom = '';
@@ -675,7 +774,7 @@
     const graph = queryView.graph;
     const familySelect = document.getElementById('family-filter');
     if (familySelect) {
-      const previous = familySelect.value;
+      const previous = !viewStateReady && initialViewState?.filter ? initialViewState.filter : familySelect.value;
       familySelect.replaceChildren(element('option', '', '所有關係'));
       familySelect.options[0].value = '';
       (FAMILY.unions || []).forEach(u => {
@@ -687,7 +786,7 @@
       });
       familySelect.value = [...familySelect.options].some(o => o.value === previous) ? previous : '';
       if (!familySelect.dataset.bound) {
-        familySelect.addEventListener('change', () => { selectedId = null; render(); });
+        familySelect.addEventListener('change', () => { selectedId = null; render(); scheduleCanvasViewStateSave(); });
         familySelect.dataset.bound = 'true';
       }
     }
@@ -709,7 +808,25 @@
     const people = graph.people.filter(p => !focusedIds || focusedIds.has(p.id))
       .map(p => ({ ...p, gen: connectedIds.has(p.id) ? p.gen + displayShift : uncertainGeneration }));
     if (!people.length) {
-      canvas.appendChild(element('p', 'tree__error', '尚未新增成員，請點選「新增成員」或匯入族譜 JSON。'));
+      const emptyState = element('section', 'tree-empty-state');
+      emptyState.setAttribute('aria-label', '尚未有族譜資料');
+      emptyState.appendChild(element('h2', '', '尚未有族譜資料'));
+      emptyState.appendChild(element('p', '', '您可以從同一個 Google 帳號同步既有族譜，或從這台裝置開始建立／匯入族譜。'));
+      const actions = element('div', 'tree-empty-actions');
+      const cloud = element('button', 'primary-button', '從 Google Drive 同步'); cloud.type = 'button';
+      cloud.addEventListener('click', async () => {
+        if (window.FamilyGoogleDriveSync?.syncNow) {
+          const result = await window.FamilyGoogleDriveSync.syncNow({ interactive: true });
+          if (result?.outcome === 'error') document.getElementById('cloud-sync')?.click();
+        } else document.getElementById('cloud-sync')?.click();
+      });
+      const add = element('button', 'plain-button', '新增第一位成員'); add.type = 'button';
+      add.addEventListener('click', () => document.getElementById('add-member')?.click());
+      const importButton = element('button', 'plain-button', '匯入族譜'); importButton.type = 'button';
+      importButton.addEventListener('click', () => document.getElementById('import-json')?.click());
+      actions.append(cloud, add, importButton);
+      emptyState.appendChild(actions);
+      canvas.appendChild(emptyState);
       document.getElementById('relationship-details').hidden = true;
       return;
     }
@@ -1175,12 +1292,32 @@
       viewport.dataset.scope = scope;
     }
   }
+  function restoreCanvasViewStateOnce() {
+    if (viewStateReady || !window.FAMILY?.people) return;
+    const state = initialViewState;
+    requestAnimationFrame(() => {
+      if (viewStateReady) return;
+      viewStateRestoring = true;
+      try {
+        const view = document.querySelector('.tree');
+        if (state && view && typeof state.scrollLeft === 'number' && typeof state.scrollTop === 'number') {
+          if (typeof state.scale === 'number' && Number.isFinite(state.scale)) treeZoom.setScale(state.scale);
+          view.scrollLeft = Math.max(0, state.scrollLeft);
+          view.scrollTop = Math.max(0, state.scrollTop);
+        }
+      } finally {
+        viewStateRestoring = false;
+        viewStateReady = true;
+      }
+    });
+  }
   function render() {
     treeZoom.beforeRender();
     try {
       return renderTree();
     } finally {
       treeZoom.afterRender();
+      restoreCanvasViewStateOnce();
     }
   }
   window.renderFamilyTree = render;
@@ -1193,10 +1330,12 @@
     render();
     const node = [...document.querySelectorAll('.person')].find(n => n.dataset.personId === id);
     node?.scrollIntoView({ block: 'center', inline: 'center' });
+    if (id) window.dispatchEvent(new CustomEvent('familymemberviewed', { detail: { id } }));
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
   else render();
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+  window.addEventListener('pagehide', saveCanvasViewState);
   document.fonts?.ready.then(() => { if (typeof FAMILY !== 'undefined') render(); });
 })();

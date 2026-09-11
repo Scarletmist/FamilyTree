@@ -16,7 +16,7 @@ ASSETS = [
     'family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js',
     'relationship-search.js', 'connector-routing.js', 'label-layout.js', 'family-tree.js',
     'family-storage.js', 'family-repository.js', 'member-form.js', 'google-drive-sync.js',
-    'member-tools.js', 'mobile-landscape-toolbar.js'
+    'member-tools.js', 'mobile-gesture-policy.js', 'mobile-landscape-toolbar.js'
 ]
 
 with tempfile.TemporaryDirectory(prefix='family-mobile-shell-') as temp:

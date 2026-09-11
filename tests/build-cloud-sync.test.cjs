@@ -19,7 +19,10 @@ test('static build injects Google OAuth client ID and includes cloud sync code',
     assert.match(html, /meta name="family-storage-mode" content="browser"/);
     assert.match(html, /meta name="google-oauth-client-id" content="123456789-test\.apps\.googleusercontent\.com"/);
     assert.match(html, /assets\/google-drive-sync\.js/);
-    await fs.access(path.join(output, 'assets', 'google-drive-sync.js'));
+    const syncJs = await fs.readFile(path.join(output, 'assets', 'google-drive-sync.js'), 'utf8');
+    assert.match(syncJs, /sessionStorage\.setItem\(tokenStorageKey/);
+    assert.match(syncJs, /function restoreStoredToken\(\)/);
+    assert.match(syncJs, /clearStoredToken\(\)/);
     await assert.rejects(fs.access(path.join(output, 'data', 'family.json')));
   } finally {
     if (previous === undefined) delete process.env.GOOGLE_OAUTH_CLIENT_ID;

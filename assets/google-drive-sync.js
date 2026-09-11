@@ -20,6 +20,43 @@
   let autoTimer = null;
   let pollTimer = null;
   let conflictResolver = null;
+  const tokenStorageKey = 'family-tree-google-drive-token-v1';
+
+  function clearStoredToken() {
+    try { sessionStorage.removeItem(tokenStorageKey); } catch {}
+  }
+
+  function persistToken() {
+    if (!accessToken || !Number.isFinite(tokenExpiresAt)) return;
+    try {
+      sessionStorage.setItem(tokenStorageKey, JSON.stringify({
+        accessToken,
+        tokenExpiresAt,
+        scope,
+        clientId
+      }));
+    } catch {}
+  }
+
+  function restoreStoredToken() {
+    try {
+      const raw = sessionStorage.getItem(tokenStorageKey);
+      if (!raw) return false;
+      const saved = JSON.parse(raw);
+      const expiresAt = Number(saved?.tokenExpiresAt || 0);
+      const sameGrant = saved?.clientId === clientId && saved?.scope === scope;
+      if (!sameGrant || !saved?.accessToken || expiresAt <= Date.now() + 30_000) {
+        clearStoredToken();
+        return false;
+      }
+      accessToken = saved.accessToken;
+      tokenExpiresAt = expiresAt;
+      return true;
+    } catch {
+      clearStoredToken();
+      return false;
+    }
+  }
 
   if (!button || !repository?.isStatic) {
     if (button) button.hidden = true;
@@ -89,6 +126,7 @@
           }
           accessToken = result.access_token;
           tokenExpiresAt = Date.now() + Math.max(60, Number(result.expires_in) || 3600) * 1000;
+          persistToken();
           repository.setSyncState({ connected: true }).catch(() => {});
           startPolling();
           resolve(accessToken);
@@ -106,6 +144,7 @@
     if (response.status === 401) {
       accessToken = null;
       tokenExpiresAt = 0;
+      clearStoredToken();
       stopPolling();
       await refreshUiFromState();
       throw new Error('Google 授權已過期，請重新授權後同步。');
@@ -306,6 +345,7 @@
   disconnect.addEventListener('click', async () => {
     accessToken = null;
     tokenExpiresAt = 0;
+    clearStoredToken();
     stopPolling();
     await repository.setSyncState({ connected: false });
     setUi('disconnected', '已停止此裝置的 Google Drive 同步', '本程式不會刪除 Google Drive 上既有的 appDataFolder 資料；若要撤銷帳號授權，請至 Google 帳戶的第三方應用程式設定。');
@@ -321,6 +361,17 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden && accessToken && navigator.onLine) syncNow({ interactive: false }); });
   window.addEventListener('beforeunload', stopPolling);
 
-  refreshUiFromState().catch(error => setUi('error', error.message || '無法讀取同步狀態。'));
+  (async () => {
+    const restoredSessionToken = restoreStoredToken();
+    try {
+      await refreshUiFromState();
+      if (restoredSessionToken) {
+        startPolling();
+        if (navigator.onLine) syncNow({ interactive: false });
+      }
+    } catch (error) {
+      setUi('error', error.message || '無法讀取同步狀態。');
+    }
+  })();
   window.FamilyGoogleDriveSync = { syncNow };
 })();

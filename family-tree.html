@@ -600,7 +600,7 @@
         <p id="cloud-sync-meta"></p>
       </div>
       <p>同步資料會儲存在目前 Google 帳號的 Drive <code>appDataFolder</code>，一般 Drive 檔案列表看不到，也不會上傳到此網站的 GitHub repository。</p>
-      <p class="cloud-sync-help">本機仍以 IndexedDB 為主要儲存。連線後會在本機變更時延遲同步，並在重新聚焦頁面或每分鐘檢查遠端更新。若偵測到此裝置與 Google Drive 都有修改，系統不會自動覆蓋，而會要求選擇版本。</p>
+      <p class="cloud-sync-help">本機仍以 IndexedDB 為主要儲存。Google 短效授權會暫存在此分頁的 sessionStorage，重新整理頁面後可在權杖有效期間內繼續同步；關閉分頁或權杖過期後仍需重新授權。連線後會在本機變更時延遲同步，並在重新聚焦頁面或每分鐘檢查遠端更新。若偵測到此裝置與 Google Drive 都有修改，系統不會自動覆蓋，而會要求選擇版本。</p>
     </div>
     <div class="form-actions">
       <button type="button" id="cloud-sync-disconnect" class="plain-button" hidden>中斷連結</button>

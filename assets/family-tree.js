@@ -794,8 +794,7 @@
     const focusedIds = focus ? new Set(focus.partners.concat((graph.descents || []).filter(d => d.union === focus.id).map(d => d.child))) : null;
     // Inspect the full dataset, including inverse relationships. A member does
     // not become "unconnected" merely because a filter hides their relatives.
-    const connectedIds = new Set();
-    FAMILY.people.forEach(p => p.relationships.forEach(r => { connectedIds.add(p.id); connectedIds.add(r.personId); }));
+    const connectedIds = FamilyModel.relationshipMemberIds(FAMILY.people);
     const visibleIds = new Set(graph.people.filter(p => !focusedIds || focusedIds.has(p.id)).map(p => p.id));
     const visibleEdges = new Set((graph.bonds || []).map(b => FamilyModel.intermediateKey(b.kind, b.members)));
     for (const d of graph.descents || []) if (d.kind === '親生' && d.generations === 2) {

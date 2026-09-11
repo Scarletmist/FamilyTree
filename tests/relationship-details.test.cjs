@@ -202,3 +202,23 @@ test('local server serves the new relationship details module', async () => {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
+
+test('unlinked member detail omits relationship query shortcut', () => {
+  const previous = global.document;
+  global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
+  try {
+    const controller = Details.createController();
+    const panel = new FakeElement('section');
+    const data = { schemaVersion: 2, people: [
+      { id: 'A', name: '甲', gender: 'M', location: '', position: '', siblingOrder: null, discipleOrder: null, notes: '', relationships: [{ type: 'spouse', personId: 'B' }] },
+      { id: 'B', name: '乙', gender: 'F', location: '', position: '', siblingOrder: null, discipleOrder: null, notes: '', relationships: [] },
+      { id: 'X', name: '未設定', gender: 'U', location: '', position: '', siblingOrder: null, discipleOrder: null, notes: '', relationships: [] }
+    ] };
+    const localGraph = Model.build(data);
+    controller.render(panel, localGraph, 'X', {});
+    assert.equal(panel.querySelector('.query-relationship'), null);
+    assert(panel.querySelector('.details-query-placeholder'));
+    controller.render(panel, localGraph, 'B', {});
+    assert(panel.querySelector('.query-relationship'), 'inverse-only related member still gets the query shortcut');
+  } finally { global.document = previous; }
+});

@@ -130,11 +130,13 @@
     function update(fullGraph) {
       graph = fullGraph;
       const names = FamilyModel.memberOptionLabels(fullGraph.people);
+      const relationshipMemberIds = FamilyModel.relationshipMemberIds(fullGraph.people);
+      const relationshipPeople = fullGraph.people.filter(person => relationshipMemberIds.has(person.id));
       for (const select of [a, b]) {
         const previous = select.value;
         select.replaceChildren(el('option', '請選擇成員')); select.options[0].value = '';
-        fullGraph.people.forEach(p => { const option = el('option', names.get(p.id)); option.value = p.id; select.append(option); });
-        select.value = fullGraph.people.some(p => p.id === previous) ? previous : '';
+        relationshipPeople.forEach(p => { const option = el('option', names.get(p.id)); option.value = p.id; select.append(option); });
+        select.value = relationshipMemberIds.has(previous) ? previous : '';
       }
       submit.disabled = !engine || !a.value || !b.value;
       hint.textContent = a.value && b.value ? '查詢：' + names.get(a.value) + ' 是 ' + names.get(b.value) + ' 的誰？' : '查詢：A 是 B 的誰？';
@@ -178,7 +180,7 @@
       return { active: true, graph: engine.project(fullGraph, path, [a.value, b.value]), scope: [a.value, b.value, pathIndex].join('|'), aId: a.value, bId: b.value };
     }
     function startWithMember(personId) {
-      if (!graph?.people.some(person => person.id === personId)) return false;
+      if (!graph?.people.some(person => person.id === personId) || !FamilyModel.relationshipMemberIds(graph.people).has(personId)) return false;
       a.value = '';
       b.value = personId;
       active = false;

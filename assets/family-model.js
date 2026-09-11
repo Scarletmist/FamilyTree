@@ -45,6 +45,14 @@
     people.forEach(person => { const name = person.name.trim(); counts.set(name, (counts.get(name) || 0) + 1); });
     return new Map(people.map(person => [person.id, person.name + (counts.get(person.name.trim()) > 1 ? '（' + (person.location.trim() || '所在地未填寫') + '）' : '')]));
   }
+  function relationshipMemberIds(people) {
+    const ids = new Set();
+    for (const person of people || []) for (const relation of person.relationships || []) {
+      ids.add(person.id);
+      if (relation?.personId) ids.add(relation.personId);
+    }
+    return ids;
+  }
   const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', teacher: 'student', student: 'teacher' };
   // Editing shows all direct relations, even when the source record lives on the other person.
   function relationshipsFor(data, id) {
@@ -422,5 +430,5 @@
     });
     return result;
   }
-  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
+  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
 });

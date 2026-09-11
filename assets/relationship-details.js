@@ -224,8 +224,15 @@
       });
       const edit = iconButton('edit-member', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
       edit.addEventListener('click', () => onEdit?.(person.id));
-      const query = iconButton('query-relationship', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
-      query.addEventListener('click', () => onQuery?.(person.id));
+      const hasRecordedRelationships = FamilyModel.relationshipMemberIds(graph.people).has(person.id);
+      let query;
+      if (hasRecordedRelationships) {
+        query = iconButton('query-relationship', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
+        query.addEventListener('click', () => onQuery?.(person.id));
+      } else {
+        query = element('span', 'details-icon details-query-placeholder');
+        query.setAttribute('aria-hidden', 'true');
+      }
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
       const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches;
       const portraitMobile = globalThis.matchMedia?.('(max-width:700px)').matches;

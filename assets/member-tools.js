@@ -159,8 +159,7 @@
     window.selectFamilyMember?.(id, { expandDetails: true });
   }
   function renderMemberList() {
-    const people = window.FAMILY?.people || [], linked = new Set();
-    people.forEach(person => person.relationships.forEach(r => { linked.add(person.id); linked.add(r.personId); }));
+    const people = window.FAMILY?.people || [], linked = FamilyModel.relationshipMemberIds(people);
     const keyword = normalized(searchMembers?.value.trim() || '');
     const visible = people.filter(person => {
       const connected = linked.has(person.id);

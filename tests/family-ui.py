@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
             }""")
             for asset in ASSETS:
                 page.add_script_tag(content=(ROOT / 'assets' / asset).read_text())
-            page.wait_for_function('window.FAMILY && window.FAMILY.people.length === 25')
+            page.wait_for_function('(count) => window.FAMILY && window.FAMILY.people.length === count', arg=len(DEMO['people']))
             return page, errors
 
         with sync_playwright() as p:
@@ -94,6 +94,8 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     page.evaluate("window.selectFamilyMember('p11')")
                     panel = page.locator('#relationship-details')
                     assert panel.is_visible()
+                    if panel.get_attribute('data-collapsed') == 'true':
+                        panel.locator('.relationship-details__tab').click()
                     assert panel.locator('.relationship-details__header .edit-member svg').count() == 1
                     siblings = panel.locator('details[data-group="siblings"]')
                     siblings.locator('summary').click()
@@ -106,9 +108,13 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     tab = panel.locator('.relationship-details__tab')
                     assert tab.is_visible()
                     assert tab.get_attribute('aria-expanded') == 'false'
-                    metrics = panel.evaluate('el => { const r=el.getBoundingClientRect(), w=el.closest(".workspace").getBoundingClientRect(); return {width:r.width,right:r.right,workspaceRight:w.right}; }')
-                    assert metrics['width'] <= (44 if device == 'mobile' else 48) + 1, metrics
-                    assert abs(metrics['right'] - metrics['workspaceRight']) < 1, metrics
+                    metrics = panel.evaluate('el => { const r=el.getBoundingClientRect(), w=el.closest(".workspace").getBoundingClientRect(); return {width:r.width,right:r.right,workspaceRight:w.right,workspaceWidth:w.width}; }')
+                    if device == 'mobile':
+                        assert abs(metrics['width'] - (metrics['workspaceWidth'] - 16)) < 2, metrics
+                        assert abs(metrics['right'] - (metrics['workspaceRight'] - 8)) < 2, metrics
+                    else:
+                        assert metrics['width'] <= 49, metrics
+                        assert abs(metrics['right'] - metrics['workspaceRight']) < 1, metrics
                     assert page.locator('.person[aria-pressed="true"]').get_attribute('data-person-id') == 'p11'
                     page.evaluate('window.renderFamilyTree()')
                     assert panel.get_attribute('data-collapsed') == 'true'
@@ -126,7 +132,11 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     page.evaluate('window.renderFamilyTree()')
                     assert panel.get_attribute('data-collapsed') == 'true'
                     page.evaluate("window.selectFamilyMember('p17')")
-                    assert panel.get_attribute('data-collapsed') == 'false'
+                    if device == 'mobile':
+                        assert panel.get_attribute('data-collapsed') == 'true'
+                        panel.locator('.relationship-details__tab').click()
+                    else:
+                        assert panel.get_attribute('data-collapsed') == 'false'
                     assert '陳志偉' in panel.locator('h2').inner_text()
                     panel.locator('.edit-member').click()
                     assert page.locator('#member-dialog').is_visible()

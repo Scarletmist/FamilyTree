@@ -41,8 +41,8 @@
     const graph = FamilyModel.build(payload.data);
     snapshot = payload;
     restoredBackup = restored;
-    const storage = FamilyRepository.isStatic ? 'localStorage' : restored ? null : backup.save(payload);
-    backupStatus.textContent = FamilyRepository.isStatic ? '已儲存至此瀏覽器；可匯出 JSON 備份或移至其他裝置。' : restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
+    const storage = FamilyRepository.isStatic ? 'IndexedDB' : restored ? null : backup.save(payload);
+    backupStatus.textContent = FamilyRepository.isStatic ? '已儲存至此瀏覽器（IndexedDB）；可連結 Google Drive 跨裝置同步，JSON 匯出仍可作為離線備份。' : restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
     const familyName = graph.familyName;
     familyTitle.textContent = familyName + '族譜圖';
     document.title = '族譜圖 — ' + familyName;
@@ -180,7 +180,7 @@
       if (!response.ok) throw new Error(payload.error || '儲存名稱失敗，請重試。');
       accept(payload);
       nameDialog.close();
-      status.textContent = `已將家族名稱更新為「${familyName}」，並儲存至${FamilyRepository.isStatic ? '此瀏覽器' : '族譜檔案'}。`;
+      status.textContent = `已將家族名稱更新為「${familyName}」，並儲存至${FamilyRepository.isStatic ? '此瀏覽器 IndexedDB' : '族譜檔案'}。`;
     } catch (e) { nameError.textContent = e.message || '連線中斷，請重試。'; }
     finally { setNameSaving(false); }
   });
@@ -226,7 +226,7 @@
       accept(payload); dialog.close();
       // Keep the diagram available for filling the next intermediate slot.
       window.selectFamilyMember(document.getElementById('intermediate-context') ? null : payload.memberId);
-      status.textContent = `已${editingId ? '更新' : '新增'}「${member.name}」，並儲存至族譜檔案。`;
+      status.textContent = `已${editingId ? '更新' : '新增'}「${member.name}」，並儲存至${FamilyRepository.isStatic ? '此瀏覽器 IndexedDB' : '族譜檔案'}。`;
     } catch (e) { error.textContent = e.message || '連線中斷，請重試。'; }
     finally { setSaving(false); }
   });
@@ -285,6 +285,19 @@
       status.textContent = '已匯出目前儲存的族譜資料。';
     } catch (e) { status.textContent = '無法匯出：' + e.message; }
     finally { button.disabled = false; }
+  });
+  window.addEventListener('familyrepositorychange', event => {
+    if (event.detail?.source !== 'cloud' || !event.detail.payload) return;
+    const editing = dialog.open || nameDialog.open || importDialog.open;
+    if (editing) {
+      status.textContent = 'Google Drive 已下載較新的族譜；目前表單仍保留原輸入。請按「更新資料」後再儲存，避免覆蓋雲端版本。';
+      return;
+    }
+    accept(event.detail.payload);
+    document.getElementById('family-filter').value = '';
+    delete document.querySelector('.tree').dataset.scope;
+    window.selectFamilyMember(null);
+    status.textContent = '已從 Google Drive 載入較新的族譜資料。';
   });
   load().catch(e => {
     const cached = FamilyRepository.isStatic ? null : backup.read();

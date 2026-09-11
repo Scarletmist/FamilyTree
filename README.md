@@ -4,7 +4,9 @@
 
 執行 `node build.cjs`（或 `npm run build`）產生 `dist/`，首頁為 `dist/index.html`，也保留 `family-tree.html` 入口。不需安裝套件。建置只複製指定的前端程式及稱謂設定檔，**不包含 `data/family.json`、本機伺服器或任何開發成員資料**。
 
-靜態網站首次開啟為空白族譜，可直接新增成員或匯入自己的 JSON。新增、修改、家族名稱與匯入內容儲存在該網站路徑的 localStorage，重新整理仍保留；資料不會上傳 GitHub，也不會在不同裝置間同步。請使用 JSON 匯出／匯入搬移或備份資料；清除瀏覽器網站資料也會清除族譜。匯入前的資料另保留於同一 localStorage 鍵的 `:before-import` 備份。兩個分頁同時修改時會檢查版本，過期表單需先重新載入。
+靜態網站首次開啟為空白族譜，可直接新增成員或匯入自己的 JSON。新增、修改、家族名稱與匯入內容都先儲存在該網站路徑的 **IndexedDB**；重新整理與離線時仍可讀寫。舊版曾儲存在 `localStorage` 的族譜與「匯入前備份」會在第一次載入時自動遷移至 IndexedDB，成功後移除舊鍵。JSON 匯入／匯出功能仍保留，可作為人工備份與資料搬移方式；清除瀏覽器網站資料仍會刪除本機 IndexedDB。
+
+靜態版可選擇連結 Google Drive，將**現有完整 JSON 格式原樣**同步到使用者自己的 Drive `appDataFolder`，因此不需要自建資料庫或 Backend。Google Drive 未設定、未授權、授權過期或暫時離線時，族譜仍以 IndexedDB 正常運作。
 
 已提供 `.github/workflows/pages.yml`，只在手動執行時發佈：
 
@@ -14,9 +16,45 @@
 
 資源採相對路徑，支援 `https://帳號.github.io/專案名稱/`。設定方式參照 [GitHub Pages 官方工作流程文件](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。目前僅建立建置與部署設定，未替 repository 開啟 Pages 或執行遠端發佈。
 
-`assets/family-repository.js` 統一處理儲存：開發版呼叫本機 API，建置版透過 HTML 的 `family-storage-mode=browser` 設定使用瀏覽器儲存。請透過 HTTP 靜態伺服器預覽 `dist/`，不要直接雙擊 HTML。
+`assets/family-repository.js` 統一處理儲存：開發版呼叫本機 API，建置版透過 HTML 的 `family-storage-mode=browser` 設定使用 IndexedDB。`assets/google-drive-sync.js` 只在靜態版啟用，負責 Google OAuth 與 Drive `appDataFolder` 同步。請透過 HTTP/HTTPS 靜態伺服器預覽 `dist/`，不要直接雙擊 HTML。
 
-靜態整合測試：`node tests/browser-static.cjs`（需 Playwright，可用 `PLAYWRIGHT_MODULE` 指定位置）。測試涵蓋專案子路徑、空白起始、備註、新增修改、匯入匯出、重新載入及跨分頁版本衝突。
+### Google Drive 跨裝置同步設定
+
+同步採用 [Google Identity Services Token Model](https://developers.google.com/identity/oauth2/web/guides/use-token-model) 與 [Google Drive `appDataFolder`](https://developers.google.com/workspace/drive/api/guides/appdata)。`drive.appdata` 只允許本應用存取自己的隱藏應用資料，`family-tree.json` 不會顯示在一般 Google Drive 檔案清單，也不能用一般 Drive 分享功能分享給其他帳號。
+
+1. 在 [Google Cloud Console](https://console.cloud.google.com/) 建立或選擇一個 Project。
+2. 啟用 **Google Drive API**。
+3. 在 **Google Auth Platform** 設定 OAuth consent screen / Audience。若目前只供自己或少數人測試，可維持 Testing，並把會使用的 Google 帳號加入 Test users；日後要公開給一般使用者時，再依 Google 當時的 Production / verification 要求完成設定。
+4. 到 **Google Auth Platform → Clients → Create Client**，Application type 選 **Web application**。
+5. 在 **Authorized JavaScript origins** 加入網站的 origin。若正式網址是 `https://scarletmist.github.io/FamilyTree/`，填的是 `https://scarletmist.github.io`，**不要包含 `/FamilyTree/` 路徑**。若另有自訂網域，也加入該 HTTPS origin。
+6. 建立後取得 `xxxxxxxx.apps.googleusercontent.com` 格式的 **Client ID**。此純前端 Token Model 不需要把 Client Secret 放進網站。
+7. 到 GitHub repository → **Settings → Secrets and variables → Actions → Variables**，新增 Repository variable：
+
+   ```text
+   GOOGLE_OAUTH_CLIENT_ID = xxxxxxxx.apps.googleusercontent.com
+   ```
+
+8. 重新執行 **Publish GitHub Pages**。建置程式會把 Client ID 注入 `dist/index.html` 與 `dist/family-tree.html` 的 `<meta name="google-oauth-client-id">`。
+
+也可以在本機測試建置時指定：
+
+```sh
+GOOGLE_OAUTH_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com npm run build
+```
+
+未設定 Client ID 時建置仍會成功，網站仍可完整使用 IndexedDB；「雲端」視窗會顯示尚未設定 Google OAuth Client ID，而不會影響本機資料。
+
+### 同步行為
+
+- 本機 **IndexedDB 是主要工作資料**。每次成功修改族譜後先立即寫入本機，再在已有有效 Google Access Token 時延遲約 1.8 秒同步。
+- 第一次同步且 Drive 尚無資料時，建立 `appDataFolder/family-tree.json`；新裝置的本機仍是空白族譜時，會直接下載 Drive 版本。
+- 已同步過的裝置會記錄 Drive 檔案 ID 與 Drive `version`。當偵測到遠端版本變更且本機也有未同步修改時，會顯示衝突視窗，讓使用者選擇「下載 Google Drive 版本」或「以此裝置版本覆蓋雲端」，不會在已偵測到衝突時自動選邊。
+- 開啟頁面、重新聚焦、恢復網路及頁面可見時，若目前仍持有有效 Access Token 會檢查遠端；頁面保持開啟時也會每分鐘檢查一次。
+- Access Token **只保留在記憶體**，不寫進 IndexedDB/localStorage。Google 的純前端 Token Model 使用短效 Access Token；重新整理頁面或 Token 過期後，需要再次按「重新授權並同步」。這是沒有 Backend / Refresh Token 的預期行為。
+- 「中斷連結」只清除這個頁面記憶體中的 Access Token 與本機連結狀態並停止自動同步；程式不會呼叫 Drive 刪除 API。若要完全撤銷此網站的 Google 帳戶授權，請在 Google 帳戶的第三方應用程式存取權設定中移除。
+- 目前同步單位是一整份 JSON，不是多人即時協作資料庫。若兩個裝置幾乎在同一瞬間各自完成上傳，Google Drive API 並沒有被本專案當成原子 compare-and-swap DB 使用，因此仍建議避免在兩台裝置同時編輯；版本檢查是衝突保護，而不是 Google Docs 類型的即時合併。
+
+靜態整合測試：`node tests/browser-static.cjs`（需 Node 版 Playwright，可用 `PLAYWRIGHT_MODULE` 指定位置）。測試涵蓋專案子路徑、空白起始、IndexedDB 重新載入、備註、新增修改、匯入匯出及跨分頁版本衝突。Google OAuth / Drive 真實帳號授權不會放進自動化測試，避免測試環境持有使用者憑證。
 
 ## 兩人關係查詢與稱謂設定
 
@@ -201,4 +239,4 @@ npm run test:browser
 
 關係比較若無法整條路徑對應單一稱謂，會先比對其中可辨識的片段，選擇能縮短串接文字的組合。例如「師兄弟的父親的父親的父親的妻子」會顯示「師兄弟的曾祖父的妻子」。片段中的長幼以該片段的起點判斷，父母系別不明、性別未填與非親生關係的提示仍保留；不會因縮寫而刪除畫布上的中間成員，或將祖父的配偶直接當作親生祖母。
 
-`family-model.js` 負責資料驗證與代別，`family-repository.js` 負責開發／靜態儲存，`family-tree.js` 負責畫布，`relationship-details.js` 負責可收折的關係與備註，`kinship.js` 搭配稱謂 JSON 判讀關係。`build.cjs` 產生靜態發佈目錄。
+`family-model.js` 負責資料驗證與代別，`family-repository.js` 負責開發 API／靜態 IndexedDB 儲存，`google-drive-sync.js` 負責靜態版 Google Drive `appDataFolder` 同步，`family-tree.js` 負責畫布，`relationship-details.js` 負責可收折的關係與備註，`kinship.js` 搭配稱謂 JSON 判讀關係。`build.cjs` 產生靜態發佈目錄並注入 Google OAuth Client ID。

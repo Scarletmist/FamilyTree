@@ -21,6 +21,8 @@ jobs:
           node-version: '22'
       - run: node --test tests/*.test.cjs
       - run: node build.cjs
+        env:
+          GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

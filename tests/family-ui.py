@@ -62,6 +62,20 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     initial = request('/api/family')['payload']['data'].get('familyName', '陳氏家族')
                     assert page.locator('#family-title').inner_text() == initial + '族譜圖'
                     assert page.title() == '族譜圖 — ' + initial
+                    if device == 'mobile':
+                        page.wait_for_function("document.querySelector('#kinship-status').textContent === ''")
+                        page.locator('#mobile-search-open').click()
+                        relation_ids = page.locator('#relationship-a option').evaluate_all("els => els.map(o => o.value).filter(Boolean).slice(0, 2)")
+                        assert len(relation_ids) == 2
+                        for selector, value in [('#relationship-a', relation_ids[0]), ('#relationship-b', relation_ids[1])]:
+                            page.locator(selector).evaluate("(el, value) => { el.value = value; el.dispatchEvent(new Event('change', {bubbles:true})); }", value)
+                        page.locator('#relationship-search [type=submit]').click(force=True)
+                        page.wait_for_function("!document.querySelector('#relationship-summary').hidden")
+                        assert page.locator('#relationship-summary').evaluate("el => getComputedStyle(el).display") != 'none'
+                        page.locator('.relationship-result-end').click()
+                        page.wait_for_function("document.querySelector('#relationship-summary').hidden")
+                        assert page.locator('#relationship-summary').evaluate("el => getComputedStyle(el).display") == 'none'
+                        assert page.locator('#relationship-summary').get_attribute('class') == 'relationship-summary'
                     page.locator('#edit-family-name').click()
                     assert page.locator('#family-name-input').input_value() == initial
                     new_name = '林氏宗親' if device == 'desktop' else '王氏家族'

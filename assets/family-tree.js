@@ -793,7 +793,22 @@
     canvas.style.paddingLeft = (generationGutter + 48) + 'px';
     // The first row needs the same upper routing gutter as subsequent rows.
     // Include room for endpoint symbols, crossing bridges and relation labels.
-    canvas.style.paddingTop = (Math.max(80, upperLanes(firstGeneration) + 40) + (queryView.active ? document.getElementById('relationship-summary').offsetHeight : 0)) + 'px';
+    const baseCanvasPaddingTop = Math.max(80, upperLanes(firstGeneration) + 40);
+    let canvasPaddingTop = baseCanvasPaddingTop;
+    if (queryView.active) {
+      const resultSummary = document.getElementById('relationship-summary');
+      const mobileResultLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches;
+      if (mobileResultLayout) {
+        // Mobile uses a compact floating result bar. Reserve only its fixed top zone
+        // in landscape; portrait's normal routing gutter already clears the bar.
+        const landscapeResultLayout = matchMedia('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches;
+        if (landscapeResultLayout) {
+          const resultTop = parseFloat(getComputedStyle(resultSummary).top) || 0;
+          canvasPaddingTop = Math.max(canvasPaddingTop, resultTop + 62);
+        }
+      } else canvasPaddingTop += resultSummary.offsetHeight;
+    }
+    canvas.style.paddingTop = canvasPaddingTop + 'px';
     canvas.appendChild(rows);
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
     canvas.prepend(generationLayers.backgrounds);

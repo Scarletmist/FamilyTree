@@ -21,6 +21,12 @@
     return prefix + (seniority === 'older' ? { M: '兄', F: '姊', U: '年長手足' } : seniority === 'younger' ? { M: '弟', F: '妹', U: '年幼手足' } : { M: '兄弟', F: '姊妹', U: '兄弟姊妹' })[person.gender];
   }
   const isDescent = type => ['parent', 'child', 'grandparent', 'grandchild'].includes(type);
+  function stableJson(value) {
+    if (Array.isArray(value)) return '[' + value.map(stableJson).join(',') + ']';
+    if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stableJson(value[key])).join(',') + '}';
+    return JSON.stringify(value);
+  }
+  function sameJsonData(a, b) { return stableJson(a) === stableJson(b); }
   const CHILD_KINDS = ['親生', '過繼', '養子女'];
   const knownOrder = p => Number.isInteger(p.siblingOrder) && p.siblingOrder > 0;
   const orderKey = p => knownOrder(p) ? p.siblingOrder : Infinity;
@@ -407,5 +413,5 @@
     });
     return result;
   }
-  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, intermediatePlans, completedCousins, connectorGroups };
+  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, intermediatePlans, completedCousins, connectorGroups };
 });

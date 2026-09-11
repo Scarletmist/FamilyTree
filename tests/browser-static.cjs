@@ -51,6 +51,32 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     await page.waitForFunction(() => FAMILY.people[0].notes === '更新備註');
     await page.click('#edit-family-name'); await page.fill('#family-name-input', '靜態族譜'); await page.click('#save-family-name');
     await page.waitForFunction(() => FAMILY.familyName === '靜態族譜');
+    // A cloud sync whose JSON is semantically unchanged must not invalidate an open form.
+    await page.click('#add-member'); await page.fill('#member-name', '同步期間新增');
+    const noOpCloud = await page.evaluate(async () => {
+      let cloudChanges = 0;
+      const listener = event => { if (event.detail?.source === 'cloud') cloudChanges++; };
+      window.addEventListener('familyrepositorychange', listener);
+      const before = await FamilyRepository.read();
+      const reordered = { people: before.data.people.map(person => ({ ...person })), familyName: before.data.familyName, schemaVersion: before.data.schemaVersion };
+      await FamilyRepository.replaceFromCloud(reordered, { fileId: 'same-file', remoteVersion: '200' }, before.version);
+      const after = await FamilyRepository.read();
+      window.removeEventListener('familyrepositorychange', listener);
+      return { beforeVersion: before.version, afterVersion: after.version, cloudChanges };
+    });
+    assert.equal(noOpCloud.afterVersion, noOpCloud.beforeVersion);
+    assert.equal(noOpCloud.cloudChanges, 0);
+    assert.doesNotMatch(await page.locator('#save-status').textContent(), /更新資料/);
+    await page.click('#save-member'); await page.waitForFunction(() => FAMILY.people.some(person => person.name === '同步期間新增'));
+    await page.evaluate(() => window.editFamilyMember(FAMILY.people.find(person => person.name === '第一位').id));
+    await page.fill('#member-notes', '同步期間編輯');
+    const editVersion = await page.evaluate(async () => {
+      const before = await FamilyRepository.read();
+      await FamilyRepository.replaceFromCloud(JSON.parse(JSON.stringify(before.data)), { fileId: 'same-file', remoteVersion: '201' }, before.version);
+      return { before: before.version, after: (await FamilyRepository.read()).version };
+    });
+    assert.equal(editVersion.after, editVersion.before);
+    await page.click('#save-member'); await page.waitForFunction(() => FAMILY.people.find(person => person.name === '第一位')?.notes === '同步期間編輯');
     const fixture = { schemaVersion: 2, people: [p('G'), p('S', [{ type: 'parent', personId: 'G', kind: '親生' }]), p('F', [{ type: 'fellowDisciple', personId: 'S' }], '同門備註')] };
     fixture.people[1].gender = 'M'; fixture.people[1].discipleOrder = 1; fixture.people[2].gender = 'F';
     await page.locator('#import-file').setInputFiles({ name: 'test.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) });
@@ -122,6 +148,6 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.ok(requests.includes('/repo/data/kinship-terms.json'));
     assert.ok(!requests.some(url => url.includes('/api/') || url.includes('family.json')));
     console.log('Visual checks: ' + dir);
-    console.log('PASS: static subpath, empty initial data, add/edit notes, collapse, reload, fellow disciples, import/export, stale tabs, mobile, zero API/developer-data requests.');
+    console.log('PASS: static subpath, empty initial data, add/edit notes, no-op cloud sync forms, collapse, reload, fellow disciples, import/export, stale tabs, mobile, zero API/developer-data requests.');
   } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

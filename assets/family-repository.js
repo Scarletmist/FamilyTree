@@ -140,7 +140,7 @@
       const store = tx.objectStore(storeName);
       const currentRequest = store.get('current');
       const syncRequest = store.get('sync');
-      let saved, sync, settled = false;
+      let saved, sync, changed = false, settled = false;
       const apply = () => {
         if (currentRequest.readyState !== 'done' || syncRequest.readyState !== 'done' || saved) return;
         const current = currentRequest.result?.value || { data: defaultData(), version: 'empty' };
@@ -152,7 +152,8 @@
           reject(error);
           return;
         }
-        saved = { data, version: crypto.randomUUID(), savedAt: Date.now() };
+        changed = !FamilyModel.sameJsonData(current.data, data);
+        saved = changed ? { data, version: crypto.randomUUID(), savedAt: Date.now() } : current;
         sync = {
           ...(syncRequest.result?.value || {}),
           fileId: remote.fileId || null,
@@ -161,18 +162,18 @@
           connected: true,
           lastSyncedAt: Date.now()
         };
-        store.put({ key: 'current', value: saved });
+        if (changed) store.put({ key: 'current', value: saved });
         store.put({ key: 'sync', value: sync });
       };
       currentRequest.onsuccess = apply;
       syncRequest.onsuccess = apply;
       currentRequest.onerror = () => { if (!settled) { settled = true; reject(currentRequest.error || new Error('無法讀取本機族譜版本。')); } };
       syncRequest.onerror = () => { if (!settled) { settled = true; reject(syncRequest.error || new Error('無法讀取同步狀態。')); } };
-      tx.oncomplete = () => { if (!settled) { settled = true; resolve({ saved, sync }); } };
+      tx.oncomplete = () => { if (!settled) { settled = true; resolve({ saved, sync, changed }); } };
       tx.onerror = () => { if (!settled) { settled = true; reject(tx.error || new Error('無法寫入 Google Drive 下載資料。')); } };
       tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || new Error('Google Drive 下載資料寫入已取消。')); } };
     });
-    emitChange(result.saved, 'cloud');
+    if (result.changed) emitChange(result.saved, 'cloud');
     window.dispatchEvent(new CustomEvent('familyreposyncstate', { detail: result.sync }));
     return result.saved;
   }

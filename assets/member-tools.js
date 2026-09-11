@@ -12,13 +12,17 @@
   }
   function position(control) {
     const rect = control.trigger.getBoundingClientRect();
-    const width = Math.min(Math.max(rect.width, 260), innerWidth - 16);
-    const below = innerHeight - rect.bottom - 8, above = rect.top - 8;
+    const vv = window.visualViewport;
+    const viewportLeft = vv?.offsetLeft || 0, viewportTop = vv?.offsetTop || 0;
+    const viewportWidth = vv?.width || innerWidth, viewportHeight = vv?.height || innerHeight;
+    const rightEdge = viewportLeft + viewportWidth, bottomEdge = viewportTop + viewportHeight;
+    const width = Math.min(Math.max(rect.width, 260), Math.max(180, viewportWidth - 16));
+    const below = bottomEdge - rect.bottom - 8, above = rect.top - viewportTop - 8;
     const down = below >= 220 || below >= above;
     control.panel.style.width = width + 'px';
     control.panel.style.maxHeight = Math.max(80, Math.min(320, down ? below : above)) + 'px';
-    control.panel.style.left = Math.max(8, Math.min(rect.left, innerWidth - width - 8)) + 'px';
-    control.panel.style.top = (down ? rect.bottom + 4 : Math.max(8, rect.top - control.panel.getBoundingClientRect().height - 4)) + 'px';
+    control.panel.style.left = Math.max(viewportLeft + 8, Math.min(rect.left, rightEdge - width - 8)) + 'px';
+    control.panel.style.top = (down ? rect.bottom + 4 : Math.max(viewportTop + 8, rect.top - control.panel.getBoundingClientRect().height - 4)) + 'px';
   }
   function draw(control) {
     const { select, search, list, hint } = control;
@@ -99,6 +103,8 @@
   document.addEventListener('pointerdown', event => { if (active && !active.panel.contains(event.target) && !active.trigger.contains(event.target)) close(); });
   document.addEventListener('scroll', () => { if (active) position(active); }, true);
   window.addEventListener('resize', () => { if (active) position(active); });
+  window.visualViewport?.addEventListener('resize', () => { if (active) position(active); });
+  window.visualViewport?.addEventListener('scroll', () => { if (active) position(active); });
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => close()));
   document.getElementById('member-form').addEventListener('reset', () => { close(); setTimeout(enhance, 0); });
   enhance();

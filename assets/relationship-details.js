@@ -205,6 +205,9 @@
       const edit = iconButton('edit-member', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
       edit.addEventListener('click', () => onEdit?.(person.id));
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
+      if (globalThis.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches) {
+        collapse.setAttribute('aria-label', '收合關係詳情至底部'); collapse.title = '收合關係詳情至底部';
+      }
       collapse.setAttribute('aria-controls', content.id);
       collapse.addEventListener('click', () => setCollapsed(panel, true, { focus: true }));
       const close = iconButton('details-close', '關閉關係詳情', 'M18 6 6 18 M6 6l12 12');

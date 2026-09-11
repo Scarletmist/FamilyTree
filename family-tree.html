@@ -25,7 +25,7 @@
     .legend__item { display:flex; align-items:center; gap:6px; white-space:nowrap; }
     .legend__item svg { width:64px; height:24px; overflow:visible; }
     .workspace { position:relative; flex:1; min-height:0; min-width:0; }
-    .tree { width:100%; height:100%; overflow:scroll; scrollbar-gutter:stable; scrollbar-color:#a89782 #eee7dc; cursor:grab; touch-action:none; overscroll-behavior:contain; background:var(--color-paper); }
+    .tree { width:100%; height:100%; overflow:auto; scrollbar-gutter:stable; scrollbar-color:#a89782 #eee7dc; cursor:grab; touch-action:pan-x pan-y; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; background:var(--color-paper); }
     .tree::-webkit-scrollbar { width:14px; height:14px; }
     .tree::-webkit-scrollbar-track,.tree::-webkit-scrollbar-corner { background:#eee7dc; }
     .tree::-webkit-scrollbar-thumb { background:#a89782; border:3px solid #eee7dc; border-radius:8px; }
@@ -213,6 +213,173 @@
     .canvas-display-controls { display:inline-flex; align-items:center; gap:8px; }
     .mosaic-button { display:inline-flex; align-items:center; justify-content:center; min-width:40px; min-height:38px; }
     .mosaic-button[aria-pressed="true"] { background:#8b3928; color:white; border-color:#8b3928; }
+
+    /* Mobile is intentionally a separate layout strategy instead of a shrunken desktop layout. */
+    @media (max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse) {
+      html,body { width:100%; height:100%; min-height:100%; }
+      body { height:100dvh; min-height:0; }
+
+      .page-header { padding:6px 10px 7px; }
+      .page-header__inner { display:grid; grid-template-columns:minmax(0,1fr); gap:6px; }
+      .page-header__identity { width:100%; min-height:34px; }
+      .page-header__title { flex:1 1 auto; font-size:1.05rem; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .page-header__identity .details-icon { width:34px; height:34px; }
+
+      .tree-controls, .relationship-search {
+        flex-wrap:nowrap;
+        overflow-x:auto;
+        overflow-y:hidden;
+        max-width:100%;
+        scrollbar-width:none;
+        -webkit-overflow-scrolling:touch;
+        overscroll-behavior-inline:contain;
+      }
+      .tree-controls::-webkit-scrollbar, .relationship-search::-webkit-scrollbar { display:none; }
+      .tree-controls { width:100%; margin-left:0; gap:6px; padding:1px 0; font-size:.78rem; }
+      .tree-controls > *, .relationship-search > * { flex:none; }
+      .tree-controls label { white-space:nowrap; }
+      .tree-controls select { width:auto; min-width:112px; max-width:152px; min-height:36px; padding:5px 8px; }
+      .tree-controls button { min-height:36px; padding:5px 9px; }
+
+      .relationship-search { gap:6px; padding:5px 8px; min-height:46px; align-items:center; }
+      .relationship-search label { flex:none; }
+      .relationship-search .searchable-select { width:132px; }
+      .relationship-search button { min-height:36px; padding:5px 9px; white-space:nowrap; }
+      .relationship-search .canvas-display-controls { flex:none; gap:6px; }
+      #kinship-status:empty, #kinship-retry[hidden] { display:none; }
+
+      .legend-panel { padding:4px 10px; }
+      .legend-panel summary { min-height:27px; display:flex; align-items:center; font-size:.75rem; line-height:1.25; }
+      .legend { max-height:min(34dvh,240px); margin-top:5px; gap:4px 10px; overflow:auto; }
+
+      .workspace { min-height:0; }
+      .tree {
+        scrollbar-width:none;
+        scrollbar-gutter:auto;
+        cursor:default;
+      }
+      .tree::-webkit-scrollbar { display:none; width:0; height:0; }
+      .tree__canvas { padding:44px 28px 48px; }
+      .tree__generation-label { left:4px; width:34px; padding:8px 0; font-size:1rem; }
+
+      .person { min-height:104px; }
+      .person, .intermediate-node, button, .select-trigger { touch-action:manipulation; }
+
+      .relationship-summary { top:8px; left:8px; width:calc(100% - 16px); max-height:45%; padding:11px; }
+      .relationship-details { width:calc(100% - 16px); right:8px; bottom:8px; max-height:min(58%,460px); padding:10px; }
+      .relationship-details[data-collapsed="true"] { top:8px; right:0; bottom:auto; width:44px; max-width:44px; }
+
+      /* Explicit full-viewport dialogs avoid the flex/max-height collapse seen in mobile WebKit. */
+      dialog, .family-name-dialog {
+        position:fixed;
+        inset:0;
+        width:100vw;
+        max-width:none;
+        height:100dvh;
+        max-height:100dvh;
+        margin:0;
+        border:0;
+        border-radius:0;
+      }
+      dialog[open] { display:flex; flex-direction:column; }
+      .dialog-header {
+        flex:0 0 auto;
+        grid-template-columns:minmax(0,1fr) 36px;
+        min-height:54px;
+        padding:calc(9px + env(safe-area-inset-top)) 12px 9px;
+      }
+      .dialog-header h2 { font-size:1.08rem; line-height:1.35; }
+      .dialog-header .details-icon { width:36px; height:36px; }
+      dialog form { flex:1 1 0; min-height:0; height:0; }
+      .dialog-scroll, .form-scroll {
+        flex:1 1 0;
+        min-height:0;
+        padding:12px 12px 8px;
+        overflow-x:hidden;
+        overflow-y:auto;
+        -webkit-overflow-scrolling:touch;
+        touch-action:pan-y;
+      }
+      .member-list-scroll { overflow-x:auto; }
+      .member-list-table { min-width:570px; }
+      dialog > .form-actions, dialog form > .form-actions {
+        flex:0 0 auto;
+        display:grid;
+        grid-auto-flow:column;
+        grid-auto-columns:minmax(max-content,1fr);
+        gap:7px;
+        padding:9px 12px calc(9px + env(safe-area-inset-bottom));
+        overflow-x:auto;
+        overflow-y:hidden;
+        scrollbar-width:none;
+      }
+      dialog > .form-actions::-webkit-scrollbar, dialog form > .form-actions::-webkit-scrollbar { display:none; }
+      dialog > .form-actions button, dialog form > .form-actions button { min-height:40px; margin:0; white-space:nowrap; }
+      .field-grid { grid-template-columns:1fr; gap:10px; }
+      .relation-row { grid-template-columns:1fr; padding:10px; margin:8px 0; }
+      .relation-row .remove-relation { grid-column:1; justify-self:end; min-height:38px; }
+      dialog input, dialog select, dialog textarea, .select-trigger { font-size:16px; }
+      dialog textarea { resize:none; }
+      .form-note { margin:9px 0; }
+      .member-notes-field { margin:11px 0; }
+
+      .select-dropdown { max-width:calc(100vw - 16px); }
+      .save-status { left:8px; bottom:12px; max-width:calc(100% - 60px); }
+    }
+
+    @media (max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape) {
+      .page-header { padding-block:4px; }
+      .page-header__inner { grid-template-columns:minmax(170px,.8fr) minmax(0,1.2fr); align-items:center; gap:8px; }
+      .tree-controls { width:auto; }
+      .relationship-search { min-height:42px; padding-block:3px; }
+      .legend-panel { padding-block:2px; }
+      .tree__canvas { padding-top:36px; }
+    }
+    .mobile-search-bar,.mobile-result-edit,.relationship-direction,.relationship-field-caption { display:none; }
+    .relationship-sheet { padding:0; }
+    #relationship-swap { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; flex:none; }
+    #relationship-swap svg { width:22px; height:22px; }
+    .relationship-sheet > header { display:flex; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid #d8cbb8; }
+    .relationship-sheet h2 { margin:0; font-size:1.1rem; }
+    .relationship-sheet button,.mobile-search-bar button { min-height:44px; border:1px solid #c5b8a6; border-radius:8px; background:#fffaf2; padding:8px 12px; color:inherit; font:inherit; }
+    .relationship-result-more > summary { cursor:pointer; }
+    @media (max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse) {
+      .mobile-search-bar { display:flex; gap:8px; padding:6px 10px; background:#fffaf2; border-bottom:1px solid #d8cbb8; }
+      #mobile-search-open { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+      .mobile-search-bar [hidden] { display:none; }
+      .relationship-sheet { position:fixed; inset:auto 0 0; margin:0 auto; width:100%; max-width:600px; height:auto; max-height:90dvh; border-radius:16px 16px 0 0; border-bottom:0; overflow:hidden; padding-bottom:env(safe-area-inset-bottom); }
+      .relationship-sheet > header { flex:none; }
+      .relationship-sheet::backdrop { background:#0006; }
+      .relationship-sheet .relationship-search { display:flex; flex:0 1 auto; height:auto; flex-direction:column; flex-wrap:nowrap; align-items:stretch; overflow-y:auto; padding:16px; gap:12px; }
+      .relationship-sheet .relationship-search label { display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+      .relationship-sheet .relationship-field-caption { display:block; font-weight:600; }
+      .relationship-sheet .relationship-search .searchable-select { width:100%; }
+      .relationship-sheet .select-trigger { min-height:48px; }
+      .relationship-field-b { order:1; }
+      #relationship-swap { order:2; align-self:center; min-height:44px; padding:0; }
+      #relationship-swap svg { transform:rotate(90deg); }
+      .relationship-field-a { order:3; }
+      .relationship-direction { display:block; order:4; margin:0; font-size:.875rem; overflow-wrap:anywhere; }
+      #kinship-status,#kinship-retry { order:5; }
+      .relationship-sheet [type=submit] { order:6; min-height:48px; position:sticky; bottom:0; background:var(--color-accent); color:white; }
+      .relationship-sheet .canvas-display-controls { display:none; }
+      .relationship-summary:not([hidden]) { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; align-items:start; }
+      .relationship-summary h2 { grid-column:1; grid-row:1; margin:0; align-self:center; overflow-wrap:anywhere; }
+      .mobile-result-edit { display:inline-flex; align-items:center; justify-content:center; grid-column:2; grid-row:1; margin:0; min-height:44px; padding:8px 12px; border:1px solid #c5b8a6; border-radius:8px; background:#fffaf2; color:inherit; font:inherit; }
+      .relationship-result-more { grid-column:1 / -1; min-width:0; }
+      .relationship-result-more > summary { min-height:44px; padding-top:12px; }
+      .relationship-details,.relationship-details[data-collapsed="true"] { top:auto; bottom:max(8px,env(safe-area-inset-bottom)); left:8px; right:8px; width:auto; max-width:none; border-radius:12px; }
+      .relationship-details { max-height:min(48dvh,440px); padding:12px; }
+      .relationship-details[data-collapsed="true"] { max-height:56px; padding:0; }
+      .relationship-details__tab { flex-direction:row; justify-content:space-between; min-height:48px; max-height:56px; padding:10px 14px; }
+      .relationship-details__tab-text { writing-mode:horizontal-tb; max-height:none; letter-spacing:normal; order:-1; text-align:left; }
+      .relationship-details__tab-arrow { transform:rotate(90deg); }
+      .relationship-details .details-collapse svg { transform:rotate(90deg); }
+      .relationship-details .details-icon { min-width:44px; min-height:44px; }
+      .relationship-details__header { grid-template-columns:44px minmax(0,1fr) 44px 44px; gap:4px; }
+      .relationship-details__header .details-icon { width:44px; height:44px; }
+      .relationship-details__content,.relationship-details__header { min-width:0; max-width:100%; }
+    }
   </style>
 </head>
 <body>
@@ -237,9 +404,9 @@
   </header>
   <form id="relationship-search" class="relationship-search" aria-label="查詢兩人成員關係">
     <label><select id="relationship-a" required aria-label="成員 A"><option value="">請選擇成員</option></select></label>
+    <button type="button" id="relationship-swap" class="plain-button" aria-label="交換兩人成員" title="交換兩人成員"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4" /></svg></button>
     <label><select id="relationship-b" required aria-label="成員 B"><option value="">請選擇成員</option></select></label>
     <button type="submit" class="primary-button" disabled>查詢兩人關係</button>
-    <button type="button" id="relationship-swap" class="plain-button">交換 A／B</button>
     <span class="canvas-display-controls">
       <button type="button" id="relationship-reset" class="plain-button">顯示全部</button>
       <button type="button" id="toggle-canvas-names" class="plain-button mosaic-button" aria-label="隱藏畫布姓名" title="隱藏畫布姓名" aria-pressed="false">

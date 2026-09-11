@@ -207,11 +207,22 @@
       legend.appendChild(item);
     });
   }
+  function applyResponsiveDefaults() {
+    const legend = document.querySelector('.legend-panel');
+    if (!legend || legend.dataset.responsiveDefaultApplied) return;
+    legend.dataset.responsiveDefaultApplied = 'true';
+    if (window.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches) legend.open = false;
+  }
   function bindPanning(viewport) {
     if (viewport.dataset.panBound) return;
     viewport.dataset.panBound = 'true';
     let drag = null;
     viewport.addEventListener('pointerdown', event => {
+      // Touch/pen use the browser's native two-axis overflow panning. It is
+      // substantially more reliable on iOS/Android than competing with the
+      // browser through a custom pointer gesture. Desktop mouse keeps the
+      // click-and-drag canvas interaction.
+      if (event.pointerType && event.pointerType !== 'mouse') return;
       if (!event.isPrimary || event.button !== 0) return;
       // Leave native scrollbar interaction to the browser.
       const box = viewport.getBoundingClientRect();
@@ -249,6 +260,7 @@
     const canvas = document.getElementById('tree-canvas');
     if (!canvas) return;
     buildLegend();
+    applyResponsiveDefaults();
     bindPanning(canvas.parentElement);
     memberTooltip.hide(null, true);
     canvas.replaceChildren();
@@ -415,7 +427,7 @@
           node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
           if (FamilyModel.knownDiscipleOrder(p)) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
           memberTooltip.bind(node, p);
-          node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false); showDetails(); });
+          node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches); showDetails(); });
           nodes.set(p.id, node);
           group.appendChild(node);
         });
@@ -745,7 +757,7 @@
   window.renderFamilyTree = render;
   window.selectFamilyMember = id => {
     selectedId = id;
-    if (id) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false);
+    if (id) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches);
     render();
     const node = [...document.querySelectorAll('.person')].find(n => n.dataset.personId === id);
     node?.scrollIntoView({ block: 'center', inline: 'center' });

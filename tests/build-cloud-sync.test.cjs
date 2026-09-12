@@ -23,6 +23,9 @@ test('static build injects Google OAuth client ID and includes cloud sync code',
     assert.match(syncJs, /sessionStorage\.setItem\(tokenStorageKey/);
     assert.match(syncJs, /function restoreStoredToken\(\)/);
     assert.match(syncJs, /clearStoredToken\(\)/);
+    assert.match(syncJs, /requestAccessToken\(\{ prompt: '' \}\)/);
+    assert.match(syncJs, /TOKEN_REFRESH_WINDOW_MS = 5 \* 60_000/);
+    assert.match(syncJs, /opportunisticAuthorizeFromGesture/);
     await assert.rejects(fs.access(path.join(output, 'data', 'family.json')));
   } finally {
     if (previous === undefined) delete process.env.GOOGLE_OAUTH_CLIENT_ID;

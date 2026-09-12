@@ -44,6 +44,7 @@ with tempfile.TemporaryDirectory(prefix='family-toolbar-') as temp:
             for asset in ASSETS:
                 page.add_script_tag(content=(ROOT / 'assets' / asset).read_text())
             page.wait_for_function('(count) => window.FAMILY && window.FAMILY.people.length === count', arg=len(DEMO['people']))
+            page.evaluate("() => { const plans=FamilyModel.intermediatePlans(FAMILY,{includeIgnored:true}); FAMILY.ignoredIntermediatePlans=plans.map(plan => plan.id); refreshIgnoredIntermediateButtons(); }")
             return context, page
 
         with sync_playwright() as p:

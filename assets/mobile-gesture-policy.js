@@ -31,6 +31,41 @@
     return Math.max(0, Math.round(layout - visual - top));
   }
 
+  // Keep a stable landscape layout height while the software keyboard changes
+  // VisualViewport.  iOS can report window.innerHeight at an intermediate value
+  // while the keyboard is dismissing; deriving the dialog bottom from that value
+  // leaves a stale gap after the keyboard closes.
+  let viewportBaseline = 0;
+  let viewportOrientation = '';
+  let settleTimer = 0;
+  const KEYBOARD_THRESHOLD = 80;
+
+  function orientationKey() {
+    return `${window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'}:${Math.round(Math.max(window.innerWidth, window.innerHeight))}`;
+  }
+
+  function visualViewportState() {
+    const vv = window.visualViewport;
+    const height = Math.max(0, Math.round(vv?.height || window.innerHeight || document.documentElement.clientHeight || 0));
+    const top = Math.max(0, Math.round(vv?.offsetTop || 0));
+    const candidate = Math.max(
+      Number(window.innerHeight) || 0,
+      Number(document.documentElement.clientHeight) || 0,
+      height + top
+    );
+    const key = orientationKey();
+    if (key !== viewportOrientation) {
+      viewportOrientation = key;
+      viewportBaseline = candidate;
+    } else if (candidate > viewportBaseline || height >= viewportBaseline - KEYBOARD_THRESHOLD) {
+      viewportBaseline = Math.max(candidate, height + top);
+    }
+    if (!viewportBaseline) viewportBaseline = candidate || height;
+    const rawInset = computeBottomInset(viewportBaseline, height, top);
+    const keyboardInset = rawInset >= KEYBOARD_THRESHOLD ? rawInset : 0;
+    return { height, top, baseline: viewportBaseline, inset: keyboardInset };
+  }
+
   let focusFrame = 0;
   function ensureFocusedControlVisible() {
     if (!landscapeMobile()) return;
@@ -62,21 +97,46 @@
   }
 
   function syncVisualViewport() {
-    const vv = window.visualViewport;
-    const layoutHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    const inset = vv ? computeBottomInset(layoutHeight, vv.height, vv.offsetTop) : 0;
-    document.documentElement.style.setProperty('--visual-viewport-bottom-inset', `${inset}px`);
-    document.documentElement.dataset.visualKeyboard = String(landscapeMobile() && inset >= 80);
+    const state = visualViewportState();
+    const root = document.documentElement;
+    root.style.setProperty('--visual-viewport-height', `${state.height}px`);
+    root.style.setProperty('--visual-viewport-top', `${state.top}px`);
+    root.style.setProperty('--visual-viewport-bottom-inset', `${state.inset}px`);
+    root.dataset.visualKeyboard = String(landscapeMobile() && state.inset >= KEYBOARD_THRESHOLD);
     if (landscapeMobile() && document.querySelector('dialog[open]')) scheduleFocusedControlVisibility();
-    return inset;
+    return state.inset;
   }
 
-  window.visualViewport?.addEventListener('resize', syncVisualViewport, { passive: true });
-  window.visualViewport?.addEventListener('scroll', syncVisualViewport, { passive: true });
-  window.addEventListener('resize', syncVisualViewport, { passive: true });
+  function settleVisualViewport() {
+    syncVisualViewport();
+    if (settleTimer) clearTimeout(settleTimer);
+    requestAnimationFrame(syncVisualViewport);
+    settleTimer = setTimeout(() => {
+      settleTimer = 0;
+      syncVisualViewport();
+    }, 180);
+  }
+
+  window.visualViewport?.addEventListener('resize', settleVisualViewport, { passive: true });
+  window.visualViewport?.addEventListener('scroll', settleVisualViewport, { passive: true });
+  window.addEventListener('resize', settleVisualViewport, { passive: true });
+  window.addEventListener('orientationchange', () => {
+    viewportBaseline = 0;
+    viewportOrientation = '';
+    settleVisualViewport();
+  }, { passive: true });
   document.addEventListener('focusin', event => {
     if (!landscapeMobile() || !event.target.closest?.('dialog[open]')) return;
     scheduleFocusedControlVisibility();
+    settleVisualViewport();
+  });
+  document.addEventListener('focusout', event => {
+    if (!landscapeMobile() || !event.target.closest?.('dialog[open]')) return;
+    // Safari's final VisualViewport resize can arrive after focus leaves the field.
+    // Re-sample again after the dismissal animation so full-height dialogs return
+    // all the way to the bottom instead of keeping the keyboard inset.
+    settleVisualViewport();
+    setTimeout(syncVisualViewport, 320);
   });
   document.querySelectorAll('dialog').forEach(dialog => {
     dialog.addEventListener('toggle', syncVisualViewport);
@@ -91,6 +151,7 @@
     isLandscapeMobile: landscapeMobile,
     shouldBlockNativeGesture,
     computeBottomInset,
+    visualViewportState,
     syncVisualViewport,
     ensureFocusedControlVisible
   });

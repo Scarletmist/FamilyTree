@@ -151,8 +151,28 @@
   }
   function refreshIgnoredCount() {
     const value = currentIgnoredCount();
-    if (ignoredCount) ignoredCount.textContent = value ? `（${value}）` : '';
+    document.querySelectorAll('.open-ignored-intermediates').forEach(button => {
+      button.dataset.ignoredCount = String(value);
+      button.setAttribute('aria-label', `已忽略待補項目，共 ${value} 項`);
+      let countNode = button.querySelector('[data-ignored-count-label], #ignored-intermediate-count');
+      const labelNode = button.querySelector('[data-ignored-label]');
+      if (button.closest('.landscape-more-sheet')) button.hidden = value === 0;
+      if (labelNode) {
+        labelNode.textContent = `已忽略待補項目（${value}）`;
+      } else {
+        if (!countNode) {
+          countNode = document.createElement('span');
+          countNode.dataset.ignoredCountLabel = '';
+          button.append(' ', countNode);
+        }
+        countNode.textContent = `（${value}）`;
+      }
+    });
+    if (ignoredCount && !ignoredCount.textContent) ignoredCount.textContent = `（${value}）`;
+    return value;
   }
+  window.getIgnoredIntermediateCount = currentIgnoredCount;
+  window.refreshIgnoredIntermediateButtons = refreshIgnoredCount;
   function navigateToMember(id) {
     if (!id) return;
     if (dialog.open) dialog.close();

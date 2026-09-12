@@ -148,9 +148,10 @@ with tempfile.TemporaryDirectory(prefix='family-p0-mobile-') as temp:
                     assert page.evaluate('FamilyMobileGesturePolicy.computeBottomInset(390, 220, 20)') == 150
                     page.locator('#add-member').click()
                     page.wait_for_function("document.getElementById('member-dialog').open")
-                    page.evaluate("document.documentElement.style.setProperty('--visual-viewport-bottom-inset','120px')")
-                    dialog_bottom = page.evaluate("parseFloat(getComputedStyle(document.getElementById('member-dialog')).bottom)")
-                    assert abs(dialog_bottom - 120) < 1, dialog_bottom
+                    viewport_dialog = page.evaluate("() => { const root=document.documentElement; const dialog=document.getElementById('member-dialog'); root.style.setProperty('--visual-viewport-top','0px'); root.style.setProperty('--visual-viewport-height','220px'); const small=dialog.getBoundingClientRect(); root.style.setProperty('--visual-viewport-height','390px'); const full=dialog.getBoundingClientRect(); return {small:{height:small.height,bottom:small.bottom},full:{height:full.height,bottom:full.bottom}}; }")
+                    assert viewport_dialog['small']['bottom'] <= 221, viewport_dialog
+                    assert viewport_dialog['full']['bottom'] >= 389, viewport_dialog
+                    assert viewport_dialog['full']['height'] > viewport_dialog['small']['height'] + 160, viewport_dialog
                     scroll = page.evaluate("""() => {
                         const scroller=document.querySelector('#member-dialog .form-scroll');
                         const target=document.getElementById('add-relation');
@@ -160,7 +161,7 @@ with tempfile.TemporaryDirectory(prefix='family-p0-mobile-') as temp:
                     }""")
                     assert scroll['max'] > 0 and scroll['after'] > 0, scroll
                     assert not errors, errors
-                    print('landscape hit', hit, 'visual viewport', dialog_bottom, scroll)
+                    print('landscape hit', hit, 'visual viewport', viewport_dialog, scroll)
                 finally:
                     context.close()
             finally:

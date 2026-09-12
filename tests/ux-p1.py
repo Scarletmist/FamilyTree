@@ -106,8 +106,10 @@ with tempfile.TemporaryDirectory(prefix='family-p1-') as temp:
                     page.wait_for_timeout(40)
                     sheet = page.locator('#landscape-more-sheet')
                     assert sheet.get_attribute('open') is not None
-                    for action in ['family-name','canvas-names','legend','ignored','import','export']:
+                    for action in ['family-name','canvas-names','legend','import','export']:
                         assert sheet.locator(f'[data-action="{action}"]').is_visible(), action
+                    # Zero ignored items are intentionally omitted from mobile More.
+                    assert sheet.locator('[data-action="ignored"]').is_hidden()
                     sheet.locator('#landscape-more-close').click()
 
                     # Mobile pinch shows temporary semantic scale feedback.

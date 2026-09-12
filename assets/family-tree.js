@@ -20,7 +20,13 @@
     unknown: { color: '#666666', width: 2, dash: '12 2 2 2', label: '未知關係' }
   };
   const relationshipDetails = FamilyRelationshipDetails.createController();
-  const relationshipSearch = FamilyRelationshipSearch.createController({ onChange: () => { selectedId = null; render(); } });
+  let treeZoom;
+  const relationshipSearch = FamilyRelationshipSearch.createController({ onChange: options => {
+    const anchor = options?.preserveViewport && treeZoom ? treeZoom.getStableViewportAnchor() : null;
+    if (!options?.preserveSelection) selectedId = null;
+    render();
+    if (anchor) requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
+  } });
   const orderKey = FamilyModel.orderKey;
   let selectedId = null;
   const VIEW_STATE_KEY = 'family-tree:canvas-view:v1:' + location.pathname;
@@ -41,7 +47,8 @@
     try {
       sessionStorage.setItem(VIEW_STATE_KEY, JSON.stringify({
         scale: treeZoom.getScale(), scrollLeft: view.scrollLeft, scrollTop: view.scrollTop,
-        filter: document.getElementById('family-filter')?.value || '', savedAt: Date.now()
+        filter: document.getElementById('family-filter')?.value || '',
+        hideCanvasNames, legendOpen: document.querySelector('.legend-panel')?.open ?? true, savedAt: Date.now()
       }));
     } catch (_) {}
   }
@@ -65,16 +72,21 @@
     }
   }
   window.clearFamilyViewState = clearCanvasViewState;
-  let hideCanvasNames = false;
+  let hideCanvasNames = initialViewState?.hideCanvasNames === true;
   const nameToggle = document.getElementById('toggle-canvas-names');
-  nameToggle.addEventListener('click', () => {
-    hideCanvasNames = !hideCanvasNames;
+  function syncNameToggle() {
     nameToggle.setAttribute('aria-pressed', String(hideCanvasNames));
     const label = hideCanvasNames ? '顯示族譜姓名' : '隱藏族譜姓名';
     nameToggle.setAttribute('aria-label', label); nameToggle.title = label;
+  }
+  syncNameToggle();
+  nameToggle.addEventListener('click', () => {
+    hideCanvasNames = !hideCanvasNames;
+    syncNameToggle();
     render();
+    scheduleCanvasViewStateSave();
   });
-  const treeZoom = (() => {
+  treeZoom = (() => {
     const MOBILE_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)';
     const MAX_SCALE = 2;
     const SEMANTIC_PROFILES = {
@@ -111,6 +123,7 @@
     const PROFILE_MIN_SCALE = { desktop: 0.25, tablet: 0.30, 'mobile-portrait': 0.50, 'mobile-landscape': 0.40 };
     const STEP = 0.1;
     const SEMANTIC_COMMIT_DELAY = 140;
+    const SEMANTIC_LABELS = { overview:'總覽', compact:'姓名', condensed:'精簡', medium:'簡要', normal:'完整', detail:'詳細', inspect:'檢視' };
     let scale = Number(initialViewState?.scale) || 1;
     let naturalWidth = 0;
     let naturalHeight = 0;
@@ -121,6 +134,10 @@
     let semanticTimer = 0;
     let pendingSemanticRestore = null;
     let semanticGestureActive = false;
+    let stableViewportAnchor = null;
+    let stableAnchorFrame = 0;
+    let semanticHudTimer = 0;
+    let wheelGestureTimer = 0;
 
     const viewport = () => document.querySelector('.tree');
     const canvas = () => document.getElementById('tree-canvas');
@@ -139,13 +156,35 @@
     const roundScale = value => Math.round(value * 1000) / 1000;
     const clampScale = value => Math.max(minScale(), Math.min(MAX_SCALE, roundScale(value)));
 
-    function updateControls() {
+    function semanticDisplay(value = scale) {
+      const state = semanticStateForScale(value);
+      return { ...state, label: SEMANTIC_LABELS[state.mode] || state.mode, percent: Math.round(value * 100) };
+    }
+
+    function showSemanticHud() {
+      const hud = document.getElementById('tree-semantic-zoom-hud');
+      if (!hud || !isMobileLayout()) return;
+      const display = semanticDisplay();
+      hud.textContent = `${display.percent}% · ${display.label}`;
+      hud.classList.add('is-visible');
+      clearTimeout(semanticHudTimer);
+      semanticHudTimer = setTimeout(() => hud.classList.remove('is-visible'), 950);
+    }
+
+    function updateControls({ transient = false } = {}) {
       const value = document.getElementById('tree-zoom-value');
       const out = document.getElementById('tree-zoom-out');
       const plus = document.getElementById('tree-zoom-in');
-      if (value) value.textContent = `${Math.round(scale * 100)}%`;
+      const display = semanticDisplay();
+      if (value) {
+        value.textContent = `${display.percent}%`;
+        value.dataset.semanticLabel = display.label;
+        value.setAttribute('aria-label', `目前族譜縮放 ${display.percent}%，${display.label}資訊；按下可重設為 100%`);
+        value.title = `目前 ${display.percent}% · ${display.label}；按下重設為 100%`;
+      }
       if (out) out.disabled = scale <= minScale() + .001;
       if (plus) plus.disabled = scale >= MAX_SCALE - .001;
+      if (transient) showSemanticHud();
     }
 
     function updateSpacer() {
@@ -273,7 +312,7 @@
       applyScale();
       positionLogicalAtAnchor(logical, anchor);
       updateGenerationLabelPosition();
-      updateControls();
+      updateControls({ transient: isMobileLayout() });
       memberTooltip.hide(null, true);
       scheduleSemanticCommit(logical, anchor);
       scheduleCanvasViewStateSave();
@@ -352,6 +391,70 @@
         scheduleCanvasViewStateSave();
       }
       updateControls();
+      rememberViewportAnchor();
+    }
+
+    function captureViewportAnchor() {
+      const view = viewport(), root = canvas();
+      if (!view || !root) return null;
+      const viewRect = view.getBoundingClientRect();
+      const selected = selectedId ? root.querySelector(`.person[data-person-id="${CSS.escape(selectedId)}"]`) : null;
+      if (selected) {
+        const rect = selected.getBoundingClientRect();
+        const fx = view.clientWidth ? (rect.left + rect.width / 2 - viewRect.left) / view.clientWidth : .5;
+        const fy = view.clientHeight ? (rect.top + rect.height / 2 - viewRect.top) / view.clientHeight : .5;
+        return { type: 'person', personId: selectedId, fx: Math.max(0, Math.min(1, fx)), fy: Math.max(0, Math.min(1, fy)) };
+      }
+      const width = Math.max(1, naturalWidth || root.offsetWidth || root.scrollWidth);
+      const height = Math.max(1, naturalHeight || root.offsetHeight || root.scrollHeight);
+      const logicalX = (view.scrollLeft + view.clientWidth / 2) / Math.max(.001, scale);
+      const logicalY = (view.scrollTop + view.clientHeight / 2) / Math.max(.001, scale);
+      return {
+        type: 'ratio',
+        ratioX: Math.max(0, Math.min(1, logicalX / width)),
+        ratioY: Math.max(0, Math.min(1, logicalY / height))
+      };
+    }
+
+    function restoreViewportAnchor(anchor) {
+      const view = viewport(), root = canvas();
+      if (!anchor || !view || !root) return;
+      if (anchor.type === 'person' && anchor.personId) {
+        const selected = root.querySelector(`.person[data-person-id="${CSS.escape(anchor.personId)}"]`);
+        if (selected) {
+          const viewRect = view.getBoundingClientRect();
+          const rect = selected.getBoundingClientRect();
+          const targetX = viewRect.left + view.clientWidth * (Number.isFinite(anchor.fx) ? anchor.fx : .5);
+          const targetY = viewRect.top + view.clientHeight * (Number.isFinite(anchor.fy) ? anchor.fy : .5);
+          view.scrollLeft += rect.left + rect.width / 2 - targetX;
+          view.scrollTop += rect.top + rect.height / 2 - targetY;
+          updateGenerationLabelPosition();
+          scheduleCanvasViewStateSave();
+          rememberViewportAnchor();
+          return;
+        }
+      }
+      const logical = {
+        x: Math.max(1, naturalWidth) * (Number.isFinite(anchor.ratioX) ? anchor.ratioX : .5),
+        y: Math.max(1, naturalHeight) * (Number.isFinite(anchor.ratioY) ? anchor.ratioY : .5)
+      };
+      positionLogicalAtAnchor(logical, { x: view.clientWidth / 2, y: view.clientHeight / 2 });
+      updateGenerationLabelPosition();
+      scheduleCanvasViewStateSave();
+      rememberViewportAnchor();
+    }
+
+    function rememberViewportAnchor() {
+      if (stableAnchorFrame) return;
+      stableAnchorFrame = requestAnimationFrame(() => {
+        stableAnchorFrame = 0;
+        stableViewportAnchor = captureViewportAnchor();
+      });
+    }
+
+    function getStableViewportAnchor() {
+      const source = stableViewportAnchor || captureViewportAnchor();
+      return source ? { ...source } : null;
     }
 
     function bind() {
@@ -366,8 +469,29 @@
       value?.addEventListener('click', () => setScale(1));
       fit?.addEventListener('click', fitWidth);
       mobileFit?.addEventListener('click', fitView);
-      viewport()?.addEventListener('scroll', scheduleGenerationLabelPosition, { passive: true });
-      viewport()?.addEventListener('scroll', scheduleCanvasViewStateSave, { passive: true });
+      const view = viewport();
+      view?.addEventListener('wheel', event => {
+        if (isMobileLayout() || (!event.ctrlKey && !event.metaKey)) return;
+        event.preventDefault();
+        const rect = view.getBoundingClientRect();
+        const anchor = {
+          x: Math.max(0, Math.min(view.clientWidth, event.clientX - rect.left)),
+          y: Math.max(0, Math.min(view.clientHeight, event.clientY - rect.top))
+        };
+        const logical = {
+          x: (view.scrollLeft + anchor.x) / Math.max(.001, scale),
+          y: (view.scrollTop + anchor.y) / Math.max(.001, scale)
+        };
+        const unit = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? 180 : 1;
+        const factor = Math.max(.82, Math.min(1.22, Math.exp(-event.deltaY * unit * .0024)));
+        beginSemanticGesture();
+        setScaleAroundLogical(scale * factor, logical, anchor);
+        clearTimeout(wheelGestureTimer);
+        wheelGestureTimer = setTimeout(endSemanticGesture, 150);
+      }, { passive:false });
+      view?.addEventListener('scroll', scheduleGenerationLabelPosition, { passive: true });
+      view?.addEventListener('scroll', scheduleCanvasViewStateSave, { passive: true });
+      view?.addEventListener('scroll', rememberViewportAnchor, { passive: true });
       out.dataset.bound = 'true';
       updateControls();
       updateGenerationLabelPosition();
@@ -389,6 +513,10 @@
       isMobileLayout,
       getMinScale: minScale,
       getMaxScale: () => MAX_SCALE,
+      captureViewportAnchor,
+      getStableViewportAnchor,
+      rememberViewportAnchor,
+      restoreViewportAnchor,
       isRendering: () => rendering
     };
   })();
@@ -572,8 +700,48 @@
     const legend = document.querySelector('.legend-panel');
     if (!legend || legend.dataset.responsiveDefaultApplied) return;
     legend.dataset.responsiveDefaultApplied = 'true';
-    if (window.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches) legend.open = false;
+    if (typeof initialViewState?.legendOpen === 'boolean') legend.open = initialViewState.legendOpen;
+    else if (window.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches) legend.open = false;
+    legend.addEventListener('toggle', scheduleCanvasViewStateSave);
   }
+  function bindMobileOverlayAvoidance() {
+    if (document.documentElement.dataset.familyOverlayAvoidanceBound) return;
+    const workspace = document.querySelector('.workspace');
+    const details = document.getElementById('relationship-details');
+    if (!workspace || !details) return;
+    document.documentElement.dataset.familyOverlayAvoidanceBound = 'true';
+    const portrait = matchMedia('(max-width:700px) and (orientation:portrait)');
+    let frame = 0;
+    function update() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!portrait.matches || details.hidden) {
+          workspace.style.removeProperty('--mobile-overlay-bottom');
+          return;
+        }
+        const workspaceRect = workspace.getBoundingClientRect();
+        const detailsRect = details.getBoundingClientRect();
+        if (!detailsRect.height || detailsRect.bottom <= workspaceRect.top || detailsRect.top >= workspaceRect.bottom) {
+          workspace.style.removeProperty('--mobile-overlay-bottom');
+          return;
+        }
+        // Reserve everything from the top edge of the bottom sheet/peek to the
+        // workspace bottom, then leave an additional 8px breathing room.
+        const inset = Math.max(0, Math.ceil(workspaceRect.bottom - detailsRect.top + 8));
+        workspace.style.setProperty('--mobile-overlay-bottom', `${inset}px`);
+      });
+    }
+    new MutationObserver(update).observe(details, { attributes: true, childList: true, subtree: true, attributeFilter: ['hidden', 'data-collapsed', 'style', 'class'] });
+    if (typeof ResizeObserver === 'function') {
+      const observer = new ResizeObserver(update);
+      observer.observe(details); observer.observe(workspace);
+    }
+    portrait.addEventListener?.('change', update);
+    window.addEventListener('resize', update, { passive: true });
+    update();
+  }
+
   function closeSelectedDetails({ focusCanvas = false } = {}) {
     if (!selectedId) return false;
     selectedId = null;
@@ -671,6 +839,8 @@
     let singleTouch = null;
     let pinch = null;
     let inertiaFrame = 0;
+    let proximityDispatching = false;
+    const MIN_SCREEN_TOUCH_TARGET = 44;
 
     const now = () => performance.now();
     const stopInertia = () => {
@@ -688,6 +858,25 @@
       return { x: point.x - box.left, y: point.y - box.top };
     };
     const pointerPair = () => [...touchPointers.values()].slice(0, 2);
+
+    function proximityTouchTarget(clientX, clientY) {
+      if (!treeZoom.isMobileLayout()) return null;
+      let best = null;
+      viewport.querySelectorAll('.person,.intermediate-node').forEach(node => {
+        const rect = node.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const expandX = Math.max(0, (MIN_SCREEN_TOUCH_TARGET - rect.width) / 2);
+        const expandY = Math.max(0, (MIN_SCREEN_TOUCH_TARGET - rect.height) / 2);
+        if (!expandX && !expandY) return;
+        if (clientX < rect.left - expandX || clientX > rect.right + expandX || clientY < rect.top - expandY || clientY > rect.bottom + expandY) return;
+        const dx = clientX < rect.left ? rect.left - clientX : clientX > rect.right ? clientX - rect.right : 0;
+        const dy = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+        const centerDistance = Math.hypot(clientX - (rect.left + rect.width / 2), clientY - (rect.top + rect.height / 2));
+        const score = Math.hypot(dx, dy) * 1000 + centerDistance;
+        if (!best || score < best.score) best = { node, score };
+      });
+      return best?.node || null;
+    }
 
     function beginSingle(point, alreadyMoved = false) {
       singleTouch = {
@@ -877,7 +1066,15 @@
       if (event.pointerType === 'mouse') finish(event, true);
     });
     viewport.addEventListener('click', event => {
-      if (suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); suppressClick = false; }
+      if (proximityDispatching) return;
+      if (suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); suppressClick = false; return; }
+      if (!treeZoom.isMobileLayout() || event.target.closest?.('.person,.intermediate-node')) return;
+      const target = proximityTouchTarget(event.clientX, event.clientY);
+      if (!target) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      proximityDispatching = true;
+      try { target.click(); } finally { proximityDispatching = false; }
     }, true);
     viewport.addEventListener('click', event => {
       if (!selectedId || event.defaultPrevented) return;
@@ -1402,6 +1599,11 @@
         onEdit: id => window.editFamilyMember(id),
         onSelect: id => window.selectFamilyMember(id, { preserveDetailsState: true }),
         onQuery: id => relationshipSearch.startWithMember(id),
+        onLocate: id => {
+          const node = nodes.get(id);
+          node?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+          node?.focus({ preventScroll: true });
+        },
         onClose: () => {
           const id = selectedId;
           selectedId = null;
@@ -1452,6 +1654,7 @@
     }
   }
   window.renderFamilyTree = render;
+  bindMobileOverlayAvoidance();
   window.selectFamilyMember = (id, { preserveDetailsState = false, expandDetails = false } = {}) => {
     selectedId = id;
     if (id && !preserveDetailsState) {
@@ -1465,8 +1668,28 @@
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
   else render();
-  let resizeTimer;
-  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+  let resizeTimer, pendingResizeAnchor = null;
+  let lastViewportShape = { width: window.innerWidth, height: window.innerHeight, landscape: window.innerWidth > window.innerHeight };
+  window.addEventListener('resize', () => {
+    const nextShape = { width: window.innerWidth, height: window.innerHeight, landscape: window.innerWidth > window.innerHeight };
+    const orientationChanged = nextShape.landscape !== lastViewportShape.landscape;
+    const widthChanged = Math.abs(nextShape.width - lastViewportShape.width) > 4;
+    // A virtual keyboard mostly changes height. Do not rebuild the tree for that;
+    // VisualViewport handling keeps modal forms usable without disturbing canvas position.
+    if (!orientationChanged && !widthChanged && document.querySelector('dialog[open]')) {
+      lastViewportShape = nextShape;
+      return;
+    }
+    if (!pendingResizeAnchor) pendingResizeAnchor = treeZoom.getStableViewportAnchor();
+    lastViewportShape = nextShape;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const anchor = pendingResizeAnchor;
+      pendingResizeAnchor = null;
+      render();
+      requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
+    }, 150);
+  });
   window.addEventListener('pagehide', saveCanvasViewState);
   document.fonts?.ready.then(() => { if (typeof FAMILY !== 'undefined') render(); });
 })();

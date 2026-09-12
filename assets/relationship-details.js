@@ -186,7 +186,7 @@
       if (button) button.setAttribute('aria-expanded', String(!collapsed));
       if (focus) (collapsed ? tab : button)?.focus({ preventScroll: true });
     }
-    function render(panel, graph, personId, { onEdit, onSelect, onQuery, onClose } = {}) {
+    function render(panel, graph, personId, { onEdit, onSelect, onQuery, onLocate, onClose } = {}) {
       if (!personId) {
         navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null;
       } else if (personId !== currentPersonId) {
@@ -201,6 +201,7 @@
           active.classList.contains('details-back') ? 'details-back' :
           active.classList.contains('edit-member') ? 'edit-member' :
           active.classList.contains('query-relationship') ? 'query-relationship' :
+          active.classList.contains('details-locate') ? 'details-locate' :
           active.classList.contains('details-collapse') ? 'details-collapse' :
           active.classList.contains('details-close') ? 'details-close' : '',
           group: active.closest('details[data-group]')?.dataset.group } : null;
@@ -212,7 +213,10 @@
       if (!person) return;
       const content = element('div', 'relationship-details__content');
       content.id = 'relationship-details-content';
+      const top = element('div', 'relationship-details__top');
       const header = element('div', 'relationship-details__header');
+      const actions = element('div', 'relationship-details__actions');
+      actions.setAttribute('aria-label', '成員操作');
       const back = iconButton('details-back', '返回上一位成員', 'M15 18l-6-6 6-6');
       back.disabled = !navigationHistory.length;
       if (!navigationHistory.length) back.className += ' details-back--placeholder';
@@ -222,17 +226,22 @@
         pendingNavigationTarget = target;
         onSelect?.(target);
       });
-      const edit = iconButton('edit-member', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
+      const edit = iconButton('edit-member details-action', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
+      edit.appendChild(element('span', 'details-action__label', '編輯'));
       edit.addEventListener('click', () => onEdit?.(person.id));
       const hasRecordedRelationships = FamilyModel.relationshipMemberIds(graph.people).has(person.id);
       let query;
       if (hasRecordedRelationships) {
-        query = iconButton('query-relationship', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
+        query = iconButton('query-relationship details-action', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
+        query.appendChild(element('span', 'details-action__label', '查關係'));
         query.addEventListener('click', () => onQuery?.(person.id));
       } else {
-        query = element('span', 'details-icon details-query-placeholder');
+        query = element('span', 'details-icon details-action details-query-placeholder');
         query.setAttribute('aria-hidden', 'true');
       }
+      const locate = iconButton('details-locate details-action', '將' + person.name + '定位到族譜中央', 'M12 2v3M12 19v3M2 12h3M19 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z');
+      locate.appendChild(element('span', 'details-action__label', '定位'));
+      locate.addEventListener('click', () => onLocate?.(person.id));
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
       const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches;
       const portraitMobile = globalThis.matchMedia?.('(max-width:700px)').matches;
@@ -245,8 +254,10 @@
       close.addEventListener('click', () => { navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null; onClose?.(); });
       const title = element('h2', '', person.name + '的關係');
       title.id = 'relationship-details-title';
-      header.append(back, edit, query, title, collapse, close);
-      content.appendChild(header);
+      header.append(back, title, collapse, close);
+      actions.append(edit, query, locate);
+      top.append(header, actions);
+      content.appendChild(top);
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
       profile.appendChild(element('p', '', '所在地：' + (person.location || '未填寫')));

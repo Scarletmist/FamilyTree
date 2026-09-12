@@ -8,6 +8,8 @@
   const disconnect = document.getElementById('cloud-sync-disconnect');
   const message = document.getElementById('cloud-sync-message');
   const meta = document.getElementById('cloud-sync-meta');
+  const alertButton = document.getElementById('cloud-sync-alert');
+  const alertText = document.getElementById('cloud-sync-alert-text');
   const conflictDialog = document.getElementById('cloud-conflict-dialog');
   const clientId = document.querySelector('meta[name="google-oauth-client-id"]')?.content?.trim() || window.FAMILY_GOOGLE_CLIENT_ID || '';
   const scope = 'https://www.googleapis.com/auth/drive.appdata';
@@ -90,6 +92,16 @@
     if (label) label.textContent = state === 'synced' ? '已同步' : state === 'syncing' ? '同步中' : state === 'conflict' ? '有衝突' : '雲端';
     if (message) message.textContent = text;
     if (meta) meta.textContent = detail;
+    if (alertButton) {
+      const needsAttention = state === 'pending' || state === 'conflict' || state === 'error';
+      alertButton.hidden = !needsAttention;
+      alertButton.dataset.syncState = state;
+      const shortText = state === 'conflict' ? 'Google Drive 有同步衝突' : state === 'error' ? 'Google Drive 同步失敗' : 'Google Drive 有未同步變更';
+      if (alertText) alertText.textContent = shortText;
+      alertButton.setAttribute('aria-label', `${shortText}，開啟同步設定`);
+      document.querySelector('.workspace')?.classList.toggle('has-cloud-attention', needsAttention);
+    }
+    window.dispatchEvent(new CustomEvent('cloudsyncuichange', { detail:{ state, text, detail } }));
   }
   function formatTime(value) {
     if (!value) return '';
@@ -417,6 +429,7 @@
     dialog.showModal();
     if (clientId) ensureTokenClient().catch(() => {});
   });
+  alertButton?.addEventListener('click', () => button.click());
   document.getElementById('close-cloud-sync-dialog')?.addEventListener('click', () => dialog.close());
   dialog.addEventListener('cancel', () => {});
   action.addEventListener('click', async () => {

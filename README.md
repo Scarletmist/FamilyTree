@@ -242,3 +242,10 @@ npm run test:browser
 關係比較若無法整條路徑對應單一稱謂，會先比對其中可辨識的片段，選擇能縮短串接文字的組合。例如「師兄弟的父親的父親的父親的妻子」會顯示「師兄弟的曾祖父的妻子」。片段中的長幼以該片段的起點判斷，父母系別不明、性別未填與非親生關係的提示仍保留；不會因縮寫而刪除畫布上的中間成員，或將祖父的配偶直接當作親生祖母。
 
 `family-model.js` 負責資料驗證與代別，`family-repository.js` 負責開發 API／靜態 IndexedDB 儲存，`google-drive-sync.js` 負責靜態版 Google Drive `appDataFolder` 同步，`family-tree.js` 負責畫布，`relationship-details.js` 負責可收折的關係與備註，`kinship.js` 搭配稱謂 JSON 判讀關係。`build.cjs` 產生靜態發佈目錄並注入 Google OAuth Client ID。
+
+### P1 interaction refinements
+
+- Desktop canvas supports cursor-anchored `Ctrl/⌘ + wheel` zoom (including trackpad pinch events exposed as modifier-wheel) while normal wheel/trackpad scrolling remains pan/scroll.
+- Semantic zoom state is shown beside the desktop zoom percentage; mobile pinch/fit gestures show a temporary percentage + information-density HUD.
+- Portrait mobile header keeps only family filter, member list, add member and More. Import/export, Google Drive, family-name editing, canvas-name visibility, legend and ignored intermediate items are available in the More sheet.
+- Google Drive `pending`, `conflict` and `error` states surface an actionable in-canvas attention banner instead of relying only on the small cloud status dot.

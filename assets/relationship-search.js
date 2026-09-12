@@ -67,8 +67,8 @@
         home.after(form); toggleHome.append(nameToggle);
       }
     }
-    mobile.addEventListener('change', () => { layout(); onChange(); });
-    landscape.addEventListener('change', () => { closeResultDetails(); onChange(); });
+    mobile.addEventListener('change', () => { layout(); onChange({ preserveSelection: true, preserveViewport: true }); });
+    landscape.addEventListener('change', () => { closeResultDetails(); onChange({ preserveSelection: true, preserveViewport: true }); });
     layout();
 
     async function load() {

@@ -79,7 +79,8 @@
       --relation-label-size:7px; --generation-label-size:.86rem; --intermediate-size:18px; --intermediate-font-size:13px;
     }
     .tree__zoom-spacer { width:100%; height:100%; visibility:hidden; pointer-events:none; }
-    .tree-zoom-controls { position:absolute; z-index:6; left:50%; bottom:16px; transform:translateX(-50%); display:inline-flex; align-items:center; gap:4px; padding:5px; border:1px solid #d8cbb8; border-radius:10px; background:rgba(255,253,247,.96); box-shadow:0 4px 18px #2b211926; backdrop-filter:blur(6px); }
+    .tree-zoom-controls { position:absolute; z-index:6; left:50%; bottom:16px; transform:translateX(-50%); display:inline-flex; align-items:center; gap:4px; padding:5px; border:1px solid #d8cbb8; border-radius:10px; background:rgba(255,253,247,.96); box-shadow:0 4px 18px #2b211926; backdrop-filter:blur(6px); opacity:.25; transition:opacity .5s ease, box-shadow .5s ease; }
+    .tree-zoom-controls.is-attentive, .tree-zoom-controls:hover, .tree-zoom-controls:focus-within { opacity:1; box-shadow:0 6px 22px #2b211938; }
     .tree-zoom-controls button { display:inline-flex; align-items:center; justify-content:center; height:36px; min-width:36px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:var(--color-ink); cursor:pointer; font:600 .875rem/1 var(--font-sans); }
     .tree-zoom-controls button:hover { background:#f0e7da; }
     .tree-zoom-controls button:focus-visible { outline:2px solid #286e86; outline-offset:1px; }
@@ -90,6 +91,7 @@
     .tree-semantic-zoom-hud { position:absolute; z-index:7; left:50%; top:14px; transform:translate(-50%,-6px); display:none; align-items:center; justify-content:center; min-height:34px; padding:6px 12px; border:1px solid rgba(187,161,122,.9); border-radius:999px; background:rgba(255,253,247,.94); color:var(--color-ink); box-shadow:0 5px 18px #2b211926; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); font:600 .82rem/1.2 var(--font-sans); font-variant-numeric:tabular-nums; pointer-events:none; opacity:0; transition:opacity .16s ease,transform .16s ease; white-space:nowrap; }
     .tree-semantic-zoom-hud.is-visible { opacity:1; transform:translate(-50%,0); }
     #tree-zoom-fit { gap:6px; padding-inline:10px; }
+    @media (prefers-reduced-motion:reduce) { .tree-zoom-controls { transition:none; } }
     .mobile-tree-fit { display:none; }
     /* Four soft tones repeat by actual generation number, not by visible row. */
     .tree__generation-bands,.tree__generation-labels { position:absolute; inset:0; pointer-events:none; }

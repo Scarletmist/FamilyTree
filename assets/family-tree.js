@@ -138,6 +138,7 @@
     let stableAnchorFrame = 0;
     let semanticHudTimer = 0;
     let wheelGestureTimer = 0;
+    let zoomControlsAttentionTimer = 0;
 
     const viewport = () => document.querySelector('.tree');
     const canvas = () => document.getElementById('tree-canvas');
@@ -457,6 +458,43 @@
       return source ? { ...source } : null;
     }
 
+    function bindDesktopZoomControlsAttention(view) {
+      const controls = document.getElementById('tree-zoom-controls');
+      if (!view || !controls || controls.dataset.attentionBound) return;
+      const PROXIMITY = 70;
+      const FADE_DELAY = 520;
+      const setAttentive = active => {
+        clearTimeout(zoomControlsAttentionTimer);
+        if (active) {
+          controls.classList.add('is-attentive');
+          return;
+        }
+        zoomControlsAttentionTimer = setTimeout(() => {
+          if (!controls.matches(':hover, :focus-within')) controls.classList.remove('is-attentive');
+        }, FADE_DELAY);
+      };
+      const isNear = event => {
+        if (isMobileLayout() || (event.pointerType && event.pointerType !== 'mouse')) return false;
+        const rect = controls.getBoundingClientRect();
+        return event.clientX >= rect.left - PROXIMITY && event.clientX <= rect.right + PROXIMITY
+          && event.clientY >= rect.top - PROXIMITY && event.clientY <= rect.bottom + PROXIMITY;
+      };
+      view.addEventListener('pointermove', event => setAttentive(isNear(event)), { passive:true });
+      view.addEventListener('pointerleave', () => setAttentive(false), { passive:true });
+      controls.addEventListener('pointerenter', () => setAttentive(true), { passive:true });
+      controls.addEventListener('pointerleave', () => setAttentive(false), { passive:true });
+      controls.addEventListener('focusin', () => setAttentive(true));
+      controls.addEventListener('focusout', () => setAttentive(false));
+      controls.addEventListener('click', () => {
+        setAttentive(true);
+        clearTimeout(zoomControlsAttentionTimer);
+        zoomControlsAttentionTimer = setTimeout(() => {
+          if (!controls.matches(':hover, :focus-within')) controls.classList.remove('is-attentive');
+        }, 1200);
+      });
+      controls.dataset.attentionBound = 'true';
+    }
+
     function bind() {
       const out = document.getElementById('tree-zoom-out');
       const plus = document.getElementById('tree-zoom-in');
@@ -470,6 +508,7 @@
       fit?.addEventListener('click', fitWidth);
       mobileFit?.addEventListener('click', fitView);
       const view = viewport();
+      bindDesktopZoomControlsAttention(view);
       view?.addEventListener('wheel', event => {
         if (isMobileLayout() || (!event.ctrlKey && !event.metaKey)) return;
         event.preventDefault();

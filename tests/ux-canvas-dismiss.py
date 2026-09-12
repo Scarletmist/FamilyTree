@@ -57,14 +57,20 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
             print(name, 'escape layering PASS', flush=True)
             if mobile:
                 # Relationship query sheet supports backdrop dismissal without changing the query state.
-                query_open = page.locator('#landscape-relationship-open') if name == 'landscape' else page.locator('#mobile-search-open')
-                query_open.click(); sheet = page.locator('.relationship-sheet'); assert sheet.is_visible(), name
+                def open_query():
+                    if name == 'landscape':
+                        page.locator('#landscape-more-open').click()
+                        page.locator('#landscape-more-sheet [data-action="relationship"]').click()
+                    else:
+                        page.locator('#portrait-more-open').click()
+                        page.locator('#landscape-more-sheet [data-action="relationship"]').click()
+                open_query(); sheet = page.locator('.relationship-sheet'); assert sheet.is_visible(), name
                 page.mouse.click(4, 4); page.wait_for_timeout(60)
                 assert sheet.is_hidden(), name
 
                 print(name, 'backdrop PASS', flush=True)
                 # Activate a query and ensure blank Canvas taps do not cancel it.
-                query_open.click()
+                open_query()
                 ids = page.locator('#relationship-a option').evaluate_all("els=>els.map(o=>o.value).filter(Boolean).slice(0,2)")
                 assert len(ids) == 2, name
                 for selector,value in [('#relationship-a',ids[0]),('#relationship-b',ids[1])]:

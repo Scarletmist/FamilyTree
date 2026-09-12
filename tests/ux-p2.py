@@ -132,7 +132,8 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
                 page = context.new_page(); errors=[]
                 page.on('pageerror', lambda error: errors.append(str(error)))
                 page.expose_binding('familyRequest', bridge); install_document(page)
-                page.locator('#landscape-relationship-open').click(); page.wait_for_timeout(60)
+                page.locator('#landscape-more-open').click(); page.wait_for_timeout(30)
+                page.locator('#landscape-more-sheet [data-action="relationship"]').click(); page.wait_for_timeout(60)
                 rel=page.locator('.relationship-sheet'); relbox=rel.bounding_box(); assert rel.get_attribute('open') is not None and relbox
                 assert relbox['x'] > 400 and relbox['x']+relbox['width'] >= 843 and relbox['y'] < 100 and relbox['height'] > 240, relbox
                 page.locator('#relationship-sheet-close').click(); page.wait_for_timeout(30)

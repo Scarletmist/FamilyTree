@@ -664,7 +664,7 @@
       .page-header__identity #edit-family-name { display:none; }
       .tree-controls { overflow-x:hidden; touch-action:pan-x; }
       .tree-controls #family-filter { flex:1 1 104px; min-width:96px; max-width:148px; }
-      .tree-controls #cloud-sync,.tree-controls #import-json,.tree-controls #export-json { display:none !important; }
+      .tree-controls #import-json,.tree-controls #export-json { display:none !important; }
       .tree-controls .portrait-toolbar-control { display:inline-flex; align-items:center; justify-content:center; width:44px; min-width:44px; height:44px; min-height:44px; padding:0; }
       .portrait-toolbar-control svg { width:22px; height:22px; display:block; }
       .legend-panel { display:none !important; }
@@ -805,9 +805,6 @@
       .tree-controls .portrait-toolbar-control { display:none !important; }
       .landscape-toolbar-control { display:inline-flex; align-items:center; justify-content:center; padding:0; }
       .landscape-toolbar-control svg { width:22px; height:22px; display:block; }
-      #landscape-relationship-open[aria-pressed="true"] { background:#f0e7da; border-color:#bba17a; }
-      #landscape-relationship-open[aria-pressed="true"]::after { content:''; position:absolute; width:7px; height:7px; right:5px; top:5px; border-radius:50%; background:var(--color-accent); box-shadow:0 0 0 2px white; }
-      #landscape-relationship-open { position:relative; }
 
       /* These two rows are still present for portrait/mobile logic, but consume no landscape height. */
       .mobile-search-bar,.legend-panel { display:none !important; }

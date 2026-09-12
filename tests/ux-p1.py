@@ -99,17 +99,17 @@ with tempfile.TemporaryDirectory(prefix='family-p1-') as temp:
                         const shown=id=>getComputedStyle(document.getElementById(id)).display!=='none';
                         return {client:controls.clientWidth,scroll:controls.scrollWidth,more:shown('portrait-more-open'),importShown:shown('import-json'),exportShown:shown('export-json'),cloudShown:shown('cloud-sync'),legend:getComputedStyle(document.querySelector('.legend-panel')).display};
                     }""")
-                    assert toolbar['more'] and not toolbar['importShown'] and not toolbar['exportShown'] and not toolbar['cloudShown'], toolbar
+                    assert toolbar['more'] and not toolbar['importShown'] and not toolbar['exportShown'] and toolbar['cloudShown'], toolbar
                     assert toolbar['scroll'] <= toolbar['client'] + 1, toolbar
                     assert toolbar['legend'] == 'none', toolbar
                     page.locator('#portrait-more-open').click()
                     page.wait_for_timeout(40)
                     sheet = page.locator('#landscape-more-sheet')
                     assert sheet.get_attribute('open') is not None
-                    for action in ['family-name','canvas-names','legend','import','export']:
+                    for action in ['relationship','family-name','canvas-names','legend','import','export']:
                         assert sheet.locator(f'[data-action="{action}"]').is_visible(), action
-                    # Zero ignored items are intentionally omitted from mobile More.
-                    assert sheet.locator('[data-action="ignored"]').is_hidden()
+                    assert sheet.locator('[data-action="cloud"]').count() == 0
+                    assert sheet.locator('[data-action="ignored"]').count() == 0
                     sheet.locator('#landscape-more-close').click()
 
                     # Mobile pinch shows temporary semantic scale feedback.

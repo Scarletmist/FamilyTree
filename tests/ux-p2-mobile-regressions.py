@@ -72,8 +72,19 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                         "els => els.map(el => ({id:el.id,display:getComputedStyle(el).display,rect:el.getBoundingClientRect().toJSON()}))"
                     )
                     assert visible_more.first.get_attribute('id') == 'landscape-more-open'
+                    landscape_toolbar = page.evaluate("""() => ({
+                        cloud:getComputedStyle(document.getElementById('cloud-sync')).display!=='none',
+                        relationshipToolbar:!!document.getElementById('landscape-relationship-open') && getComputedStyle(document.getElementById('landscape-relationship-open')).display!=='none'
+                    })""")
+                    assert landscape_toolbar['cloud'] and not landscape_toolbar['relationshipToolbar'], landscape_toolbar
+                    page.locator('#landscape-more-open').click()
+                    page.wait_for_function("document.getElementById('landscape-more-sheet').open")
+                    assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_visible()
+                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').count() == 0
+                    assert page.locator('#landscape-more-sheet [data-action="ignored"]').count() == 0
+                    page.locator('#landscape-more-close').click()
 
-                    # Zero ignored items: every mobile trigger is hidden.
+                    # Zero ignored items: every remaining trigger is hidden.
                     zero = page.evaluate("""() => {
                         FAMILY.ignoredIntermediatePlans=[];
                         refreshIgnoredIntermediateButtons();
@@ -137,12 +148,20 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                     visible_more = page.locator('.tree-controls button[aria-label="更多功能"]:visible')
                     assert visible_more.count() == 1
                     assert visible_more.first.get_attribute('id') == 'portrait-more-open'
+                    portrait_toolbar = page.evaluate("""() => ({
+                        cloud:getComputedStyle(document.getElementById('cloud-sync')).display!=='none',
+                        client:document.querySelector('.tree-controls').clientWidth,
+                        scroll:document.querySelector('.tree-controls').scrollWidth
+                    })""")
+                    assert portrait_toolbar['cloud'], portrait_toolbar
+                    assert portrait_toolbar['scroll'] <= portrait_toolbar['client'] + 1, portrait_toolbar
                     page.locator('#portrait-more-open').click()
                     page.wait_for_function("document.getElementById('landscape-more-sheet').open")
-                    zero_display = page.locator('#landscape-more-sheet .open-ignored-intermediates').evaluate("el => getComputedStyle(el).display")
-                    assert zero_display == 'none', zero_display
+                    assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_visible()
+                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').count() == 0
+                    assert page.locator('#landscape-more-sheet [data-action="ignored"]').count() == 0
                     assert not errors, errors
-                    print('portrait mobile regressions PASS')
+                    print('portrait mobile regressions PASS', portrait_toolbar)
                 finally:
                     context.close()
             finally:

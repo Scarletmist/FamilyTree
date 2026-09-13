@@ -10,6 +10,8 @@
   const meta = document.getElementById('cloud-sync-meta');
   const alertButton = document.getElementById('cloud-sync-alert');
   const alertText = document.getElementById('cloud-sync-alert-text');
+  const authToast = document.getElementById('cloud-auth-toast');
+  const authToastText = document.getElementById('cloud-auth-toast-text');
   const conflictDialog = document.getElementById('cloud-conflict-dialog');
   const clientId = document.querySelector('meta[name="google-oauth-client-id"]')?.content?.trim() || window.FAMILY_GOOGLE_CLIENT_ID || '';
   const scope = 'https://www.googleapis.com/auth/drive.appdata';
@@ -28,6 +30,8 @@
   let autoTimer = null;
   let pollTimer = null;
   let conflictResolver = null;
+  let authToastTimer = null;
+  let authPurpose = null;
   const tokenStorageKey = 'family-tree-google-drive-token-v1';
   const TOKEN_VALIDITY_MARGIN_MS = 30_000;
   const TOKEN_REFRESH_WINDOW_MS = 5 * 60_000;
@@ -84,6 +88,38 @@
     return;
   }
 
+  function hideAuthToast() {
+    if (authToastTimer) clearTimeout(authToastTimer);
+    authToastTimer = null;
+    if (authToast) authToast.hidden = true;
+  }
+  function showAuthToast(state, text, autoHideMs = 0) {
+    if (!authToast || !authToastText) return;
+    if (authToastTimer) clearTimeout(authToastTimer);
+    authToastTimer = null;
+    authToast.dataset.authState = state;
+    authToastText.textContent = text;
+    authToast.hidden = false;
+    window.dispatchEvent(new CustomEvent('cloudauthchange', { detail:{ state, text } }));
+    if (autoHideMs > 0) {
+      authToastTimer = setTimeout(() => {
+        authToast.hidden = true;
+        authToastTimer = null;
+      }, autoHideMs);
+    }
+  }
+  function authPurposeLabel(purpose = authPurpose) {
+    return purpose === 'connect' ? '正在連結 Google Drive…' : '正在更新 Google Drive 雲端連線…';
+  }
+  function completeAuthToast(success, error = null) {
+    const purpose = authPurpose;
+    if (success) {
+      showAuthToast('success', purpose === 'connect' ? 'Google Drive 已連結，正在同步資料。' : 'Google Drive 雲端連線已更新。', 2200);
+      return;
+    }
+    const text = error?.message || 'Google Drive 雲端連線更新未完成。';
+    showAuthToast(error?.message?.includes('已關閉') ? 'warning' : 'error', text, 5200);
+  }
   function setUi(state, text, detail = '') {
     button.dataset.syncState = state;
     button.title = text;
@@ -153,7 +189,7 @@
   }
   function finishAuthorization(result, error = null) {
     const resolve = authResolve, reject = authReject;
-    authResolve = null; authReject = null; authInFlight = null;
+    authResolve = null; authReject = null; authInFlight = null; authPurpose = null;
     if (error) { reject?.(error); return; }
     resolve?.(result);
   }
@@ -168,7 +204,9 @@
         prompt: '',
         callback: result => {
           if (result.error || !result.access_token) {
-            finishAuthorization(null, new Error(result.error_description || result.error || 'Google 授權未完成。'));
+            const error = new Error(result.error_description || result.error || 'Google 授權未完成。');
+            completeAuthToast(false, error);
+            finishAuthorization(null, error);
             return;
           }
           accessToken = result.access_token;
@@ -177,27 +215,33 @@
           persistToken();
           repository.setSyncState({ connected: true }).catch(() => {});
           startPolling();
+          completeAuthToast(true);
           finishAuthorization(accessToken);
         },
         error_callback: error => {
-          const reason = error?.type === 'popup_closed' ? 'Google 授權視窗已關閉。' : error?.type === 'popup_failed_to_open' ? '瀏覽器阻擋了 Google 授權視窗。' : 'Google 授權未完成。';
-          finishAuthorization(null, new Error(reason));
+          const reason = error?.type === 'popup_closed' ? 'Google 驗證視窗已關閉，雲端連線尚未更新。' : error?.type === 'popup_failed_to_open' ? '瀏覽器阻擋了 Google 驗證視窗，請開啟雲端同步重試。' : 'Google Drive 雲端連線更新未完成。';
+          const authError = new Error(reason);
+          completeAuthToast(false, authError);
+          finishAuthorization(null, authError);
         }
       });
       return tokenClient;
     })().finally(() => { tokenClientPromise = null; });
     return tokenClientPromise;
   }
-  function requestTokenFromPreparedClient() {
+  function requestTokenFromPreparedClient({ purpose = syncConnected ? 'refresh' : 'connect' } = {}) {
     if (!tokenClient) return null;
     if (authInFlight) return authInFlight;
+    authPurpose = purpose;
     authInFlight = new Promise((resolve, reject) => { authResolve = resolve; authReject = reject; });
     const pending = authInFlight;
+    showAuthToast('refreshing', authPurposeLabel(purpose));
     try {
       // Empty prompt reuses an existing Google grant/session when possible. The
       // request is intentionally issued directly from the user's click handler.
       tokenClient.requestAccessToken({ prompt: '' });
     } catch (error) {
+      completeAuthToast(false, error);
       finishAuthorization(null, error);
     }
     return pending;
@@ -206,18 +250,32 @@
     if (!clientId) throw new Error('尚未設定 Google OAuth Client ID。');
     if (hasUsableToken()) return accessToken;
     await ensureTokenClient();
-    return requestTokenFromPreparedClient();
+    return requestTokenFromPreparedClient({ purpose: syncConnected ? 'refresh' : 'connect' });
   }
   function prepareAuthorization() {
     if (!clientId || !syncConnected || tokenClient) return;
     ensureTokenClient().catch(() => {});
+  }
+  function checkTokenRefreshAtStartup() {
+    if (!clientId || !syncConnected) return false;
+    const needsRefresh = tokenNeedsGestureRefresh();
+    window.dispatchEvent(new CustomEvent('cloudauthstartupcheck', {
+      detail:{ needsRefresh, hasToken:Boolean(accessToken), tokenExpiresAt }
+    }));
+    if (!needsRefresh) return false;
+    prepareAuthorization();
+    const text = accessToken
+      ? 'Google Drive 雲端連線即將到期，將於下一次操作自動更新。'
+      : 'Google Drive 雲端連線需要更新，將於下一次操作自動處理。';
+    showAuthToast('waiting', text, 4600);
+    return true;
   }
   function opportunisticAuthorizeFromGesture() {
     if (!clientId || !tokenNeedsGestureRefresh()) return;
     // requestAccessToken must be called from the user-driven event. If GIS has
     // not finished preloading yet, prepare it now and use the next normal click.
     if (!tokenClient) { prepareAuthorization(); return; }
-    const pending = requestTokenFromPreparedClient();
+    const pending = requestTokenFromPreparedClient({ purpose: 'refresh' });
     if (!pending) return;
     pending
       .then(() => navigator.onLine ? syncNow({ interactive: false }) : null)
@@ -441,6 +499,7 @@
     tokenExpiresAt = 0;
     clearStoredToken();
     stopPolling();
+    hideAuthToast();
     await repository.setSyncState({ connected: false });
     setUi('disconnected', '已停止此裝置的 Google Drive 同步', '本程式不會刪除 Google Drive 上既有的 appDataFolder 資料；若要撤銷帳號授權，請至 Google 帳戶的第三方應用程式設定。');
     await refreshActionOnly();
@@ -468,7 +527,10 @@
     const restoredSessionToken = restoreStoredToken();
     try {
       await refreshUiFromState();
-      if (syncConnected) prepareAuthorization();
+      if (syncConnected) {
+        prepareAuthorization();
+        checkTokenRefreshAtStartup();
+      }
       if (restoredSessionToken) {
         startPolling();
         if (navigator.onLine) syncNow({ interactive: false });
@@ -477,5 +539,5 @@
       setUi('error', error.message || '無法讀取同步狀態。');
     }
   })();
-  window.FamilyGoogleDriveSync = { syncNow, prepareAuthorization };
+  window.FamilyGoogleDriveSync = { syncNow, prepareAuthorization, checkTokenRefreshAtStartup };
 })();

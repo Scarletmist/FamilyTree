@@ -9,6 +9,7 @@ HTML = '''<!doctype html><html><head>
 <meta name="google-oauth-client-id" content="123456789-test.apps.googleusercontent.com">
 </head><body>
 <button id="cloud-sync"><span id="cloud-sync-button-text">雲端</span></button>
+<div id="cloud-auth-toast" data-auth-state="waiting" hidden><span id="cloud-auth-toast-text"></span></div>
 <dialog id="cloud-sync-dialog"><button id="close-cloud-sync-dialog"></button><button id="cloud-sync-disconnect"></button><button id="cloud-sync-action"></button><span id="cloud-sync-message"></span><span id="cloud-sync-meta"></span></dialog>
 <dialog id="cloud-conflict-dialog"><span id="cloud-conflict-local-summary"></span><span id="cloud-conflict-remote-summary"></span><button id="cloud-conflict-use-local"></button><button id="cloud-conflict-use-remote"></button><button id="cloud-conflict-cancel"></button></dialog>
 <button id="add-member">新增</button><button id="save-member">儲存</button>
@@ -24,6 +25,8 @@ with sync_playwright() as p:
     page.set_content(HTML, wait_until='load')
     page.evaluate('''() => {
       window.__syncState = {connected:true, dirty:false, fileId:'file-1', remoteVersion:'1', lastSyncedAt:null};
+      window.__authStartupChecks = [];
+      window.addEventListener('cloudauthstartupcheck', event => window.__authStartupChecks.push(event.detail));
       window.FamilyRepository = {
         isStatic:true,
         getSyncState: async () => ({...window.__syncState}),
@@ -55,23 +58,34 @@ with sync_playwright() as p:
     page.add_script_tag(content=SYNC_JS)
     page.wait_for_function('window.__tokenConfig !== null')
 
-    # Connected users are pre-warmed, but no OAuth flow starts until a user gesture.
+    # Startup performs the five-minute refresh judgment and pre-warms GIS, but never
+    # opens OAuth without a user gesture. A connected session without a current
+    # access token is marked as waiting for the next normal operation.
+    page.wait_for_function('window.__authStartupChecks.length === 1')
+    assert page.evaluate('window.__authStartupChecks[0].needsRefresh') is True
     assert page.evaluate('window.__tokenRequests.length') == 0
     assert page.evaluate('window.__tokenConfig.prompt') == ''
+    assert page.locator('#cloud-auth-toast').get_attribute('data-auth-state') == 'waiting'
+    assert '下一次操作' in page.locator('#cloud-auth-toast-text').inner_text()
 
-    # A normal app action directly issues requestAccessToken from that click with an empty prompt.
+    # A normal app action directly issues requestAccessToken from that click with an empty prompt,
+    # while the in-app cloud-auth toast explains the short Google verification transition.
     page.locator('#add-member').click()
     page.wait_for_function('window.__tokenRequests.length === 1')
     assert page.evaluate('window.__tokenRequests[0].prompt') == ''
+    assert page.locator('#cloud-auth-toast').get_attribute('data-auth-state') == 'refreshing'
+    assert '更新 Google Drive' in page.locator('#cloud-auth-toast-text').inner_text()
 
-    # A short-lived token is accepted, persisted, and triggers a background sync.
+    # A short-lived token is accepted, persisted, triggers a background sync, and reports success.
     page.evaluate("window.__tokenConfig.callback({access_token:'token-1', expires_in:240, scope:'https://www.googleapis.com/auth/drive.appdata', token_type:'Bearer'})")
     page.wait_for_function('window.__syncState.lastSyncedAt !== null')
+    assert page.locator('#cloud-auth-toast').get_attribute('data-auth-state') == 'success'
 
     # Because only four minutes remain (< five-minute refresh window), the next normal action renews it again.
     page.locator('#save-member').click()
     page.wait_for_function('window.__tokenRequests.length === 2')
     assert page.evaluate('window.__tokenRequests[1].prompt') == ''
+    assert page.locator('#cloud-auth-toast').get_attribute('data-auth-state') == 'refreshing'
 
     # Closing/cancel-like unrelated controls are not in the allow-list and do not create extra OAuth requests.
     page.evaluate("document.body.insertAdjacentHTML('beforeend','<button id=\"unrelated-close\">關閉</button>')")

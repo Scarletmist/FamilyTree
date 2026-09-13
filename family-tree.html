@@ -358,6 +358,24 @@
     .cloud-sync-alert__text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .cloud-sync-alert__action { flex:none; color:var(--color-accent); font-weight:700; }
     .cloud-sync-alert[data-sync-state="conflict"],.cloud-sync-alert[data-sync-state="error"] { border-color:#c66d66; background:rgba(255,243,241,.98); color:#7a251f; }
+    .cloud-auth-toast {
+      position:fixed; z-index:70; top:72px; left:50%; display:inline-flex; align-items:center; gap:9px;
+      width:max-content; max-width:min(460px,calc(100vw - 24px)); min-height:42px; padding:9px 13px;
+      border:1px solid #cbb894; border-radius:12px; background:rgba(255,253,248,.97); color:#4e4032;
+      box-shadow:0 8px 24px #2b21192b; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+      font:600 .84rem/1.35 var(--font-sans); transform:translateX(-50%); pointer-events:none;
+      transition:opacity .18s ease,transform .18s ease;
+    }
+    .cloud-auth-toast[hidden] { display:none; }
+    .cloud-auth-toast__indicator { width:16px; height:16px; flex:none; border:2px solid currentColor; border-radius:50%; opacity:.7; box-sizing:border-box; }
+    .cloud-auth-toast[data-auth-state="refreshing"] .cloud-auth-toast__indicator { border-right-color:transparent; animation:cloud-auth-spin .8s linear infinite; }
+    .cloud-auth-toast[data-auth-state="success"] { border-color:#9eb99f; background:rgba(246,252,245,.98); color:#35603c; }
+    .cloud-auth-toast[data-auth-state="success"] .cloud-auth-toast__indicator { position:relative; border-color:currentColor; }
+    .cloud-auth-toast[data-auth-state="success"] .cloud-auth-toast__indicator::after { content:''; position:absolute; left:3px; top:1px; width:5px; height:8px; border:solid currentColor; border-width:0 2px 2px 0; transform:rotate(45deg); }
+    .cloud-auth-toast[data-auth-state="warning"],.cloud-auth-toast[data-auth-state="error"] { border-color:#cf8b78; background:rgba(255,246,241,.98); color:#7b3529; }
+    .cloud-auth-toast[data-auth-state="waiting"] .cloud-auth-toast__indicator { width:10px; height:10px; margin:3px; border:0; background:currentColor; opacity:.55; }
+    @keyframes cloud-auth-spin { to { transform:rotate(360deg); } }
+    @media (prefers-reduced-motion:reduce) { .cloud-auth-toast { transition:none; } .cloud-auth-toast[data-auth-state="refreshing"] .cloud-auth-toast__indicator { animation:none; border-right-color:currentColor; opacity:.45; } }
     .cloud-sync-dialog { width:min(520px,calc(100vw - 32px)); }
     .cloud-sync-panel { display:grid; gap:14px; }
     .cloud-sync-state-card { border:1px solid var(--color-line); border-radius:10px; padding:12px 14px; background:#fffaf4; }
@@ -376,6 +394,7 @@
       .tree-zoom-controls { display:none; }
       .tree-semantic-zoom-hud { display:inline-flex; top:10px; }
       .workspace.has-cloud-attention .tree-semantic-zoom-hud { top:58px; }
+      .cloud-auth-toast { top:calc(66px + env(safe-area-inset-top)); max-width:calc(100vw - 20px); font-size:.82rem; }
       .cloud-sync-alert { top:8px; right:8px; max-width:calc(100% - 16px); min-height:40px; }
       #relationship-summary:not([hidden]) ~ .cloud-sync-alert { top:70px; }
       .mobile-tree-fit {
@@ -813,6 +832,7 @@
       .workspace { flex:1 1 auto; width:100%; height:100dvh; min-height:100dvh; }
       .tree-semantic-zoom-hud { top:calc(68px + env(safe-area-inset-top)); }
       .workspace.has-cloud-attention .tree-semantic-zoom-hud { top:calc(112px + env(safe-area-inset-top)); }
+      .cloud-auth-toast { top:calc(66px + env(safe-area-inset-top)); max-width:min(420px,calc(100vw - 24px)); }
       .cloud-sync-alert { top:calc(64px + env(safe-area-inset-top)); right:calc(8px + env(safe-area-inset-right)); }
       #relationship-summary:not([hidden]) ~ .cloud-sync-alert { top:calc(120px + env(safe-area-inset-top)); }
       .tree__canvas { padding-top:calc(64px + env(safe-area-inset-top)); padding-bottom:38px; }
@@ -1153,6 +1173,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/><path d="M4 8 9 13M20 8l-5 5M4 16l5-5M20 16l-5-5" opacity=".45"/></svg>
     </button>
     <div id="tree-semantic-zoom-hud" class="tree-semantic-zoom-hud" aria-hidden="true">100% · 完整</div>
+    <div id="cloud-auth-toast" class="cloud-auth-toast" role="status" aria-live="polite" aria-atomic="true" data-auth-state="waiting" hidden>
+      <span class="cloud-auth-toast__indicator" aria-hidden="true"></span>
+      <span id="cloud-auth-toast-text">Google Drive 雲端連線狀態更新中…</span>
+    </div>
     <button type="button" id="cloud-sync-alert" class="cloud-sync-alert" data-sync-state="pending" aria-label="開啟 Google Drive 同步" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 18.5h9.2a4.3 4.3 0 0 0 .7-8.5A6 6 0 0 0 6 8.6a4.8 4.8 0 0 0 1.5 9.9Z"/><path d="M12 8v5m0 3h.01"/></svg>
       <span id="cloud-sync-alert-text" class="cloud-sync-alert__text">雲端有未同步變更</span><span class="cloud-sync-alert__action">處理</span>

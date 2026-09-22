@@ -125,7 +125,7 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     async function save() { await page.click('#save-member'); await page.waitForFunction(() => !document.getElementById('member-dialog').open); }
     await page.evaluate(() => window.editFamilyMember('B'));
     await relation('A', '堂兄弟姊妹（直接設定）');
-    await choose('.relation-cousin-seniority', '對方比此成員年長');
+    await choose('.relation-cousin-seniority', 'A比B年長');
     assert.match(await page.locator('.relation-preview').textContent(), /A是B的堂兄/);
     await save();
     assert.equal(await page.locator('.person').count(), 2);

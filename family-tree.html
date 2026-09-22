@@ -239,6 +239,8 @@
     .relation-row__editor { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:8px; padding:12px; border-top:1px solid #ded2c1; background:#fbf8f3; }
     .relation-row__editor[hidden] { display:none; }
     .relation-row label { display:flex; flex-direction:column; gap:6px; font-size:.8rem; min-width:0; }
+    .relation-row label[hidden] { display:none; }
+    .relation-row .relation-metadata { grid-column:span 2; }
     .relation-row .remove-relation { grid-column:4; }
     .relation-row .searchable-select, .field-grid .searchable-select { display:flex; width:100%; }
     .relation-preview { grid-column:1/-1; margin:2px 0 0; font-size:.8rem; color:var(--color-ink-soft); }
@@ -250,6 +252,7 @@
       .tree-controls { flex-wrap:wrap; }
       .field-grid { grid-template-columns:1fr; }
       .relation-row__editor { grid-template-columns:1fr; }
+      .relation-row .relation-metadata { grid-column:1; }
       .relation-row .remove-relation { grid-column:1; justify-self:end; }
       .dialog-header { grid-template-columns:minmax(0,1fr) 32px; padding:14px 16px 12px; }
       .dialog-header .details-icon { width:32px; height:32px; }
@@ -289,6 +292,20 @@
     /* Keep search inputs at 16px or above to prevent iOS focus zoom in every popover. */
     .select-dropdown .select-search { flex:none; width:100%; box-sizing:border-box; font:inherit; font-size:max(16px, 1rem); padding:8px; border:1px solid #c5b8a6; border-radius:5px; }
     .select-options { overflow:auto; min-height:0; }
+    .management-toolbar,.relationship-details__related-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .family-management-dialog { width:min(680px,calc(100vw - 24px)); }
+    .management-field { display:flex; flex-direction:column; gap:4px; margin:10px 0; min-width:0; }
+    .management-field input,.management-field select,.management-field textarea { font-size:16px; min-height:44px; }
+    .management-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; }
+    .management-choices button,.management-toolbar button,.relationship-missing { min-height:44px; }
+    .rank-member { display:flex; gap:12px; align-items:center; padding:8px 0; }
+    .rank-member[hidden] { display:none; }
+    .rank-member label { flex:1; min-width:0; overflow-wrap:anywhere; }
+    .rank-member input[type=checkbox] { width:20px; height:20px; margin-right:8px; }
+    .rank-member input[type=number] { width:110px; font-size:16px; }
+    .family-differences { margin:12px 0; overflow-wrap:anywhere; white-space:pre-wrap; }
+    .family-differences li { margin:8px 0; }
+    .family-management-dialog > .form-error { padding:0 16px; }
     .select-options [role=option] { padding:9px; cursor:pointer; overflow-wrap:anywhere; }
     .select-options [role=option]:hover, .select-options .is-active { background:#f3e8d8; }
     .select-options [aria-selected=true] { font-weight:600; color:#8b3928; }
@@ -661,6 +678,7 @@
       .relation-row { margin:8px 0; }
       .relation-row__header { min-height:50px; padding:8px 8px 8px 10px; }
       .relation-row__editor { grid-template-columns:1fr; padding:10px; }
+      .relation-row .relation-metadata { grid-column:1; }
       .relation-row__toggle { min-height:40px; }
       .relation-row .remove-relation { grid-column:1; justify-self:end; min-height:38px; }
       dialog input, dialog select, dialog textarea, .select-trigger { font-size:16px; }
@@ -1260,7 +1278,7 @@
           <label>師門次序<input id="member-disciple-order" name="discipleOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
           <label>手足次序<input id="member-order" name="siblingOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
         </div>
-        <p class="form-note">手足次序以同一組父母的所有子女排序，男女合併，例如 1、2、3。所在地、職位與次序可留空。</p>
+        <p class="form-note">手足次序以同一組父母的所有子女排序，男女合併，例如 1、2、3。未知可留空，並在下方關係中設定兩人的相對長幼。若有不同家庭或結拜排行，可從成員清單設定「排行群組」。</p>
         <p class="form-note">師門次序以同一師門內男女合併排序，例如 1、2、3；數字較小者為師兄／師姊，與家族手足次序分開記錄。</p>
         <label class="member-notes-field">備註說明<textarea id="member-notes" name="notes" rows="3" maxlength="5000" placeholder="可填寫成員的補充說明"></textarea></label>
         <h3>與現有成員的關係</h3>
@@ -1354,6 +1372,7 @@
   <script src="assets/family-storage.js"></script>
   <script src="assets/family-repository.js"></script>
   <script src="assets/member-form.js"></script>
+  <script src="assets/family-management.js"></script>
   <script src="assets/google-drive-sync.js"></script>
   <script src="assets/member-tools.js"></script>
   <script src="assets/mobile-gesture-policy.js"></script>

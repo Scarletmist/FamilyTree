@@ -13,7 +13,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
     const text = await fs.readFile(dataFile, 'utf8');
     const data = JSON.parse(text.replace(/^\uFEFF/, ''));
     Model.build(data);
-    return { data, version: hash(text) };
+    return { data, version: hash(text), undoLabel: history[0]?.label || null };
   }
   function reply(res, status, payload) {
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -35,7 +35,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
     const saved = await persist(data);
     history.unshift({ data: current.data, version: current.version, savedAt: Date.now(), label });
     history = history.slice(0, HISTORY_LIMIT);
-    return saved;
+    return { ...saved, undoLabel: label };
   }
   function memberInput(input, id) {
     const p = { id, name: input?.name, location: input?.location, position: input?.position,
@@ -104,16 +104,25 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
     const current = await read();
     if (body?.version !== current.version) return [409, { error: '資料已被其他操作更新，無法復原舊版本。請先更新資料。' }];
     if (!history.length) return [409, { error: '目前沒有可復原的修改。' }];
-    const target = history.shift();
+    const target = history[0];
     try { Model.build(target.data); } catch (error) { return [400, { error: error.message }]; }
     const saved = await persist(target.data);
-    return [200, { ...saved, undoneLabel: target.label || '上一項修改' }];
+    history.shift();
+    return [200, { ...saved, undoLabel: history[0]?.label || null, undoneLabel: target.label || '上一項修改' }];
+  }
+  async function manageFamily(body) {
+    const current = await read();
+    if (body?.version !== current.version) return [409, { error: '資料已更新，請重新整理頁面後，再開啟管理視窗確認變更。' }];
+    let data;
+    try { data = Model.manageFamily(current.data, body); }
+    catch (error) { return [400, { error: error.message }]; }
+    return [200, await persistChange(current, data, body.action === 'merge' ? '合併成員' : '修改排行群組')];
   }
   const assets = new Map([
     ['/', ['family-tree.html', 'text/html']],
     ['/data/kinship-terms.json', ['data/kinship-terms.json', 'application/json']],
     ['/family-tree.html', ['family-tree.html', 'text/html']],
-    ...['label-layout.js', 'connector-routing.js', 'family-repository.js', 'member-tools.js', 'kinship.js', 'relationship-search.js', 'family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'family-storage.js', 'member-form.js', 'google-drive-sync.js', 'mobile-gesture-policy.js', 'mobile-landscape-toolbar.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
+    ...['family-management.js', 'label-layout.js', 'connector-routing.js', 'family-repository.js', 'member-tools.js', 'kinship.js', 'relationship-search.js', 'family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'family-storage.js', 'member-form.js', 'google-drive-sync.js', 'mobile-gesture-policy.js', 'mobile-landscape-toolbar.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
   ]);
   const server = http.createServer(async (req, res) => {
     try {
@@ -136,17 +145,18 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
       const isNameUpdate = req.method === 'PUT' && url.pathname === '/api/family/name';
       const isIntermediateIgnore = req.method === 'PUT' && url.pathname === '/api/family/intermediate-ignore';
       const isUndo = req.method === 'POST' && url.pathname === '/api/family/undo';
-      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo) {
+      const isManage = req.method === 'POST' && url.pathname === '/api/family/manage';
+      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo || isManage) {
         if (req.headers.origin !== `http://${req.headers.host}` || req.headers['content-type']?.split(';')[0] !== 'application/json') return reply(res, 403, { error: '只允許從本網站提交表單。' });
         const chunks = []; let bytes = 0;
         for await (const chunk of req) {
           bytes += chunk.length;
-          if (bytes > (isImport ? 6 * 1024 * 1024 : 65536)) { reply(res, 413, { error: '提交內容過大。' }); return; }
+          if (bytes > (isImport || isManage ? 6 * 1024 * 1024 : 65536)) { reply(res, 413, { error: '提交內容過大。' }); return; }
           chunks.push(chunk);
         }
         let body;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return reply(res, 400, { error: 'JSON 格式不正確。' }); }
-        const operation = writes.then(() => isUndo ? undoFamily(body) : isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : isIntermediateIgnore ? updateIntermediateIgnore(body) : editMatch ? edit(editMatch[1], body) : add(body));
+        const operation = writes.then(() => isManage ? manageFamily(body) : isUndo ? undoFamily(body) : isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : isIntermediateIgnore ? updateIntermediateIgnore(body) : editMatch ? edit(editMatch[1], body) : add(body));
         writes = operation.catch(() => {});
         const [status, payload] = await operation;
         return reply(res, status, payload);

@@ -50,10 +50,17 @@
   }
   function contextFor(steps, byId) {
     const base = byId.get(steps[0].from);
-    const stepsContext = steps.map((edge, i) => { const p = byId.get(edge.to); return { gender: p.gender, discipleOrderToBase: Math.sign(Model.compareDiscipleOrder(p, base)), rankPrefix: rank(p.siblingOrder), orderToBase: Math.sign(Model.compareOrder(p, base)), orderToPrevious: Math.sign(Model.compareOrder(p, i ? byId.get(steps[i - 1].to) : base)) }; });
+    const stepsContext = steps.map((edge, i) => {
+      const p = byId.get(edge.to), previous = byId.get(edge.from);
+      const peer = ['sibling','swornSibling','fellowDisciple'].includes(edge.type) ? Model.peerPresentation(byId.graph, p, previous, edge.type) : null;
+      return { gender: p.gender, discipleOrderToBase: peer && edge.type === 'fellowDisciple' ? peer.order : Math.sign(Model.compareDiscipleOrder(p, base)), rankPrefix: rank(peer ? peer.rank : p.siblingOrder), orderToBase: peer && edge.from === base.id ? peer.order : Math.sign(Model.compareOrder(p, base)), orderToPrevious: peer ? peer.order : Math.sign(Model.compareOrder(p, i ? byId.get(steps[i - 1].to) : base)) };
+    });
     return { edge: { ...steps.at(-1), seniority: steps.at(-1).seniority || 'unknown' }, target: stepsContext.at(-1), steps: stepsContext };
   }
-  function term(edge, byId) { return evaluate(config.direct[edge.type] ?? config.display.fallbackTerm, contextFor([edge], byId)); }
+  function term(edge, byId) {
+    if (['sibling','swornSibling','fellowDisciple'].includes(edge.type)) return Model.peerPresentation(byId.graph, byId.get(edge.to), byId.get(edge.from), edge.type).role;
+    return evaluate(config.direct[edge.type] ?? config.display.fallbackTerm, contextFor([edge], byId));
+  }
   function ruleNotes(rule, context) {
     return (rule?.notes || []).filter(note => typeof note === 'string' || matches(note.when, context))
       .map(note => config.notes[typeof note === 'string' ? note : note.key]);
@@ -71,7 +78,7 @@
         // Do not erase contract/sworn kinds inside compressed family fragments.
         const eligible = fragment.length === 1 || fragment.every(edge => !edge.kind || FAMILY_KINDS.has(edge.kind));
         const rule = eligible && config.rules.find(rule => rule.patterns.includes(pattern) && matches(rule.when, context));
-        const title = rule ? evaluate(rule.label, context) : fragment.length === 1 ? term(fragment[0], byId) : '';
+        const title = fragment.length === 1 ? term(fragment[0], byId) : rule ? evaluate(rule.label, context) : '';
         if (!title) continue;
         const tail = best[end];
         const candidate = { titles: [title, ...tail.titles], notes: [...ruleNotes(rule, context), ...(context.target.gender === 'U' ? [config.notes.unknownGender] : []), ...tail.notes],
@@ -91,7 +98,13 @@
     const context = contextFor(steps, byId), pattern = steps.map(s => s.type).join('/');
     const rule = config.rules.find(r => r.patterns.includes(pattern) && matches(r.when, context));
     let confidence = 3;
-    let title = rule ? evaluate(rule.label, context) : steps.length === 1 ? term(steps[0], byId) : '';
+    let title = steps.length === 1 ? term(steps[0], byId) : rule ? evaluate(rule.label, context) : '';
+    for (const edge of original) {
+      if (edge.status === 'pending') notes.push('此路徑包含待確認關係');
+      if (edge.source) notes.push('來源：' + edge.source);
+      if (edge.note) notes.push('關係說明：' + edge.note);
+    }
+    if (steps.length === 1 && ['sibling','swornSibling','fellowDisciple'].includes(steps[0].type)) notes.push(...Model.peerPresentation(byId.graph, byId.get(steps[0].to), byId.get(steps[0].from), steps[0].type).missing);
     notes.push(...ruleNotes(rule, context));
     if (notes.includes(config.notes.unknownSide)) confidence = 2;
     if (!title) {
@@ -102,10 +115,15 @@
     const kinds = [...new Set(original.map(e => e.kind).filter(k => k && k !== '親生'))];
     if (kinds.length && original.length > 1) { title += config.display.nonBiologicalPrefix + kinds.join(config.display.nonBiologicalSeparator) + config.display.nonBiologicalSuffix; notes.push(config.notes.nonBiological); }
     if (context.target.gender === 'U') notes.push(config.notes.unknownGender);
+    if (steps.length === 1 && steps[0].type === 'sibling') {
+      const evidence = Model.siblingEvidence(byId.graph, steps[0].from, steps[0].to);
+      if (evidence) notes.push(evidence.label);
+    }
     return { title, notes: [...new Set(notes.filter(Boolean))], confidence, cousinType: rule?.cousinType };
   }
   function indexGraph(graph) {
     const byId = new Map(graph.people.map(p => [p.id, p]));
+    byId.graph = graph;
     const adjacency = new Map(graph.people.map(p => [p.id, []]));
     const seen = new Set();
     for (const p of graph.people) for (const r of Model.relationshipsFor(graph, p.id)) {
@@ -113,7 +131,7 @@
       const key = p.id < r.personId ? [p.id, r.personId, r.type, r.kind || ''].join('|') : [r.personId, p.id, INVERSE[r.type], r.kind || ''].join('|');
       if (seen.has(key)) continue;
       seen.add(key);
-      const forward = { from: p.id, to: r.personId, type: r.type, key, ...(r.kind ? { kind: r.kind } : {}), ...(r.seniority ? { seniority: r.seniority } : {}) };
+      const forward = { ...r, from: p.id, to: r.personId, type: r.type, key };
       adjacency.get(p.id).push(forward);
       adjacency.get(r.personId).push({ ...forward, from: r.personId, to: p.id, type: INVERSE[r.type], ...(r.seniority ? { seniority: Model.inverseSeniority(r.seniority) } : {}) });
     }
@@ -173,9 +191,14 @@
   }
   function project(graph, path, isolatedIds = []) {
     const ids = new Set(path ? path.nodes : isolatedIds), relations = new Map([...ids].map(id => [id, []]));
-    for (const edge of path?.edges || []) relations.get(edge.from).push({ type: edge.type, personId: edge.to, ...(edge.kind ? { kind: edge.kind } : {}), ...(edge.seniority ? { seniority: edge.seniority } : {}) });
+    for (const edge of path?.edges || []) {
+      const relation = { type: edge.type, personId: edge.to };
+      for (const key of ['kind','seniority','groupId','status','note','source']) if (edge[key] !== undefined) relation[key] = edge[key];
+      relations.get(edge.from).push(relation);
+    }
     const people = graph.people.filter(p => ids.has(p.id)).map(p => ({ ...p, relationships: relations.get(p.id) }));
-    const focused = Model.build({ schemaVersion: 2, familyName: graph.familyName, people });
+    const rankGroups = (graph.rankGroups || []).map(({anchorId,...g}) => ({...g,...(ids.has(anchorId) ? {anchorId} : {}),members:g.members.filter(m => ids.has(m.personId))}));
+    const focused = Model.build({ schemaVersion: 2, familyName: graph.familyName, rankGroups, people });
     // Display original generations, including gaps for explicit grandparent edges.
     const original = new Map(people.map(p => [p.id, p.gen]));
     focused.people.forEach(p => { p.gen = original.get(p.id); });

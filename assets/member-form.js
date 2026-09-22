@@ -76,7 +76,9 @@
         target: row.querySelector('.relation-target')?.value || '',
         type: row.querySelector('.relation-type')?.value || '',
         kind: row.querySelector('.relation-kind')?.value || '',
-        seniority: row.querySelector('.relation-cousin-seniority')?.value || ''
+        seniority: row.querySelector('.relation-cousin-seniority')?.value || '',
+        note: row.querySelector('.relation-note')?.value || '', source: row.querySelector('.relation-source')?.value || '',
+        status: row.querySelector('.relation-status')?.value || 'confirmed', groupId: row.querySelector('.relation-group')?.value || ''
       }))
     };
   }
@@ -121,7 +123,8 @@
     if (choice && state.intermediateChoice && [...choice.options].some(option => option.value === state.intermediateChoice)) choice.value = state.intermediateChoice;
     relations.replaceChildren();
     (state.relationships || []).forEach(relation => addRelation({
-      personId: relation.target, type: relation.type, kind: relation.kind, seniority: relation.seniority
+      personId: relation.target, type: relation.type, kind: relation.kind, seniority: relation.seniority,
+      note: relation.note, source: relation.source, status: relation.status, groupId: relation.groupId
     }, { expanded: false }));
     [...relations.children].forEach(row => row.updatePreview?.());
     scheduleMemberDraft();
@@ -185,13 +188,14 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: expectedVersion })
     });
     const payload = await response.json();
-    if (!response.ok) { showStatus(payload.error || '無法復原上一項修改。', 'error'); return; }
+    if (!response.ok) { showStatus(payload.error || '無法復原上一項修改。', 'error'); return false; }
     document.getElementById('family-filter').value = '';
     delete document.querySelector('.tree').dataset.scope;
     window.clearFamilyViewState?.();
     accept(payload);
     window.selectFamilyMember(null);
     showStatus(`已復原「${payload.undoneLabel || '上一項修改'}」。`, 'info');
+    return true;
   }
   function showUndoStatus(message, payload) {
     showStatus(message, 'success', 6000, { label: '復原', onClick: () => undoLastChange(payload.version) });
@@ -226,22 +230,51 @@
     kind.parentElement.className = 'relation-kind-field';
     const seniority = field('對方的長幼', 'relation-cousin-seniority'); seniority.parentElement.className = 'relation-cousin-field';
     seniority.append(option('unknown', '未確認'), option('older', '對方比此成員年長'), option('younger', '對方比此成員年幼'));
+    const rankGroup = field('使用的排行群組', 'relation-group'); rankGroup.required = false;
+    const state = field('確認狀態', 'relation-status'); state.append(option('confirmed', '已確認'), option('pending', '待確認'));
+    const textField = (title, className) => {
+      const label = document.createElement('label'); label.textContent = title; label.className = 'relation-metadata';
+      const input = document.createElement('textarea'); input.className = className; input.rows = 2; input.maxLength = 2000;
+      label.append(input); editor.append(label); return input;
+    };
+    const source = textField('關係來源（選填）', 'relation-source');
+    const note = textField('關係說明（選填）', 'relation-note');
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'plain-button remove-relation'; remove.textContent = '移除';
     remove.addEventListener('click', () => { row.remove(); scheduleMemberDraft(); }); editor.appendChild(remove);
     const preview = document.createElement('p'); preview.className = 'relation-preview'; editor.appendChild(preview);
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
       kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
-      seniority.closest('label').hidden = !FamilyModel.isCousin(type.value); seniority.disabled = !FamilyModel.isCousin(type.value);
+      seniority.closest('label').hidden = !FamilyModel.hasSeniority(type.value); seniority.disabled = !FamilyModel.hasSeniority(type.value);
       const person = snapshot.data.people.find(p => p.id === target.value);
-      const role = person && FamilyModel.isCousin(type.value) ? FamilyModel.cousinRole(person, type.value, seniority.value) : person && type.value === 'fellowDisciple' ? FamilyModel.fellowRole(person, { discipleOrder: Number(document.getElementById('member-disciple-order').value) || null }) : type.value === 'sibling' && document.getElementById('intermediate-context') ? '親生手足' : labels[type.value];
-      preview.textContent = person && type.value ? `${person.name}是${document.getElementById('member-name').value.trim() || '這位成員'}的${role}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
+      const base = { id: editingId || 'p-' + requestId, name: document.getElementById('member-name').value.trim() || '這位成員', gender: form.elements.namedItem('gender').value,
+        siblingOrder: Number(form.elements.namedItem('siblingOrder').value) || null, discipleOrder: Number(form.elements.namedItem('discipleOrder').value) || null };
+      const selectedGroup = rankGroup.value || initial?.groupId || '';
+      const availableGroups = (snapshot.data.rankGroups || []).filter(g => g.type === type.value && g.members.some(m => m.personId === target.value) && g.members.some(m => m.personId === base.id));
+      const groupSignature = JSON.stringify(availableGroups.map(g => [g.id, g.name]));
+      if (rankGroup.dataset.signature !== groupSignature) {
+        rankGroup.replaceChildren(option('', '自動判定／未指定')); availableGroups.forEach(g => rankGroup.append(option(g.id, g.name)));
+        rankGroup.value = selectedGroup; rankGroup.dataset.signature = groupSignature;
+      }
+      rankGroup.closest('label').hidden = !availableGroups.length;
+      const peerType = FamilyModel.hasSeniority(type.value) || type.value === 'fellowDisciple';
+      const relation = { seniority: seniority.value, groupId: rankGroup.value || undefined };
+      const role = person && peerType ? FamilyModel.peerPresentation(snapshot.data, person, base, type.value, relation).role : labels[type.value];
+      if (person) {
+        seniority.options[1].textContent = `${person.name}比${base.name}年長`;
+        seniority.options[2].textContent = `${person.name}比${base.name}年幼`;
+      }
+      const inverse = {parent:'child',child:'parent',grandparent:'grandchild',grandchild:'grandparent',teacher:'student',student:'teacher'};
+      const reverseRole = person && peerType ? FamilyModel.peerPresentation(snapshot.data, base, person, type.value, { ...relation, seniority: FamilyModel.inverseSeniority(seniority.value) }).role : labels[inverse[type.value] || type.value];
+      preview.textContent = person && type.value ? `${person.name}是${base.name}的${role}${isParent ? '（' + kind.value + '）' : ''}；${base.name}是${person.name}的${reverseRole}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
       summaryTitle.textContent = person && type.value ? `${person.name} · ${role || labels[type.value] || type.value}` : '尚未完成的關係';
-      summaryHint.textContent = person && type.value && isParent ? kind.value : person && type.value && FamilyModel.isCousin(type.value) && seniority.value !== 'unknown' ? (seniority.value === 'older' ? '對方年長' : '對方年幼') : '';
+      summaryHint.textContent = person && type.value && isParent ? kind.value : person && type.value && FamilyModel.hasSeniority(type.value) && seniority.value !== 'unknown' ? (seniority.value === 'older' ? '對方年長' : '對方年幼') : '';
     }
     row.addEventListener('change', () => { update(); scheduleMemberDraft(); });
+    row.addEventListener('input', scheduleMemberDraft);
     row.updatePreview = update;
-    if (initial) { target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind; seniority.value = initial.seniority || 'unknown'; }
+    row.expandEditor = () => setExpanded(true);
+    if (initial) { target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind; seniority.value = initial.seniority || 'unknown'; source.value = initial.source || ''; note.value = initial.note || ''; state.value = initial.status || 'confirmed'; }
     relations.appendChild(row); update(); setExpanded(expanded); scheduleMemberDraft(); if (!initial) target.focus();
   }
   function setSaving(value) {
@@ -401,6 +434,29 @@
   });
   addButton.addEventListener('click', () => openMember());
   window.editFamilyMember = openMember;
+  window.FamilyEditor = {
+    snapshot: () => snapshot,
+    editingId: () => editingId,
+    async manage(body) {
+      if (restoredBackup) throw new Error('目前為備份檢視，請重新連線後再編輯。');
+      const response = await FamilyRepository.request('/api/family/manage', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      const payload = await response.json(); if (!response.ok) throw new Error(payload.error || '無法儲存。');
+      accept(payload); showUndoStatus('已儲存修改。', payload); return payload;
+    },
+    undo: () => undoLastChange(snapshot.version),
+    addRelative(id, type) { openMember(); addRelation({ personId: id, type, ...(FamilyModel.isDescent(type) ? {kind:'親生'} : {}) }, {expanded:true}); resetMemberBaseline(); },
+    complete(id, targetId, category, message) {
+      if (message.includes('性別')) { openMember(targetId); form.elements.namedItem('gender').focus(); return; }
+      openMember(id);
+      const type = category === 'fellowDisciples' ? 'fellowDisciple' : category === 'cousins' ? 'tangCousin' : 'sibling';
+      let row = [...relations.children].find(row => row.querySelector('.relation-target').value === targetId && (row.querySelector('.relation-type').value === type || row.querySelector('.relation-type').value === 'swornSibling'));
+      if (!row) { addRelation({personId:targetId,type}, {expanded:true}); row = relations.lastElementChild; }
+      row.expandEditor(); row.scrollIntoView({block:'center'});
+      if (type === 'fellowDisciple') form.elements.namedItem('discipleOrder').focus();
+      else row.querySelector(message.includes('群組') ? '.relation-group' : '.relation-cousin-seniority').focus();
+    }
+  };
+  window.completeFamilyRelationship = (...args) => window.FamilyEditor.complete(...args);
   ['close-member-dialog', 'cancel-member'].forEach(id => document.getElementById(id).addEventListener('click', requestMemberClose));
   dialog.addEventListener('cancel', event => {
     event.preventDefault();
@@ -424,6 +480,7 @@
   document.getElementById('add-relation').addEventListener('click', () => addRelation());
   document.getElementById('member-disciple-order').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   document.getElementById('member-name').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
+  ['gender','siblingOrder'].forEach(name => form.elements.namedItem(name).addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview())));
   document.getElementById('refresh-family').addEventListener('click', async () => {
     error.textContent = '';
     try {
@@ -445,13 +502,18 @@
       relationships: [...relations.children].map(row => {
         const type = row.querySelector('.relation-type').value;
         const r = { type, personId: row.querySelector('.relation-target').value };
-        if (FamilyModel.isCousin(type) && row.querySelector('.relation-cousin-seniority').value !== 'unknown') r.seniority = row.querySelector('.relation-cousin-seniority').value;
+        if (FamilyModel.hasSeniority(type) && row.querySelector('.relation-cousin-seniority').value !== 'unknown') r.seniority = row.querySelector('.relation-cousin-seniority').value;
+        for (const key of ['note','source','status']) { const value = row.querySelector('.relation-' + key).value.trim(); if (value && (key !== 'status' || value === 'pending')) r[key] = value; }
+        if (row.querySelector('.relation-group').value) r.groupId = row.querySelector('.relation-group').value;
         if (FamilyModel.isDescent(type)) r.kind = row.querySelector('.relation-kind').value;
         return r;
       })
     };
     setSaving(true);
     try {
+      const candidate = { ...member, id: editingId || 'p-' + requestId };
+      if (editingId) FamilyModel.replaceMember(snapshot.data, candidate);
+      else FamilyModel.build({ ...snapshot.data, people: [...snapshot.data.people, candidate] });
       const response = await FamilyRepository.request(editingId ? '/api/members/' + encodeURIComponent(editingId) : '/api/members', { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member, requestId, version: snapshot.version }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || '儲存失敗，請重試。');
@@ -461,7 +523,18 @@
       // Keep the diagram available for filling the next intermediate slot.
       window.selectFamilyMember(document.getElementById('intermediate-context') ? null : payload.memberId);
       showUndoStatus(`已${editingId ? '更新' : '新增'}「${member.name}」。`, payload);
-    } catch (e) { error.textContent = e.message || '連線中斷，請重試。'; }
+    } catch (e) {
+      error.textContent = e.message || '連線中斷，請重試。';
+      setSaving(false);
+      const row = [...relations.children].find(row => e.personIds?.includes(row.querySelector('.relation-target').value));
+      if (row) { row.expandEditor(); row.scrollIntoView({block:'center'}); row.querySelector('.relation-cousin-seniority:not(:disabled), .relation-type')?.focus(); }
+      else {
+        const field = e.field || (e.message.includes('姓名') ? 'name' : e.message.includes('師門次序') ? 'discipleOrder' : e.message.includes('手足次序') ? 'siblingOrder' : null);
+        const control = field && form.elements.namedItem(field);
+        if (control) { control.scrollIntoView({block:'center'}); control.focus(); }
+        else { error.tabIndex = -1; error.scrollIntoView({block:'center'}); error.focus(); }
+      }
+    }
     finally { setSaving(false); }
   });
   const importDialog = document.getElementById('import-dialog');
@@ -470,6 +543,7 @@
   let stagedImport = null, importVersion = null, importing = false;
   function importSummary() {
     document.getElementById('import-summary').textContent = `檔案：${stagedImport.name}。將以 ${stagedImport.data.people.length} 位成員取代目前的 ${snapshot.data.people.length} 位成員。`;
+    window.renderFamilyDifferences?.(document.getElementById('import-summary').parentElement, snapshot.data, stagedImport.data);
   }
   document.getElementById('import-json').addEventListener('click', () => { importFile.value = ''; importFile.click(); });
   importFile.addEventListener('change', async () => {

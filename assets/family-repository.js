@@ -96,10 +96,10 @@
   }
   async function read() {
     const migrated = await migrateLegacy();
-    if (migrated) return migrated;
-    const saved = await recordGet('current');
+    const saved = migrated || await recordGet('current');
     if (!saved) return { data: defaultData(), version: 'empty' };
-    return assertPayload(saved);
+    const history = await recordGet('history');
+    return { ...assertPayload(saved), undoLabel: history?.[0]?.label || null };
   }
   async function getSyncState() {
     if (!isStatic) return { fileId: null, remoteVersion: null, dirty: false, connected: false, lastSyncedAt: null };
@@ -125,7 +125,7 @@
   }
   async function persist(data, { previous = null, label = '修改族譜' } = {}) {
     FamilyModel.build(data);
-    const saved = { data, version: crypto.randomUUID(), savedAt: Date.now() };
+    const saved = { data, version: crypto.randomUUID(), savedAt: Date.now(), undoLabel: previous?.data ? label : null };
     const sync = { ...(await getSyncState()), dirty: true };
     const entries = [['current', saved], ['sync', sync]];
     if (previous?.data) {
@@ -144,7 +144,7 @@
     if (!Array.isArray(history) || !history.length) return { error: '目前沒有可復原的修改。', status: 409 };
     const target = history[0];
     FamilyModel.build(target.data);
-    const saved = { data: target.data, version: crypto.randomUUID(), savedAt: Date.now() };
+    const saved = { data: target.data, version: crypto.randomUUID(), savedAt: Date.now(), undoLabel: history[1]?.label || null };
     const sync = { ...(await getSyncState()), dirty: true };
     try { await recordPutMany([['current', saved], ['sync', sync], ['history', history.slice(1)]]); }
     catch { throw new Error('瀏覽器 IndexedDB 儲存空間不足或不允許儲存，本次復原尚未完成。'); }
@@ -256,6 +256,7 @@
     let data, historyLabel = '修改族譜';
     if (adding) { data = { ...current.data, people: [...current.data.people, member] }; historyLabel = `新增成員「${member.name}」`; }
     else if (memberId) { data = FamilyModel.replaceMember(current.data, member); historyLabel = `更新成員「${member.name}」`; }
+    else if (url === '/api/family/manage' && method === 'POST') { data = FamilyModel.manageFamily(current.data, body); historyLabel = body.action === 'merge' ? '合併成員' : '修改排行群組'; }
     else if (url === '/api/family/name') { data = { ...current.data, familyName: FamilyModel.normalizeFamilyName(body.familyName) }; historyLabel = '修改家族名稱'; }
     else if (url === '/api/family/intermediate-ignore' && method === 'PUT') {
       if (typeof body.planId !== 'string' || !body.planId || body.planId.length > 500 || typeof body.ignored !== 'boolean') return response({ error: '待補項目設定格式不正確。' }, 400);

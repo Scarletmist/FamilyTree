@@ -352,10 +352,11 @@
     FamilyModel.build(data);
     return data;
   }
-  function waitForConflictChoice(local, remote) {
+  function waitForConflictChoice(local, remote, remoteData) {
     if (!conflictDialog) return Promise.resolve('cloud');
     document.getElementById('cloud-conflict-local-summary').textContent = `此裝置：${local.data.people.length} 位成員`;
     document.getElementById('cloud-conflict-remote-summary').textContent = `Google Drive：更新時間 ${formatTime(remote.modifiedTime) || '未知'}`;
+    window.renderFamilyDifferences?.(document.getElementById('cloud-conflict-remote-summary').parentElement.parentElement, local.data, remoteData);
     conflictDialog.showModal();
     return new Promise(resolve => { conflictResolver = resolve; });
   }
@@ -374,8 +375,11 @@
   async function handleConflict(local, remote, interactive) {
     setUi('conflict', '此裝置與 Google Drive 都有不同的族譜版本', '請選擇要保留哪一份資料。');
     if (!interactive) return { outcome: 'conflict' };
-    const choice = await waitForConflictChoice(local, remote);
+    const remoteData = await downloadRemote(remote);
+    const choice = await waitForConflictChoice(local, remote, remoteData);
     if (choice === 'cancel') return { outcome: 'cancelled' };
+    const latestLocal = await repository.read(), latestRemote = await findRemote();
+    if (latestLocal.version !== local.version || !latestRemote || latestRemote.id !== remote.id || latestRemote.version !== remote.version) throw new Error('預覽期間資料已更新，請重新同步並檢查最新差異。');
     if (choice === 'local') {
       setUi('syncing', '正在以此裝置資料更新 Google Drive…');
       const uploaded = await updateRemote(remote.id, local.data);
@@ -383,7 +387,7 @@
       return { outcome: 'uploaded', remote: uploaded };
     }
     setUi('syncing', '正在從 Google Drive 載入族譜…');
-    const data = await downloadRemote(remote);
+    const data = remoteData;
     await repository.replaceFromCloud(data, { fileId: remote.id, remoteVersion: remote.version }, local.version);
     return { outcome: 'downloaded', remote };
   }

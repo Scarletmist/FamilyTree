@@ -1311,8 +1311,13 @@
           node.appendChild(nameNode);
           node.appendChild(element('span', 'person__location', '所在地：' + (p.location || '未填寫')));
           node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
-          node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
-          if (FamilyModel.knownDiscipleOrder(p)) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
+          const rankGroups = (graph.rankGroups || []).filter(g => g.members.some(m => m.personId === p.id));
+          if (!rankGroups.some(g => g.type === 'sibling')) node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
+          if (FamilyModel.knownDiscipleOrder(p) && !rankGroups.some(g => g.type === 'fellowDisciple')) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
+          if (rankGroups.length) {
+            const first = rankGroups[0], member = first.members.find(m => m.personId === p.id);
+            node.appendChild(element('span', 'person__order', first.name + '：' + (member.order ?? '未填寫') + (rankGroups.length > 1 ? '（另 ' + (rankGroups.length - 1) + ' 組）' : '')));
+          }
           memberTooltip.bind(node, p);
           node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px) and (orientation:portrait)').matches); showDetails(); });
           nodes.set(p.id, node);

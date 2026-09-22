@@ -16,6 +16,7 @@
   const KINDS = ['親生', '過繼', '養子女', '義子女', '契子女'];
   const TYPES = ['parent', 'child', 'grandparent', 'grandchild', 'spouse', 'sibling', 'swornSibling', 'fellowDisciple', 'tangCousin', 'biaoCousin', 'teacher', 'student'];
   const isCousin = type => ['tangCousin', 'biaoCousin'].includes(type);
+  const hasSeniority = type => ['sibling', 'swornSibling', 'tangCousin', 'biaoCousin'].includes(type);
   function cousinRole(person, type, seniority) {
     const prefix = type === 'tangCousin' ? '堂' : '表';
     return prefix + (seniority === 'older' ? { M: '兄', F: '姊', U: '年長手足' } : seniority === 'younger' ? { M: '弟', F: '妹', U: '年幼手足' } : { M: '兄弟', F: '姊妹', U: '兄弟姊妹' })[person.gender];
@@ -63,9 +64,10 @@
       else if (r.personId === id) relation = { type: INVERSE[r.type], personId: person.id };
       else continue;
       if (isDescent(relation.type)) relation.kind = r.kind;
-      if ((r.type === 'fellowDisciple' || isCousin(r.type)) && r.seniority && r.seniority !== 'unknown') relation.seniority = person.id === id ? r.seniority : inverseSeniority(r.seniority);
+      if ((r.type === 'fellowDisciple' || hasSeniority(r.type)) && r.seniority && r.seniority !== 'unknown') relation.seniority = person.id === id ? r.seniority : inverseSeniority(r.seniority);
+      for (const key of ['note', 'source', 'status', 'groupId']) if (r[key] !== undefined) relation[key] = r[key];
       const key = [relation.type, relation.personId, relation.kind || ''].join('|');
-      if (!result.get(key)?.seniority || relation.seniority) result.set(key, relation);
+      result.set(key, { ...result.get(key), ...relation });
     }
     return [...result.values()];
   }
@@ -184,7 +186,9 @@
       if (!r || !TYPES.includes(r.type) || typeof r.personId !== 'string') fail('關係類型或對象不正確。');
       if (r.personId === p.id) fail('不能與自己建立關係。');
       if (isDescent(r.type) && !KINDS.includes(r.kind)) fail('請選擇親子／祖孫關係類型。');
-      if (r.seniority !== undefined && ((r.type !== 'fellowDisciple' && !isCousin(r.type)) || !['older', 'younger', 'unknown'].includes(r.seniority))) fail('關係長幼設定不正確。');
+      if (r.seniority !== undefined && ((r.type !== 'fellowDisciple' && !hasSeniority(r.type)) || !['older', 'younger', 'unknown'].includes(r.seniority))) fail('關係長幼設定不正確。');
+      for (const key of ['note', 'source']) if (r[key] !== undefined && (typeof r[key] !== 'string' || r[key].length > 2000)) fail('關係說明與來源最多 2000 字。');
+      if (r.status !== undefined && !['confirmed', 'pending'].includes(r.status)) fail('關係確認狀態不正確。');
       const key = [r.type, r.personId, r.kind || ''].join('|');
       if (seen.has(key)) fail('同一關係重複填寫。');
       seen.add(key);
@@ -201,6 +205,7 @@
       if (byId.has(p.id)) fail('成員 ID 重複。');
       byId.set(p.id, p);
     }
+    validateRelationshipPolicy(data);
     const parents = new Map(), spouses = new Map(), siblings = new Map(), sworn = new Map(), fellows = new Map(), mentors = new Map(), cousins = new Map();
     const pair = (a, b) => [a, b].sort();
     for (const p of people) for (const r of p.relationships) {
@@ -249,7 +254,7 @@
         for (const [next, offset] of adjacency.get(id)) {
           const value = levels.get(id) + offset;
           if (levels.has(next)) {
-            if (levels.get(next) !== value) fail('關係階層互相矛盾：請檢查父母、子女、祖父母、孫子女或手足的方向與代差。');
+            if (levels.get(next) !== value) throw relationshipError(`關係階層互相矛盾：「${byId.get(id).name}」與「${byId.get(next).name}」的父母、子女、祖孫或手足設定和既有路徑不一致，請檢查方向與代差。`, [id, next]);
           } else { levels.set(next, value); component.push(next); }
         }
       }
@@ -354,7 +359,7 @@
       const component = [p.id], orders = new Set(); schoolSeen.add(p.id);
       for (let i = 0; i < component.length; i++) {
         const member = byId.get(component[i]);
-        if (knownDiscipleOrder(member)) { if (orders.has(member.discipleOrder)) fail('同一師門內的次序重複，請填入其他數字或留空。'); orders.add(member.discipleOrder); }
+        if (knownDiscipleOrder(member) && !hasRankGroup(data, member.id, 'fellowDisciple')) { if (orders.has(member.discipleOrder)) fail('同一師門內的次序重複，請填入其他數字或留空。'); orders.add(member.discipleOrder); }
         for (const next of schoolLinks.get(member.id)) if (!schoolSeen.has(next)) { schoolSeen.add(next); component.push(next); }
       }
     }
@@ -381,15 +386,15 @@
         if (seenChildren.has(d.child)) continue;
         seenChildren.add(d.child);
         const child = byId.get(d.child);
-        if (!knownOrder(child)) continue;
+        if (!knownOrder(child) || hasRankGroup(data, child.id, 'sibling')) continue;
         if (orders.has(child.siblingOrder)) fail('同一組父母下的手足次序重複，請填入其他數字或留空。');
         orders.add(child.siblingOrder);
       }
     }
     for (const [a, b] of siblings.values()) {
-      if (knownOrder(byId.get(a)) && knownOrder(byId.get(b)) && compareOrder(byId.get(a), byId.get(b)) === 0) fail('手足次序重複，請填入其他數字或留空。');
+      if (!hasRankGroup(data, a, 'sibling') && !hasRankGroup(data, b, 'sibling') && knownOrder(byId.get(a)) && knownOrder(byId.get(b)) && compareOrder(byId.get(a), byId.get(b)) === 0) fail('手足次序重複，請填入其他數字或留空。');
     }
-    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, people, unions: [...groups.values()], descents,
+    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents,
       bonds: [...cousins.values()].concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
@@ -430,5 +435,220 @@
     });
     return result;
   }
-  return { DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
+  function relationshipError(message, personIds = [], field = 'relationships') {
+    return Object.assign(new Error(message), { personIds, field });
+  }
+  function hasRankGroup(data, id, type) {
+    return (data?.rankGroups || []).some(g => g.type === type && g.members.some(m => m.personId === id));
+  }
+  function peerRanks(data, target, base, type = 'sibling', groupId) {
+    const groups = (data?.rankGroups || []).filter(g => g.type === type && (!groupId || g.id === groupId) &&
+      g.members.some(m => m.personId === target.id) && g.members.some(m => m.personId === base.id));
+    if (groups.length === 1) return { target: groups[0].members.find(m => m.personId === target.id).order,
+      base: groups[0].members.find(m => m.personId === base.id).order, group: groups[0] };
+    if (groups.length > 1 || groupId || hasRankGroup(data, target.id, type) || hasRankGroup(data, base.id, type)) return { target: null, base: null, ambiguous: groups.length > 1 };
+    const key = type === 'sibling' ? 'siblingOrder' : type === 'fellowDisciple' ? 'discipleOrder' : null;
+    return { target: key ? target[key] : null, base: key ? base[key] : null };
+  }
+  function dependentRank(data, target, parent, type) {
+    const groups = (data.rankGroups || []).filter(g => g.type === type && g.anchorId === parent.id && g.members.some(m => m.personId === target.id));
+    if (groups.length === 1) return groups[0].members.find(m => m.personId === target.id).order;
+    if (hasRankGroup(data, target.id, type)) return null;
+    return type === 'fellowDisciple' ? target.discipleOrder : target.siblingOrder;
+  }
+  function numeral(n) {
+    const d = '零一二三四五六七八九';
+    return n < 10 ? d[n] : n < 100 ? (n < 20 ? '' : d[Math.floor(n / 10)]) + '十' + (n % 10 ? d[n % 10] : '') : String(n);
+  }
+  function peerPresentation(data, target, base, type = 'sibling', relation) {
+    relation ||= base.id ? relationshipsFor(data || { people: [] }, base.id).find(r => r.personId === target.id && r.type === type) || {} : {};
+    const ranks = peerRanks(data, target, base, type, relation.groupId);
+    const valid = n => Number.isInteger(n) && n > 0;
+    let order = valid(ranks.target) && valid(ranks.base) ? Math.sign(ranks.target - ranks.base) : 0;
+    if (!order && type === 'sibling') order = ranks.target === 1 && ranks.base !== 1 ? -1 : ranks.base === 1 && ranks.target !== 1 ? 1 : 0;
+    if (!order && hasSeniority(type)) order = relation.seniority === 'older' ? -1 : relation.seniority === 'younger' ? 1 : 0;
+    const missing = [];
+    if (target.gender === 'U') missing.push('未填性別');
+    if (!order) missing.push('長幼未確認');
+    if (ranks.ambiguous) missing.push('請選擇排行群組');
+    let role;
+    if (isCousin(type)) role = cousinRole(target, type, order < 0 ? 'older' : order > 0 ? 'younger' : 'unknown');
+    else {
+      const prefix = type === 'swornSibling' ? '契' : type === 'fellowDisciple' ? '師' : '';
+      const rank = valid(ranks.target) && order && type !== 'fellowDisciple' ? (ranks.target === 1 ? '長' : numeral(ranks.target)) : '';
+      if (!order) role = type === 'sibling' ? '手足（長幼待確認）' : type === 'swornSibling' ? '契手足' : ({ M: '師兄弟', F: '師姊妹', U: '師兄弟姊妹' })[target.gender];
+      else if (target.gender === 'U') role = (order < 0 ? '年長' : '年幼') + (type === 'fellowDisciple' ? '同門' : prefix + '手足');
+      else role = prefix + rank + (order < 0 ? (target.gender === 'M' ? '兄' : '姊') : (target.gender === 'M' ? '弟' : '妹'));
+    }
+    return { role, missing, order, rank: ranks.target, group: ranks.group?.name, pending: relation.status === 'pending' };
+  }
+  function siblingEvidence(data, a, b) {
+    const parents = id => relationshipsFor(data, id).filter(r => r.type === 'parent' && CHILD_KINDS.includes(r.kind));
+    const left = parents(a), right = parents(b);
+    const shared = left.filter(r => right.some(s => s.personId === r.personId));
+    if (!shared.length) return null;
+    const byId = new Map(data.people.map(p => [p.id, p]));
+    let label = '共有父母';
+    if (shared.length === 1) {
+      const parent = byId.get(shared[0].personId);
+      label = parent.gender === 'M' ? '共有父親' : parent.gender === 'F' ? '共有母親' : '共有一位家長';
+      if (shared[0].kind === '親生' && right.some(r => r.personId === shared[0].personId && r.kind === '親生')) {
+        const otherGender = parent.gender === 'M' ? 'F' : parent.gender === 'F' ? 'M' : null;
+        const x = left.find(r => r.kind === '親生' && byId.get(r.personId).gender === otherGender);
+        const y = right.find(r => r.kind === '親生' && byId.get(r.personId).gender === otherGender);
+        if (x && y && x.personId !== y.personId) label = parent.gender === 'M' ? '同父異母' : '同母異父';
+      }
+    }
+    const kinds = [...new Set([...shared, ...right.filter(r => shared.some(s => s.personId === r.personId))].map(r => r.kind))];
+    if (kinds.some(kind => kind !== '親生')) label += '（' + kinds.join('／') + '）';
+    return { label, parentIds: [...new Set(shared.map(r => r.personId))], kinds };
+  }
+  function validateRelationshipPolicy(data) {
+    const people = new Map(data.people.map(p => [p.id, p]));
+    if (data.rankGroups !== undefined && (!Array.isArray(data.rankGroups) || data.rankGroups.length > 500)) fail('排行群組格式不正確。');
+    const ids = new Set();
+    for (const g of data.rankGroups || []) {
+      if (!g || typeof g.id !== 'string' || !/^[\w-]{1,80}$/.test(g.id) || ids.has(g.id) || typeof g.name !== 'string' || !g.name.trim() || g.name.length > 80 || !['sibling', 'swornSibling', 'fellowDisciple'].includes(g.type) || !Array.isArray(g.members)) fail('排行群組的名稱、類型或成員格式不正確。');
+      ids.add(g.id);
+      if (g.anchorId !== undefined && (!people.has(g.anchorId) || g.members.some(m => m.personId === g.anchorId))) fail(`「${g.name}」的所屬父母／師父不正確。`);
+      const members = new Set(), orders = new Map();
+      for (const m of g.members) {
+        if (!m || !people.has(m.personId) || members.has(m.personId) || (m.order !== null && (!Number.isInteger(m.order) || m.order < 1 || m.order > 999))) fail(`「${g.name}」的成員或排行不正確。`);
+        members.add(m.personId);
+        if (m.order !== null && orders.has(m.order)) throw relationshipError(`「${g.name}」中「${people.get(m.personId).name}」與「${people.get(orders.get(m.order)).name}」排行重複。`, [m.personId, orders.get(m.order)], 'rankGroups');
+        if (m.order !== null) orders.set(m.order, m.personId);
+      }
+    }
+    const assertions = new Map(), constraints = new Map();
+    const constrain = (type, elder, younger) => {
+      if (!constraints.has(type)) constraints.set(type, new Map());
+      const map = constraints.get(type); if (!map.has(elder)) map.set(elder, new Set()); map.get(elder).add(younger);
+    };
+    for (const p of data.people) for (const r of p.relationships) {
+      const q = people.get(r.personId);
+      if (!q) throw relationshipError(`「${p.name}」的關係對象不存在，請重新選擇。`, [p.id]);
+      if (r.groupId !== undefined) {
+        const group = (data.rankGroups || []).find(g => g.id === r.groupId);
+        if (!group || group.type !== r.type || !group.members.some(m => m.personId === p.id) || !group.members.some(m => m.personId === q.id)) throw relationshipError(`「${p.name}」與「${q.name}」不在所選排行群組內。`, [p.id, q.id]);
+      }
+      if (!hasSeniority(r.type)) continue;
+      const ranks = peerRanks(data, q, p, r.type, r.groupId);
+      const order = Number.isInteger(ranks.target) && Number.isInteger(ranks.base) ? Math.sign(ranks.target - ranks.base) : 0;
+      const relative = r.seniority === 'older' ? -1 : r.seniority === 'younger' ? 1 : 0;
+      if ((order && relative && order !== relative) || (r.type === 'sibling' && relative && (ranks.target === 1 && relative > 0 || ranks.base === 1 && relative < 0))) throw relationshipError(`「${q.name}」與「${p.name}」的數字排行和相對長幼矛盾，請修改排行或長幼後再儲存。`, [p.id, q.id], 'siblingOrder');
+      if (relative) {
+        const key = [r.type, ...[p.id, q.id].sort()].join('|');
+        const elder = relative < 0 ? q.id : p.id;
+        if (assertions.has(key) && assertions.get(key) !== elder) throw relationshipError(`「${p.name}」與「${q.name}」的${isCousin(r.type) ? "堂表親的長幼" : "長幼"}記錄互相矛盾。`, [p.id, q.id]);
+        assertions.set(key, elder);
+      }
+      const sign = order || relative;
+      if (sign && ['sibling','swornSibling'].includes(r.type)) constrain(r.type, sign < 0 ? q.id : p.id, sign < 0 ? p.id : q.id);
+    }
+    for (const g of data.rankGroups || []) {
+      const ranked = g.members.filter(m => m.order !== null).slice().sort((a,b) => a.order - b.order);
+      for (let i = 1; i < ranked.length; i++) constrain(g.type === 'fellowDisciple' ? g.type + ':' + g.id : g.type, ranked[i-1].personId, ranked[i].personId);
+    }
+    for (const map of constraints.values()) {
+      const done = new Set(), active = new Set(), path = [];
+      const visit = id => {
+        if (active.has(id)) throw relationshipError('長幼關係形成循環：' + [...path.slice(path.indexOf(id)), id].map(id => people.get(id).name).join(' → ') + '。請修正後再儲存。', [...path, id]);
+        if (done.has(id)) return;
+        active.add(id); path.push(id); for (const next of map.get(id) || []) visit(next);
+        path.pop(); active.delete(id); done.add(id);
+      };
+      for (const id of map.keys()) visit(id);
+    }
+  }
+  function dataDifferences(before, after) {
+    const lines = [], left = new Map(before.people.map(p => [p.id, p])), right = new Map(after.people.map(p => [p.id, p]));
+    const labels = { name: '姓名', gender: '性別', location: '所在地', position: '職位', notes: '備註', siblingOrder: '手足排行', discipleOrder: '師門排行' };
+    const show = v => v === null || v === undefined || v === '' ? '未填寫' : String(v);
+    for (const p of before.people) if (!right.has(p.id)) lines.push(`移除成員：${p.name}`);
+    for (const p of after.people) {
+      const old = left.get(p.id);
+      if (!old) { lines.push(`新增成員：${p.name}`); }
+      else for (const [key, label] of Object.entries(labels)) if (!sameJsonData(old[key] ?? null, p[key] ?? null)) lines.push(`${p.name}・${label}：${show(old[key])} → ${show(p[key])}`);
+    }
+    const relations = data => {
+      const map = new Map();
+      for (const p of data.people) for (const r of relationshipsFor(data, p.id)) {
+        const reverse = p.id > r.personId;
+        const a = reverse ? r.personId : p.id, b = reverse ? p.id : r.personId;
+        const normalized = { ...r, type: reverse ? INVERSE[r.type] : r.type, personId: b };
+        if (reverse && normalized.seniority) normalized.seniority = inverseSeniority(normalized.seniority);
+        map.set([a, b, normalized.type, r.kind || ''].join('|'), { a, b, relation: normalized });
+      }
+      return map;
+    };
+    const oldEdges = relations(before), newEdges = relations(after);
+    const typeNames = { parent:'父母',child:'子女',grandparent:'祖父母',grandchild:'孫子女',spouse:'配偶',sibling:'手足',swornSibling:'契手足',fellowDisciple:'同門',teacher:'師父',student:'徒弟',tangCousin:'堂親',biaoCousin:'表親' };
+    const describe = (edge, map) => `${map.get(edge.a)?.name || edge.a} ↔ ${map.get(edge.b)?.name || edge.b}（${typeNames[edge.relation.type]}${edge.relation.kind ? '・' + edge.relation.kind : ''}）`;
+    for (const [key, edge] of oldEdges) if (!newEdges.has(key)) lines.push('移除關係：' + describe(edge, left));
+    for (const [key, edge] of newEdges) {
+      if (!oldEdges.has(key)) lines.push('新增關係：' + describe(edge, right));
+      else if (!sameJsonData(oldEdges.get(key).relation, edge.relation)) lines.push('修改關係：' + describe(edge, right) + '・' + ['seniority','groupId','status','source','note'].filter(k => !sameJsonData(oldEdges.get(key).relation[k], edge.relation[k])).map(k => ({seniority:'長幼',groupId:'排行群組',status:'確認狀態',source:'來源',note:'說明'})[k] + '：' + show(oldEdges.get(key).relation[k]) + ' → ' + show(edge.relation[k])).join('；'));
+    }
+    if (normalizeFamilyName(before.familyName) !== normalizeFamilyName(after.familyName)) lines.push(`家族名稱：${normalizeFamilyName(before.familyName)} → ${normalizeFamilyName(after.familyName)}`);
+    const groupText = (g, people) => g.name + '：' + g.members.map(m => (people.get(m.personId)?.name || m.personId) + '（' + (m.order === null ? '排行未知' : '排行 ' + m.order) + '）').join('、');
+    const oldGroups = new Map((before.rankGroups || []).map(g => [g.id,g])), newGroups = new Map((after.rankGroups || []).map(g => [g.id,g]));
+    for (const [id,g] of oldGroups) if (!newGroups.has(id)) lines.push('移除排行群組：' + groupText(g,left));
+    for (const [id,g] of newGroups) if (!sameJsonData(oldGroups.get(id),g)) lines.push((oldGroups.has(id) ? '修改排行群組：' + groupText(oldGroups.get(id),left) + ' → ' : '新增排行群組：') + groupText(g,right));
+    if (!sameJsonData(before.ignoredIntermediatePlans || [], after.ignoredIntermediatePlans || [])) lines.push('已忽略待補項目有所變更');
+    return lines;
+  }
+  function mergeMembers(data, keepId, removeId, fields = {}) {
+    if (keepId === removeId) fail('請選擇兩位不同成員。');
+    const keep = data.people.find(p => p.id === keepId), remove = data.people.find(p => p.id === removeId);
+    if (!keep || !remove) fail('找不到要合併的成員。');
+    const next = JSON.parse(JSON.stringify(data));
+    next.people = next.people.filter(p => p.id !== removeId);
+    const merged = next.people.find(p => p.id === keepId);
+    const editableFields = new Set(['id','relationships','name','gender','location','position','notes','siblingOrder','discipleOrder']);
+    for (const key of Object.keys(remove)) if (!editableFields.has(key)) {
+      if (!Object.hasOwn(merged,key)) merged[key] = JSON.parse(JSON.stringify(remove[key]));
+      else if (!sameJsonData(merged[key],remove[key])) fail('兩位成員的擴充資料「' + key + '」不同，請先統一後再合併。');
+    }
+    for (const key of ['name','gender','location','position','notes','siblingOrder','discipleOrder']) if (Object.hasOwn(fields, key)) merged[key] = fields[key];
+    merged.relationships.push(...remove.relationships);
+    for (const p of next.people) {
+      const seen = new Map();
+      for (const original of p.relationships) {
+        const r = { ...original, personId: original.personId === removeId ? keepId : original.personId };
+        if (r.personId === p.id) fail('合併後會產生自我關係，請先修正兩人之間的關係。');
+        const key = [r.type, r.personId, r.kind || ''].join('|');
+        if (seen.has(key) && !sameJsonData(seen.get(key), r)) fail('合併後的同一關係有不同長幼、來源或說明，請先統一資料。');
+        seen.set(key, r);
+      }
+      p.relationships = [...seen.values()];
+    }
+    const metadata = new Map();
+    for (const p of next.people) for (const r of p.relationships) {
+      const reverse = p.id > r.personId;
+      const key = [reverse ? r.personId : p.id, reverse ? p.id : r.personId, reverse ? INVERSE[r.type] : r.type, r.kind || ''].join('|');
+      const previous = metadata.get(key) || {};
+      for (const field of ['note','source','status','groupId']) if (previous[field] !== undefined && r[field] !== undefined && previous[field] !== r[field]) fail('合併後的雙向關係有不同的來源、說明、狀態或群組，請先統一資料。');
+      metadata.set(key,{...previous,...r});
+    }
+    for (const g of next.rankGroups || []) {
+      if (g.anchorId === removeId) g.anchorId = keepId;
+      const members = new Map();
+      for (const m of g.members) {
+        const id = m.personId === removeId ? keepId : m.personId;
+        if (members.has(id) && members.get(id).order !== m.order) fail(`「${g.name}」的兩筆排行不同，請先修正。`);
+        members.set(id, { ...m, personId: id });
+      }
+      g.members = [...members.values()];
+    }
+    next.ignoredIntermediatePlans = (next.ignoredIntermediatePlans || []).filter(key => !key.split('|').includes(removeId));
+    build(next);
+    return next;
+  }
+  function manageFamily(data, body) {
+    if (body.action === 'merge') return mergeMembers(data, body.keepId, body.removeId, body.fields);
+    if (body.action !== 'rankGroups' || !Array.isArray(body.rankGroups)) fail('不支援的族譜管理操作。');
+    const next = { ...data, rankGroups: body.rankGroups };
+    build(next); return next;
+  }
+  return { dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
 });

@@ -672,6 +672,23 @@
       ],
       "discipleOrder": null,
       "notes": ""
+    },
+    {
+      "id": "p-212b4a5a-b8fc-458d-b728-b09f9db4d346",
+      "name": "TEST_J",
+      "location": "",
+      "position": "",
+      "gender": "U",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "grandparent",
+          "personId": "p17",
+          "kind": "親生"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": ""
     }
   ]
 }

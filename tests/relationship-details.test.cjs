@@ -44,7 +44,7 @@ test('reverse, explicit, and mixed sibling relations are deduplicated', () => {
   assert.equal(mixed.entries.length, 1);
   assert.equal(mixed.entries[0].role, '長姊');
   assert.deepEqual(mixed.entries[0].badges, ['過繼', '契手足']);
-  assert.deepEqual(mixed.entries[0].contexts, ['共同父母：父親']);
+  assert.deepEqual(mixed.entries[0].contexts, ['共同父母：父親', '共有父親（親生／過繼）：父親']);
 });
 
 test('children and students use their own ranks, keep gaps and put unranked members last', () => {

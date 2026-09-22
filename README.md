@@ -1,5 +1,45 @@
 # 族譜網站
 
+## 關係與操作擴充
+
+- 手足、契手足可先記錄相對長幼，數字排行未知時留空即可。後續填入有效排行會顯示二兄、三妹等具體稱謂；排行和既有長幼衝突、反向記錄矛盾或長幼形成循環時禁止儲存，表單會展開並定位到相關關係。契手足不使用原生家庭排行。
+- 成員詳情的「新增親屬」可帶入對象與正確關係方向；關係表單同時預覽雙向稱謂。稱謂旁的「補填」可補性別、長幼或排行群組。已由共同父母推導的手足也可直接補上長幼。
+- 詳情區分直接設定與推導依據。共有一位父母但另一方不明時，只標示共有父親／母親；雙方不同的另一位親生父母都有記錄時，才顯示同父異母／同母異父。親生、收養及過繼的依據保留在說明中，不假設未記錄的父母。
+- 每筆關係可選填 `note`（說明）、`source`（來源），各最多 2000 字；`status` 可為 `confirmed` 或 `pending`，省略代表未加待確認標記。反向編輯保留這些資訊，查詢路徑會標示待確認關係及來源。
+- 成員清單提供「排行群組」「合併重複成員」及固定的復原入口。合併須逐欄選擇、預覽變更後確認；自我關係、相互矛盾的關係、不同群組排行或衝突的擴充欄位會阻止合併。不以同名自動合併。
+- 匯入與 Google Drive 衝突視窗列出新增／移除成員、欄位及關係差異。同步衝突預覽後會再檢查本機與遠端版本，資料有變時需重新檢視差異。
+- 搜尋選單使用至少 16px 輸入字級，依可視範圍調整位置與高度；鍵盤導航只捲動選項清單，避免把整頁帶走。
+
+### 相對長幼與群組資料
+
+既有 schemaVersion 2 資料可直接載入，新增欄位皆為選填；不會自動把相對長幼轉成數字。`seniority` 仍代表**關係對象**相對於記錄者的長幼，例如：
+
+```json
+{ "type": "sibling", "personId": "older-member", "seniority": "older", "status": "pending", "source": "家族訪談" }
+```
+
+根物件的 `rankGroups` 可記錄不同家庭、結拜或師門排行：
+
+```json
+{
+  "rankGroups": [{
+    "id": "school-one",
+    "name": "甲師門",
+    "type": "fellowDisciple",
+    "anchorId": "teacher-id",
+    "members": [{ "personId": "member-a", "order": 1 }, { "personId": "member-b", "order": null }]
+  }]
+}
+```
+
+類型為 `sibling`、`swornSibling` 或 `fellowDisciple`；`order` 為 1–999 或 `null`，同組不可重複已知排行。選填的 `anchorId` 指所屬父母／師父，供子女／徒弟的排行顯示；群組本身不會建立親屬關係。成員在某類型已有群組時，不再套用該類型的一般排行。同一對成員有多個共同群組時，可在關係的 `groupId` 指定群組，未指定則保留不確定提示。
+
+一般 `siblingOrder` 與 `discipleOrder` 仍保留，供未使用群組的既有資料使用。新版可讀取舊資料；含新關係欄位的匯出檔請使用新版程式開啟。
+
+管理變更使用 `POST /api/family/manage`，須傳入目前 `version`，以及 `action: "rankGroups"` 和完整 `rankGroups`，或 `action: "merge"`、`keepId`、`removeId`、選擇保留的 `fields`。開發 API 與靜態 IndexedDB 共用驗證；變更可從固定復原入口復原。靜態版歷史存於 IndexedDB，開發伺服器歷史維持於記憶體、重啟後清空。
+
+驗證指令：`node --test tests/*.test.cjs`、`node tests/browser-static.cjs`、`node tests/browser-relationship-policy.cjs`。瀏覽器測試可用 `PLAYWRIGHT_MODULE` 指定 Playwright 位置、`PLAYWRIGHT_CHANNEL` 指定瀏覽器。新測試涵蓋開發與靜態模式、群組、合併／復原、匯入差異、模擬 Google Drive 衝突，以及直向／橫向／平板與模擬鍵盤可視區域。這些模擬不取代 iOS 實機鍵盤驗證。
+
 ## 靜態建置與 GitHub Pages
 
 執行 `node build.cjs`（或 `npm run build`）產生 `dist/`，首頁為 `dist/index.html`，也保留 `family-tree.html` 入口。不需安裝套件。建置只複製指定的前端程式及稱謂設定檔，**不包含 `data/family.json`、本機伺服器或任何開發成員資料**。

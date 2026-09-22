@@ -26,11 +26,7 @@
     return String(n);
   }
   function siblingRole(sibling, person) {
-    const order = FamilyModel.compareOrder(sibling, person);
-    if (!order) return '手足（長幼待確認）';
-    if (!['M', 'F'].includes(sibling.gender)) return order < 0 ? '年長手足' : '年幼手足';
-    const prefix = sibling.siblingOrder === 1 ? '長' : FamilyModel.knownOrder(sibling) ? chineseNumber(sibling.siblingOrder) : '';
-    return prefix + (order < 0 ? (sibling.gender === 'M' ? '兄' : '姊') : (sibling.gender === 'M' ? '弟' : '妹'));
+    return FamilyModel.peerPresentation(null, sibling, person).role;
   }
   function buildGroups(graph, personId) {
     const byId = new Map(graph.people.map(p => [p.id, p]));
@@ -90,42 +86,80 @@
         (graph.mentorships || []).filter(m => m.teacher === mentorship.teacher).forEach(m => add('fellowDisciples', m.student, { context: '師父：' + byId.get(m.teacher).name }));
       }
     }
+    for (const candidate of graph.people) {
+      if (candidate.id === personId) continue;
+      const evidence = FamilyModel.siblingEvidence(graph, personId, candidate.id);
+      if (evidence) add('siblings', candidate.id, { ordinary: true, context: evidence.label + '：' + evidence.parentIds.map(id => byId.get(id).name).join('、') });
+    }
+    const direct = FamilyModel.relationshipsFor(graph, personId);
     return CATEGORIES.map(category => {
       const entries = [...groups.get(category.id).values()].map(entry => {
         const target = byId.get(entry.personId);
         let role = '';
         const badges = [...entry.kinds];
         if (category.id === 'children') {
-          const known = FamilyModel.knownOrder(target);
+          const order = FamilyModel.dependentRank(graph, target, person, 'sibling');
+          const known = Number.isInteger(order) && order > 0;
           const noun = ({ M: '子', F: '女', U: '子女' })[target.gender];
-          role = known ? (target.gender === 'U' ? '第' + chineseNumber(target.siblingOrder) + '位子女' :
-            (target.siblingOrder === 1 ? '長' : chineseNumber(target.siblingOrder)) + noun) :
+          role = known ? (target.gender === 'U' ? '第' + chineseNumber(order) + '位子女' :
+            (order === 1 ? '長' : chineseNumber(order)) + noun) :
             ({ M: '兒子', F: '女兒', U: '子女' })[target.gender];
         }
-        if (category.id === 'students') role = FamilyModel.knownDiscipleOrder(target) ?
-          (target.discipleOrder === 1 ? '大' : chineseNumber(target.discipleOrder)) + '徒弟' : '徒弟';
+        if (category.id === 'students') {
+          const order = FamilyModel.dependentRank(graph, target, person, 'fellowDisciple');
+          role = order ? (order === 1 ? '大' : chineseNumber(order)) + '徒弟' : '徒弟';
+        }
         if (category.id === 'cousins') role = FamilyModel.relationshipsFor(graph, personId).filter(r => r.personId === entry.personId && FamilyModel.isCousin(r.type)).map(r => FamilyModel.cousinRole(target, r.type, r.seniority)).join('、');
         if (category.id === 'fellowDisciples') {
-          role = FamilyModel.fellowRole(target, person);
-          if (FamilyModel.knownDiscipleOrder(target)) badges.push('師門序：' + target.discipleOrder);
+          const presentation = FamilyModel.peerPresentation(graph, target, person, 'fellowDisciple');
+          role = presentation.role;
+          if (presentation.rank) badges.push('師門序：' + presentation.rank);
         }
         if (['grandparents', 'grandchildren'].includes(category.id)) {
           const noun = category.id === 'grandparents' ? ({ M: '祖父', F: '祖母', U: '祖父母' })[target.gender] : ({ M: '孫子', F: '孫女', U: '孫子女' })[target.gender];
           role = [...entry.kinds].map(kind => ({ 親生: '親生', 過繼: '過繼', 養子女: '養', 義子女: '義', 契子女: '契' })[kind] + noun).join('、');
         }
         if (category.id === 'siblings') {
-          role = entry.ordinary ? siblingRole(target, person) : '契手足';
-          if (entry.ordinary && FamilyModel.knownOrder(target) && !FamilyModel.compareOrder(target, person)) badges.push('手足序：' + target.siblingOrder);
-          if (entry.sworn && entry.ordinary) badges.push('契手足');
+          role = FamilyModel.peerPresentation(graph, target, person, entry.ordinary ? 'sibling' : 'swornSibling').role;
+          const presentation = FamilyModel.peerPresentation(graph, target, person, entry.ordinary ? 'sibling' : 'swornSibling');
+          if (presentation.rank && !presentation.order) badges.push('手足序：' + presentation.rank);
+          if (entry.sworn && entry.ordinary) badges.push(FamilyModel.peerPresentation(graph, target, person, 'swornSibling').role);
         }
-        return { ...entry, role, badges, contexts: [...entry.contexts], kinds: [...entry.kinds],
+        const categoryTypes = {parents:['parent'],grandparents:['grandparent'],spouses:['spouse'],children:['child'],grandchildren:['grandchild'],siblings:['sibling','swornSibling'],cousins:['tangCousin','biaoCousin'],fellowDisciples:['fellowDisciple'],teachers:['teacher'],students:['student']};
+        const recorded = direct.filter(r => r.personId === target.id && categoryTypes[category.id].includes(r.type));
+        const missing = [];
+        if (['siblings','fellowDisciples','cousins'].includes(category.id)) {
+          const type = category.id === 'siblings' ? (entry.ordinary ? 'sibling' : 'swornSibling') : category.id === 'cousins' ? recorded[0]?.type : 'fellowDisciple';
+          const presentation = FamilyModel.peerPresentation(graph, target, person, type);
+          missing.push(...presentation.missing);
+          if (presentation.group) entry.contexts.add('排行群組：' + presentation.group);
+        }
+        for (const r of recorded) {
+          if (r.status === 'pending') entry.contexts.add('待確認');
+          if (r.source) entry.contexts.add('來源：' + r.source);
+          if (r.note) entry.contexts.add('關係說明：' + r.note);
+        }
+        if (target.gender === 'U' && !missing.includes('未填性別')) missing.push('未填性別');
+        if (category.id === 'siblings') {
+          const evidence = FamilyModel.siblingEvidence(graph, personId, target.id);
+          if (evidence) for (const owner of [personId,target.id]) for (const r of FamilyModel.relationshipsFor(graph,owner)) {
+            if (r.type !== 'parent' || !evidence.parentIds.includes(r.personId)) continue;
+            if (r.status === 'pending') entry.contexts.add('推導依據待確認：' + byId.get(owner).name + '與' + byId.get(r.personId).name + '的親子關係');
+            if (r.source) entry.contexts.add('推導依據來源：' + r.source);
+          }
+        }
+        return { ...entry, role, badges, missing, recorded: recorded.length > 0, contexts: [...entry.contexts], kinds: [...entry.kinds],
           ordinary: entry.ordinary, sworn: entry.sworn };
       });
-      if (['fellowDisciples', 'students'].includes(category.id)) entries.sort((a, b) => (byId.get(a.personId).discipleOrder ?? Infinity) - (byId.get(b.personId).discipleOrder ?? Infinity) || a.name.localeCompare(b.name, 'zh-Hant') || a.personId.localeCompare(b.personId));
+      if (['fellowDisciples', 'students'].includes(category.id)) {
+        const rank = entry => category.id === 'students' ? FamilyModel.dependentRank(graph, byId.get(entry.personId), person, 'fellowDisciple') : FamilyModel.peerPresentation(graph, byId.get(entry.personId), person, 'fellowDisciple').rank;
+        entries.sort((a,b) => (rank(a) ?? Infinity) - (rank(b) ?? Infinity) || a.name.localeCompare(b.name,'zh-Hant') || a.personId.localeCompare(b.personId));
+      }
       if (['siblings', 'children'].includes(category.id)) {
         entries.sort((a, b) => {
           const left = byId.get(a.personId), right = byId.get(b.personId);
-          return FamilyModel.orderKey(left) - FamilyModel.orderKey(right) || a.name.localeCompare(b.name, 'zh-Hant') || a.personId.localeCompare(b.personId);
+          const rank = (p,entry) => category.id === 'children' ? FamilyModel.dependentRank(graph,p,person,'sibling') : FamilyModel.peerPresentation(graph,p,person,entry.ordinary ? 'sibling' : 'swornSibling').rank;
+          return (rank(left,a) ?? Infinity) - (rank(right,b) ?? Infinity) || a.name.localeCompare(b.name, 'zh-Hant') || a.personId.localeCompare(b.personId);
         });
       }
       return { ...category, entries };
@@ -257,12 +291,21 @@
       header.append(back, title, collapse, close);
       actions.append(edit, query, locate);
       top.append(header, actions);
+      const relatedActions = element('div', 'relationship-details__related-actions');
+      const addRelative = element('button', 'plain-button', '新增親屬'); addRelative.type = 'button';
+      addRelative.addEventListener('click', () => globalThis.openRelativePicker?.(person.id));
+      relatedActions.append(addRelative);
+      top.append(relatedActions);
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
       profile.appendChild(element('p', '', '所在地：' + (person.location || '未填寫')));
       profile.appendChild(element('p', '', '職位：' + (person.position || '未填寫')));
       profile.appendChild(element('p', '', '師門次序：' + (person.discipleOrder ?? '未填寫')));
+      for (const group of graph.rankGroups || []) {
+        const member = group.members.find(m => m.personId === person.id);
+        if (member) profile.appendChild(element('p', '', group.name + '：' + (member.order == null ? '排行未知' : '排行 ' + member.order)));
+      }
       body.appendChild(profile);
       if (person.notes) {
         const notes = element('details', 'relationship-group member-notes'); notes.dataset.group = 'notes';
@@ -300,6 +343,16 @@
             main.appendChild(personButton);
             if (entry.role) main.appendChild(element('span', 'relationship-entry__role', entry.role));
             item.appendChild(main);
+            item.appendChild(element('p', 'relationship-entry__context', entry.recorded ? '直接設定' : '由既有關係推導'));
+            for (const message of entry.missing || []) {
+              const fix = element('button', 'plain-button relationship-missing', message + '・補填'); fix.type = 'button';
+              fix.addEventListener('click', () => globalThis.completeFamilyRelationship?.(person.id, entry.personId, group.id, message));
+              item.appendChild(fix);
+            }
+            if (!entry.recorded) {
+              const source = element('button', 'plain-button', '編輯關係依據'); source.type = 'button';
+              source.addEventListener('click', () => onEdit?.(person.id)); item.appendChild(source);
+            }
             if (entry.badges.length) {
               const badges = element('div', 'relationship-entry__badges');
               entry.badges.forEach(badge => badges.appendChild(element('span', 'relationship-entry__badge', badge)));

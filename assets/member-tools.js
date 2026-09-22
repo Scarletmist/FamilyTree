@@ -16,13 +16,16 @@
     const viewportLeft = vv?.offsetLeft || 0, viewportTop = vv?.offsetTop || 0;
     const viewportWidth = vv?.width || innerWidth, viewportHeight = vv?.height || innerHeight;
     const rightEdge = viewportLeft + viewportWidth, bottomEdge = viewportTop + viewportHeight;
-    const width = Math.min(Math.max(rect.width, 260), Math.max(180, viewportWidth - 16));
+    const width = Math.min(Math.max(rect.width, 260), Math.max(0, viewportWidth - 16));
     const below = bottomEdge - rect.bottom - 8, above = rect.top - viewportTop - 8;
     const down = below >= 220 || below >= above;
     control.panel.style.width = width + 'px';
-    control.panel.style.maxHeight = Math.max(80, Math.min(320, down ? below : above)) + 'px';
+    const offscreen = rect.bottom < viewportTop || rect.top > bottomEdge;
+    control.panel.style.maxHeight = Math.min(Math.max(0, viewportHeight - 16), Math.max(80, Math.min(320, offscreen ? viewportHeight - 16 : down ? below : above))) + 'px';
     control.panel.style.left = Math.max(viewportLeft + 8, Math.min(rect.left, rightEdge - width - 8)) + 'px';
-    control.panel.style.top = (down ? rect.bottom + 4 : Math.max(viewportTop + 8, rect.top - control.panel.getBoundingClientRect().height - 4)) + 'px';
+    const height = control.panel.getBoundingClientRect().height;
+    const top = down ? rect.bottom + 4 : rect.top - height - 4;
+    control.panel.style.top = Math.max(viewportTop + 8, Math.min(top, bottomEdge - height - 8)) + 'px';
   }
   function draw(control) {
     const { select, search, list, hint } = control;
@@ -43,7 +46,12 @@
   function highlight(control) {
     [...control.list.children].forEach((item, i) => item.classList.toggle('is-active', i === control.index));
     const item = control.list.children[control.index];
-    if (item) { control.search.setAttribute('aria-activedescendant', item.id); item.scrollIntoView({ block: 'nearest' }); }
+    if (item) {
+      control.search.setAttribute('aria-activedescendant', item.id);
+      const rect = item.getBoundingClientRect(), listRect = control.list.getBoundingClientRect();
+      if (rect.top < listRect.top) control.list.scrollTop -= listRect.top - rect.top;
+      else if (rect.bottom > listRect.bottom) control.list.scrollTop += rect.bottom - listRect.bottom;
+    }
     else control.search.removeAttribute('aria-activedescendant');
   }
   function choose(control, index) {
@@ -58,7 +66,7 @@
     if (control.select.matches(':disabled')) return;
     close(); active = control; control.search.value = ''; draw(control);
     control.panel.showPopover(); position(control);
-    control.trigger.setAttribute('aria-expanded', 'true'); control.search.focus();
+    control.trigger.setAttribute('aria-expanded', 'true'); control.search.focus({ preventScroll: true });
   }
   function enhance() {
     if (active && (!active.select.isConnected || active.select.matches(':disabled'))) close();

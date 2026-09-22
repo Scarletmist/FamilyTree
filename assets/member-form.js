@@ -207,13 +207,31 @@
     const summaryTitle = document.createElement('strong'); summaryTitle.className = 'relation-row__summary-title';
     const summaryHint = document.createElement('span'); summaryHint.className = 'relation-row__summary-hint';
     summary.append(summaryTitle, summaryHint);
-    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'plain-button relation-row__toggle';
+    function relationAction(label, className, path) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'plain-button relation-row__action ' + className;
+      button.setAttribute('aria-label', label); button.title = label;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '1.8'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+      svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+      const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path'); shape.setAttribute('d', path); svg.appendChild(shape);
+      const text = document.createElement('span'); text.className = 'relation-row__action-label'; text.textContent = label;
+      button.append(svg, text); return { button, shape, text };
+    }
+    const actions = document.createElement('div'); actions.className = 'relation-row__actions';
+    const toggleAction = relationAction('編輯', 'relation-row__toggle', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
+    const toggle = toggleAction.button;
+    const removeAction = relationAction('移除', 'remove-relation', 'M4 7h16 M9 7V4h6v3 M7 7l1 13h8l1-13 M10 11v5 M14 11v5');
+    const remove = removeAction.button;
     const editor = document.createElement('div'); editor.className = 'relation-row__editor';
-    header.append(summary, toggle); row.append(header, editor);
+    actions.append(toggle, remove); header.append(summary, actions); row.append(header, editor);
     function setExpanded(value, { focus = false } = {}) {
       row.dataset.expanded = String(Boolean(value));
       editor.hidden = !value;
-      toggle.textContent = value ? '收合' : '編輯';
+      const label = value ? '收合' : '編輯';
+      toggleAction.text.textContent = label;
+      toggleAction.shape.setAttribute('d', value ? 'M6 15l6-6 6 6' : 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
+      toggle.setAttribute('aria-label', label + '此關係'); toggle.title = label + '此關係';
       toggle.setAttribute('aria-expanded', String(Boolean(value)));
       if (focus && value) editor.querySelector('select,button,input')?.focus();
     }
@@ -239,8 +257,7 @@
     };
     const source = textField('關係來源（選填）', 'relation-source');
     const note = textField('關係說明（選填）', 'relation-note');
-    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'plain-button remove-relation'; remove.textContent = '移除';
-    remove.addEventListener('click', () => { row.remove(); scheduleMemberDraft(); }); editor.appendChild(remove);
+    remove.addEventListener('click', () => { row.remove(); scheduleMemberDraft(); });
     const preview = document.createElement('p'); preview.className = 'relation-preview'; editor.appendChild(preview);
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
@@ -558,7 +575,9 @@
       importSummary(); importDialog.showModal();
     } catch (e) { showStatus('無法匯入：' + e.message, 'error'); }
   });
-  document.getElementById('cancel-import').addEventListener('click', () => { stagedImport = null; importDialog.close(); });
+  function cancelImport() { if (importing) return; stagedImport = null; importDialog.close(); }
+  document.getElementById('cancel-import').addEventListener('click', cancelImport);
+  document.getElementById('close-import-dialog').addEventListener('click', cancelImport);
   importDialog.addEventListener('cancel', event => { if (importing) event.preventDefault(); else stagedImport = null; });
   document.getElementById('refresh-import').addEventListener('click', async () => {
     try { await load(); importVersion = snapshot.version; importSummary(); importError.textContent = '已更新目前資料，請確認取代範圍後再匯入。'; }
@@ -567,7 +586,7 @@
   document.getElementById('confirm-import').addEventListener('click', async () => {
     if (importing || !stagedImport) return;
     importing = true; importError.textContent = '';
-    ['confirm-import', 'cancel-import', 'refresh-import'].forEach(id => document.getElementById(id).disabled = true);
+    ['confirm-import', 'cancel-import', 'refresh-import', 'close-import-dialog'].forEach(id => document.getElementById(id).disabled = true);
     try {
       const response = await FamilyRepository.request('/api/family/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: stagedImport.data, version: importVersion }) });
       const payload = await response.json();
@@ -580,7 +599,7 @@
       importDialog.close(); stagedImport = null;
       showUndoStatus(`已匯入 ${payload.data.people.length} 位成員，並保留匯入前備份。`, payload);
     } catch (e) { importError.textContent = e.message; }
-    finally { importing = false; ['confirm-import', 'cancel-import', 'refresh-import'].forEach(id => document.getElementById(id).disabled = false); }
+    finally { importing = false; ['confirm-import', 'cancel-import', 'refresh-import', 'close-import-dialog'].forEach(id => document.getElementById(id).disabled = false); }
   });
   document.getElementById('export-json').addEventListener('click', async () => {
     const button = document.getElementById('export-json'); button.disabled = true;

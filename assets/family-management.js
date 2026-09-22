@@ -4,11 +4,19 @@
   const editor = () => window.FamilyEditor;
   const el = (tag, text, cls) => { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; };
   const button = (text, action, cls = 'plain-button') => { const b = el('button', text, cls); b.type = 'button'; b.addEventListener('click', action); return b; };
+  const iconButton = (label, action, path = 'M18 6 6 18 M6 6l12 12') => {
+    const b = button('', action, 'details-icon'); b.setAttribute('aria-label', label); b.title = label;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '18'); svg.setAttribute('height', '18');
+    svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '1.8');
+    svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+    const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path'); shape.setAttribute('d', path); svg.appendChild(shape); b.appendChild(svg); return b;
+  };
   function modal(title) {
     const dialog = el('dialog', undefined, 'family-management-dialog');
     const header = el('div', undefined, 'dialog-header'), heading = el('h2', title);
     heading.id = 'management-title-' + crypto.randomUUID(); dialog.setAttribute('aria-labelledby', heading.id);
-    const close = button('關閉', () => { if (!dialog.dataset.busy) dialog.close(); });
+    const close = iconButton('關閉' + title, () => { if (!dialog.dataset.busy) dialog.close(); });
     header.append(heading, close);
     const content = el('div', undefined, 'dialog-scroll'), actions = el('div', undefined, 'form-actions');
     const error = el('p', '', 'form-error'); error.role = 'alert'; error.tabIndex = -1;

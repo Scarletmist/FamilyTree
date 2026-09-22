@@ -235,6 +235,7 @@
           active.classList.contains('details-back') ? 'details-back' :
           active.classList.contains('edit-member') ? 'edit-member' :
           active.classList.contains('query-relationship') ? 'query-relationship' :
+          active.classList.contains('add-relative') ? 'add-relative' :
           active.classList.contains('details-locate') ? 'details-locate' :
           active.classList.contains('details-collapse') ? 'details-collapse' :
           active.classList.contains('details-close') ? 'details-close' : '',
@@ -273,6 +274,9 @@
         query = element('span', 'details-icon details-action details-query-placeholder');
         query.setAttribute('aria-hidden', 'true');
       }
+      const addRelative = iconButton('add-relative details-action', '新增' + person.name + '的親屬', 'M12 5v14M5 12h14');
+      addRelative.appendChild(element('span', 'details-action__label', '新增親屬'));
+      addRelative.addEventListener('click', () => globalThis.openRelativePicker?.(person.id));
       const locate = iconButton('details-locate details-action', '將' + person.name + '定位到族譜中央', 'M12 2v3M12 19v3M2 12h3M19 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z');
       locate.appendChild(element('span', 'details-action__label', '定位'));
       locate.addEventListener('click', () => onLocate?.(person.id));
@@ -289,13 +293,8 @@
       const title = element('h2', '', person.name + '的關係');
       title.id = 'relationship-details-title';
       header.append(back, title, collapse, close);
-      actions.append(edit, query, locate);
+      actions.append(edit, query, addRelative, locate);
       top.append(header, actions);
-      const relatedActions = element('div', 'relationship-details__related-actions');
-      const addRelative = element('button', 'plain-button', '新增親屬'); addRelative.type = 'button';
-      addRelative.addEventListener('click', () => globalThis.openRelativePicker?.(person.id));
-      relatedActions.append(addRelative);
-      top.append(relatedActions);
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');

@@ -13,12 +13,20 @@
     const home = document.createComment('relationship search'); form.before(home);
     const bar = el('div'); bar.className = 'mobile-search-bar'; home.after(bar);
     const button = (text, id) => { const node = el('button', text); node.type = 'button'; if (id) node.id = id; return node; };
-    const open = button('查詢兩人關係 ›', 'mobile-search-open'), end = button('✕', 'mobile-search-end');
-    end.setAttribute('aria-label', '結束比較，顯示全部'); end.hidden = true; bar.append(open, end);
+    const iconButton = (label, id, className = 'details-icon', path = 'M18 6 6 18 M6 6l12 12') => {
+      const node = button('', id); node.className = className; node.setAttribute('aria-label', label); node.title = label;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '1.8'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+      svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+      const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path'); shape.setAttribute('d', path); svg.appendChild(shape); node.appendChild(svg); return node;
+    };
+    const open = button('查詢兩人關係 ›', 'mobile-search-open'), end = iconButton('結束比較，顯示全部', 'mobile-search-end');
+    end.hidden = true; bar.append(open, end);
 
     const dialog = el('dialog'); dialog.className = 'relationship-sheet'; dialog.setAttribute('aria-labelledby', 'relationship-sheet-title');
     const header = el('header'), heading = el('h2', '查詢兩人關係'); heading.id = 'relationship-sheet-title';
-    const close = button('✕', 'relationship-sheet-close'); close.setAttribute('aria-label', '關閉查詢'); header.append(heading, close); dialog.append(header); document.body.append(dialog);
+    const close = iconButton('關閉查詢', 'relationship-sheet-close'); header.append(heading, close); dialog.append(header); document.body.append(dialog);
 
     const resultDialog = el('dialog');
     resultDialog.id = 'relationship-result-sheet';
@@ -26,7 +34,7 @@
     resultDialog.setAttribute('aria-labelledby', 'relationship-result-sheet-title');
     const resultHeader = el('header'); resultHeader.className = 'relationship-result-sheet__header';
     const resultTitle = el('h2', '關係詳情'); resultTitle.id = 'relationship-result-sheet-title';
-    const resultClose = button('✕', 'relationship-result-sheet-close'); resultClose.className = 'details-icon'; resultClose.setAttribute('aria-label', '關閉關係詳情');
+    const resultClose = iconButton('關閉關係詳情', 'relationship-result-sheet-close');
     resultHeader.append(resultTitle, resultClose);
     const resultBody = el('div'); resultBody.className = 'relationship-result-sheet__body';
     resultDialog.append(resultHeader, resultBody); document.body.append(resultDialog);
@@ -165,7 +173,7 @@
         const actions = el('div'); actions.className = 'relationship-summary__actions';
         const details = button('路徑'); details.className = 'plain-button relationship-result-details'; details.setAttribute('aria-label', '查看完整關係路徑'); details.addEventListener('click', openResultDetails);
         const modify = button('修改', 'relationship-result-edit'); modify.className = 'plain-button mobile-result-edit'; modify.addEventListener('click', openSheet);
-        const finish = button('✕'); finish.className = 'plain-button relationship-result-end'; finish.setAttribute('aria-label', '結束比較，顯示全部'); finish.addEventListener('click', () => document.getElementById('relationship-reset').click());
+        const finish = iconButton('結束比較，顯示全部', undefined, 'plain-button relationship-result-end'); finish.addEventListener('click', () => document.getElementById('relationship-reset').click());
         actions.append(details, modify, finish); summary.append(compactTitle, actions);
         resultTitle.textContent = nameA + ' 與 ' + nameB + ' 的關係詳情';
         appendFullDetails(resultBody, result, path, byId, nameA, nameB);

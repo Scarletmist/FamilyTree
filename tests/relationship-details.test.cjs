@@ -124,9 +124,11 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     assert.equal(header.children[1].id, 'relationship-details-title', 'The member title owns the flexible header space');
     assert.equal(actions.children[0], edit, 'Edit is the first contextual action');
     assert.equal(actions.children[1], query, 'Relationship query is the second contextual action');
-    assert.equal(actions.children[2].classList.contains('details-locate'), true, 'Locate is the third contextual action');
+    assert.equal(actions.children[2].classList.contains('add-relative'), true, 'Add-relative is promoted into the contextual action row');
+    assert.equal(actions.children[3].classList.contains('details-locate'), true, 'Locate remains available on desktop');
     assert.equal(edit.querySelector('.details-action__label').textContent, '編輯');
     assert.equal(query.querySelector('.details-action__label').textContent, '查關係');
+    assert.equal(actions.children[2].querySelector('.details-action__label').textContent, '新增親屬');
     assert.equal(back.disabled, true);
     assert.equal(back.classList.contains('details-back--placeholder'), true);
     assert.match(edit.attributes['aria-label'], /編輯陳建國/);

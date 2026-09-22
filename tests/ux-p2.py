@@ -15,7 +15,7 @@ HTML = re.sub(r'<script src="assets/[^"\n]+"></script>', '', (ROOT / 'family-tre
 ASSETS = [
     'family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js',
     'relationship-search.js', 'connector-routing.js', 'label-layout.js', 'family-tree.js',
-    'family-storage.js', 'family-repository.js', 'member-form.js', 'google-drive-sync.js',
+    'family-storage.js', 'family-repository.js', 'member-form.js', 'family-management.js', 'google-drive-sync.js',
     'member-tools.js', 'mobile-gesture-policy.js', 'mobile-landscape-toolbar.js'
 ]
 
@@ -93,6 +93,10 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
                 assert actions_box['y'] >= header_box['y'] + header_box['height'] - 1, (header_box,actions_box)
                 assert title_box['width'] >= 175, title_box
                 assert panel.locator('.details-action__label', has_text='編輯').is_visible() and panel.locator('.details-action__label', has_text='定位').is_visible()
+                assert panel.locator('.add-relative').is_visible() and panel.locator('.add-relative .details-action__label').is_visible()
+                panel.locator('.add-relative').click(); management=page.locator('.family-management-dialog'); assert management.is_visible()
+                management_close=management.locator('.dialog-header .details-icon'); assert management_close.locator('svg').count()==1 and management_close.inner_text().strip()==''
+                management_close.click(); assert management.is_hidden()
                 person_id = first.get_attribute('data-person-id')
                 page.evaluate("""() => { const view=document.querySelector('.tree'); view.scrollLeft=view.scrollWidth; view.scrollTop=view.scrollHeight; }""")
                 locate.click(); page.wait_for_timeout(650)
@@ -123,7 +127,16 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
                 assert topbox and titlebox and editbox and topbox['height'] <= 52, (topbox,titlebox,editbox)
                 assert abs((titlebox['y']+titlebox['height']/2)-(editbox['y']+editbox['height']/2)) < 3, (titlebox,editbox)
                 assert not page.locator('#relationship-details .details-locate').is_visible()
+                assert page.locator('#relationship-details .add-relative').is_visible()
+                assert not page.locator('#relationship-details .add-relative .details-action__label').is_visible()
                 assert not page.locator('#relationship-details .details-action__label', has_text='編輯').is_visible()
+                page.locator('#relationship-details .edit-member').click(); page.wait_for_function("document.querySelector('#member-dialog').open")
+                relation=page.locator('#member-relations .relation-row').first
+                assert relation.locator('.relation-row__editor').is_hidden()
+                assert relation.locator('.relation-row__actions .relation-row__toggle').is_visible() and relation.locator('.relation-row__actions .remove-relation').is_visible()
+                assert not relation.locator('.relation-row__action-label').first.is_visible()
+                before=page.locator('#member-relations .relation-row').count(); relation.locator('.remove-relation').click(); assert page.locator('#member-relations .relation-row').count()==before-1
+                page.evaluate("document.querySelector('#member-dialog').close()")
                 assert not errors, errors
                 context.close()
 
@@ -142,6 +155,8 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
                 assert morebox['x'] > 400 and morebox['x']+morebox['width'] >= 843 and morebox['y'] < 100 and morebox['height'] > 240, morebox
                 page.locator('#landscape-more-close').click(); page.locator('.person').first.click(); page.wait_for_timeout(30)
                 assert not page.locator('#relationship-details .details-locate').is_visible()
+                assert page.locator('#relationship-details .add-relative').is_visible()
+                assert not page.locator('#relationship-details .add-relative .details-action__label').is_visible()
                 topbox=page.locator('#relationship-details .relationship-details__top').bounding_box(); titlebox=page.locator('#relationship-details-title').bounding_box(); editbox=page.locator('#relationship-details .edit-member').bounding_box()
                 assert topbox and titlebox and editbox and topbox['height'] <= 60, (topbox,titlebox,editbox)
                 assert abs((titlebox['y']+titlebox['height']/2)-(editbox['y']+editbox['height']/2)) < 3, (titlebox,editbox)

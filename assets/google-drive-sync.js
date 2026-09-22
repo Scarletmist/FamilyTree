@@ -370,6 +370,7 @@
   document.getElementById('cloud-conflict-use-local')?.addEventListener('click', () => resolveConflict('local'));
   document.getElementById('cloud-conflict-use-remote')?.addEventListener('click', () => resolveConflict('cloud'));
   document.getElementById('cloud-conflict-cancel')?.addEventListener('click', () => resolveConflict('cancel'));
+  document.getElementById('close-cloud-conflict-dialog')?.addEventListener('click', () => resolveConflict('cancel'));
   conflictDialog?.addEventListener('cancel', event => { event.preventDefault(); resolveConflict('cancel'); });
 
   async function handleConflict(local, remote, interactive) {

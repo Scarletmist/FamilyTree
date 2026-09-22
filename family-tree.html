@@ -286,7 +286,8 @@
     .select-trigger:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
     .select-dropdown { position:fixed; inset:auto; margin:0; padding:8px; box-sizing:border-box; border:1px solid #c5b8a6; border-radius:8px; background:white; color:#342b23; box-shadow:0 6px 24px #0003; overflow:auto; }
     .select-dropdown:popover-open { display:flex; flex-direction:column; gap:6px; }
-    .select-dropdown .select-search { flex:none; width:100%; box-sizing:border-box; font:inherit; padding:8px; border:1px solid #c5b8a6; border-radius:5px; }
+    /* Keep search inputs at 16px or above to prevent iOS focus zoom in every popover. */
+    .select-dropdown .select-search { flex:none; width:100%; box-sizing:border-box; font:inherit; font-size:max(16px, 1rem); padding:8px; border:1px solid #c5b8a6; border-radius:5px; }
     .select-options { overflow:auto; min-height:0; }
     .select-options [role=option] { padding:9px; cursor:pointer; overflow-wrap:anywhere; }
     .select-options [role=option]:hover, .select-options .is-active { background:#f3e8d8; }

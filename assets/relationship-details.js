@@ -292,6 +292,7 @@
       close.addEventListener('click', () => { navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null; onClose?.(); });
       const title = element('h2', '', person.name + '的關係');
       title.id = 'relationship-details-title';
+      title.title = person.name + '的關係';
       header.append(back, title, collapse, close);
       actions.append(edit, query, addRelative, locate);
       top.append(header, actions);

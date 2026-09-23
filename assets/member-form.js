@@ -3,6 +3,21 @@
   const dialog = document.getElementById('member-dialog');
   const form = document.getElementById('member-form');
   const relations = document.getElementById('member-relations');
+  const removalStatus = document.createElement('div'); removalStatus.className = 'relation-removal-status';
+  const removalMessage = document.createElement('span'); removalMessage.setAttribute('role', 'status');
+  const restoreRelation = document.createElement('button'); restoreRelation.type = 'button'; restoreRelation.className = 'plain-button';
+  restoreRelation.textContent = '復原移除'; restoreRelation.setAttribute('aria-label', '復原剛移除的關係');
+  relations.after(removalStatus);
+  let removedRelation = null;
+  restoreRelation.addEventListener('click', () => {
+    if (!removedRelation) return;
+    const { row, index } = removedRelation;
+    relations.insertBefore(row, relations.children[index] || null); removedRelation = null;
+    restoreRelation.remove(); removalMessage.textContent = '已復原移除的關係，儲存後才會套用。';
+    row.querySelector('.relation-row__toggle').focus({ preventScroll: true }); row.scrollIntoView({ block: 'nearest' });
+    scheduleMemberDraft();
+  });
+  form.addEventListener('reset', () => { removedRelation = null; removalStatus.replaceChildren(); });
   const error = document.getElementById('member-error');
   const status = document.getElementById('save-status');
   const backupStatus = document.getElementById('backup-status');
@@ -225,13 +240,20 @@
     const remove = removeAction.button;
     const editor = document.createElement('div'); editor.className = 'relation-row__editor';
     actions.append(toggle, remove); header.append(summary, actions); row.append(header, editor);
+    function updateActionLabels() {
+      const description = summaryTitle.textContent || '尚未完成的關係';
+      const label = (row.dataset.expanded === 'true' ? '收合' : '編輯') + '關係：' + description;
+      toggle.setAttribute('aria-label', label); toggle.title = label;
+      remove.setAttribute('aria-label', '移除關係：' + description); remove.title = '移除關係：' + description;
+      summaryTitle.title = description;
+    }
     function setExpanded(value, { focus = false } = {}) {
       row.dataset.expanded = String(Boolean(value));
       editor.hidden = !value;
       const label = value ? '收合' : '編輯';
       toggleAction.text.textContent = label;
       toggleAction.shape.setAttribute('d', value ? 'M6 15l6-6 6 6' : 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
-      toggle.setAttribute('aria-label', label + '此關係'); toggle.title = label + '此關係';
+      updateActionLabels();
       toggle.setAttribute('aria-expanded', String(Boolean(value)));
       if (focus && value) editor.querySelector('select,button,input')?.focus();
     }
@@ -257,7 +279,15 @@
     };
     const source = textField('關係來源（選填）', 'relation-source');
     const note = textField('關係說明（選填）', 'relation-note');
-    remove.addEventListener('click', () => { row.remove(); scheduleMemberDraft(); });
+    remove.addEventListener('click', () => {
+      const nextFocus = row.nextElementSibling?.querySelector('.relation-row__toggle') || row.previousElementSibling?.querySelector('.relation-row__toggle') || document.getElementById('add-relation');
+      removedRelation = { row, index: [...relations.children].indexOf(row) };
+      row.remove();
+      removalMessage.textContent = '已移除「' + summaryTitle.textContent + '」，儲存後才會套用。';
+      removalStatus.replaceChildren(removalMessage, restoreRelation);
+      nextFocus.focus({ preventScroll: true });
+      scheduleMemberDraft();
+    });
     const preview = document.createElement('p'); preview.className = 'relation-preview'; editor.appendChild(preview);
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
@@ -286,6 +316,7 @@
       preview.textContent = person && type.value ? `${person.name}是${base.name}的${role}${isParent ? '（' + kind.value + '）' : ''}；${base.name}是${person.name}的${reverseRole}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
       summaryTitle.textContent = person && type.value ? `${person.name} · ${role || labels[type.value] || type.value}` : '尚未完成的關係';
       summaryHint.textContent = person && type.value && isParent ? kind.value : person && type.value && FamilyModel.hasSeniority(type.value) && seniority.value !== 'unknown' ? (seniority.value === 'older' ? '對方年長' : '對方年幼') : '';
+      updateActionLabels();
     }
     row.addEventListener('change', () => { update(); scheduleMemberDraft(); });
     row.addEventListener('input', scheduleMemberDraft);

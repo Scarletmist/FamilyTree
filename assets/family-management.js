@@ -15,6 +15,7 @@
   function modal(title) {
     const dialog = el('dialog', undefined, 'family-management-dialog');
     const header = el('div', undefined, 'dialog-header'), heading = el('h2', title);
+    heading.title = title;
     heading.id = 'management-title-' + crypto.randomUUID(); dialog.setAttribute('aria-labelledby', heading.id);
     const close = iconButton('關閉' + title, () => { if (!dialog.dataset.busy) dialog.close(); });
     header.append(heading, close);

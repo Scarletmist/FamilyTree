@@ -160,7 +160,7 @@
     .relationship-details__tab-summary { display:none; }
     .relationship-details__top { flex:none; min-width:0; }
     .relationship-details__header { display:grid; grid-template-columns:36px minmax(0,1fr) 36px 36px; align-items:center; gap:6px; margin-bottom:8px; }
-    .relationship-details__actions { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:6px; margin-bottom:12px; }
+    .relationship-details__actions { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(max-content,1fr); gap:6px; margin-bottom:12px; }
     .relationship-details h2 { min-width:0; font-size:1.1rem; text-align:center; overflow-wrap:anywhere; line-height:1.4; }
     #relationship-details-title { max-height:3.1em; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
     .details-icon { display:flex; align-items:center; justify-content:center; width:36px; height:36px; padding:0; border:1px solid var(--color-line); border-radius:8px; background:#f6f2eb; cursor:pointer; transition:background .15s,border-color .15s; }
@@ -168,7 +168,7 @@
     .details-icon:focus-visible,.relationship-group summary:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
     .details-icon.details-collapse { color:var(--color-ink-soft); }
     .details-icon.details-back,.details-icon.edit-member,.details-icon.query-relationship,.details-icon.details-locate { color:var(--color-accent); }
-    .details-action { width:auto; min-width:0; gap:7px; padding:0 10px; color:var(--color-accent); font:600 .8125rem/1.2 var(--font-sans); }
+    .details-action { width:auto; min-width:0; gap:4px; padding:0 6px; color:var(--color-accent); font:600 .8125rem/1.2 var(--font-sans); }
     .details-action svg { flex:none; }
     .details-action__label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .details-back--placeholder { visibility:hidden; pointer-events:none; }
@@ -238,6 +238,10 @@
     .relation-row__actions { display:flex; align-items:center; gap:6px; }
     .relation-row__action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; white-space:nowrap; }
     .relation-row__action svg { flex:none; width:17px; height:17px; }
+    .relation-row__action:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+    .relation-removal-status { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:8px 0; font-size:.875rem; }
+    .relation-removal-status:empty { display:none; }
+    .relation-removal-status button { min-height:44px; }
     .relation-row__toggle { min-width:64px; }
     .relation-row .remove-relation { min-width:64px; color:#8b3928; }
     .relation-row__editor { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr); align-items:end; gap:8px; padding:12px; border-top:1px solid #ded2c1; background:#fbf8f3; }
@@ -296,6 +300,7 @@
     .select-options { overflow:auto; min-height:0; }
     .management-toolbar { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
     .family-management-dialog { width:min(680px,calc(100vw - 24px)); }
+    .family-management-dialog .dialog-header h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
     .management-field { display:flex; flex-direction:column; gap:4px; margin:10px 0; min-width:0; }
     .management-field input,.management-field select,.management-field textarea { font-size:16px; min-height:44px; }
     .management-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; }
@@ -599,12 +604,12 @@
       dialog[open] { display:flex; flex-direction:column; }
       .dialog-header {
         flex:0 0 auto;
-        grid-template-columns:minmax(0,1fr) 36px;
+        grid-template-columns:minmax(0,1fr) 44px;
         min-height:54px;
-        padding:calc(9px + env(safe-area-inset-top)) 12px 9px;
+        padding:calc(5px + env(safe-area-inset-top)) 12px 5px;
       }
       .dialog-header h2 { font-size:1.08rem; line-height:1.35; }
-      .dialog-header .details-icon { width:36px; height:36px; }
+      .dialog-header .details-icon { width:44px; height:44px; }
       dialog form { flex:1 1 0; min-height:0; height:0; }
       .dialog-scroll, .form-scroll {
         flex:1 1 0;
@@ -682,7 +687,7 @@
       .relation-row__editor { grid-template-columns:1fr; padding:10px; }
       .relation-row .relation-metadata { grid-column:1; }
       .relation-row__actions { gap:5px; }
-      .relation-row__action { width:44px; min-width:44px; height:44px; min-height:44px; padding:0; gap:0; }
+      .relation-row .relation-row__action { width:44px; min-width:44px; height:44px; min-height:44px; padding:0; gap:0; }
       .relation-row__action-label { display:none; }
       .relation-row__action svg { width:19px; height:19px; }
       dialog input, dialog select, dialog textarea, .select-trigger { font-size:16px; }
@@ -723,7 +728,7 @@
       .landscape-more-sheet::backdrop { background:#0006; }
       .landscape-more-sheet__header { display:flex; flex:none; align-items:center; justify-content:space-between; min-height:54px; padding:8px 12px; border-bottom:1px solid var(--color-line); background:white; }
       .landscape-more-sheet__header h2 { margin:0; font-size:1.05rem; }
-      .landscape-more-sheet__header .details-icon { width:40px; height:40px; color:var(--color-ink); }
+      .landscape-more-sheet__header .details-icon { width:44px; height:44px; color:var(--color-ink); }
       .landscape-more-sheet__header .details-icon svg { display:block; width:20px; height:20px; flex:none; }
       .landscape-more-sheet__body { flex:1 1 auto; min-height:0; padding:8px 10px calc(10px + env(safe-area-inset-bottom)); overflow-y:auto; -webkit-overflow-scrolling:touch; }
       .landscape-more-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -896,7 +901,7 @@
       .landscape-more-sheet::backdrop { background:transparent; }
       .landscape-more-sheet__header { display:flex; flex:none; align-items:center; justify-content:space-between; min-height:54px; padding:8px 12px; border-bottom:1px solid var(--color-line); background:white; }
       .landscape-more-sheet__header h2 { margin:0; font-size:1.05rem; }
-      .landscape-more-sheet__header .details-icon { width:40px; height:40px; color:var(--color-ink); }
+      .landscape-more-sheet__header .details-icon { width:44px; height:44px; color:var(--color-ink); }
       .landscape-more-sheet__header .details-icon svg { display:block; width:20px; height:20px; flex:none; }
       .landscape-more-sheet__body { flex:1 1 auto; min-height:0; padding:8px 10px calc(10px + env(safe-area-inset-bottom)); overflow-y:auto; -webkit-overflow-scrolling:touch; }
       .landscape-more-actions { display:grid; grid-template-columns:1fr; gap:8px; }
@@ -976,30 +981,25 @@
       .relationship-details__tab-arrow { grid-column:2; grid-row:1 / span 2; align-self:center; justify-self:center; transform:rotate(90deg); }
       .relationship-details .details-collapse svg { transform:rotate(90deg); }
       .relationship-details .details-icon { min-width:44px; min-height:44px; }
-      .relationship-details__top { display:grid; grid-template-columns:44px 44px 44px 44px minmax(0,1fr) 44px 44px; align-items:center; gap:4px; min-width:0; max-width:100%; margin-bottom:8px; }
+      .relationship-details__top { display:flex; align-items:center; gap:2px; min-width:0; max-width:100%; margin-bottom:6px; }
       .relationship-details__header,.relationship-details__actions { display:contents; }
-      .relationship-details .details-back { grid-column:1; grid-row:1; }
-      .relationship-details .edit-member { grid-column:2; grid-row:1; }
-      .relationship-details .query-relationship,.relationship-details .details-query-placeholder { grid-column:3; grid-row:1; }
-      .relationship-details .add-relative { grid-column:4; grid-row:1; }
-      #relationship-details-title { grid-column:5; grid-row:1; min-width:0; max-height:none; overflow:hidden; display:block; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal; }
-      .relationship-details .details-collapse { grid-column:6; grid-row:1; }
-      .relationship-details .details-close { grid-column:7; grid-row:1; }
+      .relationship-details__top .details-icon { flex:none; width:44px; height:44px; }
+      .relationship-details .details-back { order:0; }
+      .relationship-details .edit-member { order:1; }
+      .relationship-details .query-relationship { order:2; }
+      .relationship-details .add-relative { order:3; }
+      #relationship-details-title { order:4; flex:1 1 0; min-width:0; max-height:none; overflow:hidden; display:block; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal; text-align:center; font-size:.9rem; line-height:1.35; }
+      .relationship-details .details-collapse { order:5; margin-left:auto; }
+      .relationship-details .details-close { order:6; }
       .relationship-details .details-locate { display:none; }
       .relationship-details .details-action { width:44px; min-width:44px; height:44px; padding:0; gap:0; }
       .relationship-details .details-action__label { display:none; }
-      .relationship-details__actions .details-query-placeholder { display:flex; }
+      .relationship-details__actions .details-query-placeholder,.relationship-details .details-back--placeholder { display:none; }
       .relationship-details__content,.relationship-details__top { min-width:0; max-width:100%; }
     }
     @media (max-width:350px) {
-      .relationship-details__top { grid-template-columns:repeat(6,minmax(44px,1fr)); gap:3px; }
-      #relationship-details-title { display:none; }
-      .relationship-details .details-back { grid-column:1; }
-      .relationship-details .edit-member { grid-column:2; }
-      .relationship-details .query-relationship,.relationship-details .details-query-placeholder { grid-column:3; }
-      .relationship-details .add-relative { grid-column:4; }
-      .relationship-details .details-collapse { grid-column:5; }
-      .relationship-details .details-close { grid-column:6; }
+      /* With navigation history, six touch targets leave no room for a title. */
+      .relationship-details__top:has(.details-back:not(.details-back--placeholder)) #relationship-details-title { display:none; }
     }
     /* Landscape relationship details use horizontal space instead of scarce viewport height. */
     @media (max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape) {
@@ -1009,8 +1009,8 @@
         right:max(0px,env(safe-area-inset-right));
         bottom:max(0px,env(safe-area-inset-bottom));
         left:auto;
-        width:min(400px,46vw);
-        max-width:calc(100vw - 92px - env(safe-area-inset-left) - env(safe-area-inset-right));
+        width:min(400px,max(336px,46vw));
+        max-width:calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
         height:auto;
         max-height:none;
         padding:0;
@@ -1023,10 +1023,9 @@
       .relationship-details__content { height:100%; min-height:0; }
       .relationship-details__top {
         flex:none;
-        grid-template-columns:44px 44px 44px 44px minmax(0,1fr) 44px 44px;
         min-height:52px;
         margin:0;
-        padding:4px 8px;
+        padding:3px 8px;
         border-bottom:1px solid var(--color-line);
         background:white;
       }
@@ -1127,6 +1126,10 @@
       .relationship-sheet .relationship-search { flex:1 1 auto; min-height:0; overflow-y:auto; }
       .landscape-more-sheet { width:min(360px,45vw); padding-bottom:env(safe-area-inset-bottom); }
       .landscape-more-actions { grid-template-columns:1fr; }
+    }
+    @media (pointer:coarse) {
+      .dialog-header { grid-template-columns:minmax(0,1fr) 44px; }
+      .dialog-header .details-icon { width:44px; height:44px; }
     }
   </style>
 </head>

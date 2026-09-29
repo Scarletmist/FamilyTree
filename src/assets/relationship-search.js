@@ -8,8 +8,8 @@
     const retry = document.getElementById('kinship-retry');
     let engine, config, graph, active = false, pathIndex = 0;
     const el = (tag, text) => { const node = document.createElement(tag); node.textContent = text; return node; };
-    const mobile = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)');
-    const landscape = matchMedia('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)');
+    const mobile = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
+    const landscape = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)');
     const home = document.createComment('relationship search'); form.before(home);
     const bar = el('div'); bar.className = 'mobile-search-bar'; home.after(bar);
     const button = (text, id) => { const node = el('button', text); node.type = 'button'; if (id) node.id = id; return node; };
@@ -39,9 +39,9 @@
     const resultBody = el('div'); resultBody.className = 'relationship-result-sheet__body';
     resultDialog.append(resultHeader, resultBody); document.body.append(resultDialog);
 
-    const hint = el('p', '查詢：A 是 B 的誰？'); hint.className = 'relationship-direction'; form.append(hint);
+    const hint = el('p', '請先選擇稱呼基準與要查詢的成員。'); hint.className = 'relationship-direction'; form.append(hint);
     a.closest('label').classList.add('relationship-field-a'); b.closest('label').classList.add('relationship-field-b');
-    a.closest('label').prepend(el('span', '想知道誰與他的關係？')); b.closest('label').prepend(el('span', '以誰為稱呼基準？'));
+    a.closest('label').prepend(el('span', '想知道哪位成員？')); b.closest('label').prepend(el('span', '以哪位成員為稱呼基準？'));
     [a, b].forEach(select => select.closest('label').firstElementChild.classList.add('relationship-field-caption'));
     const nameToggle = document.getElementById('toggle-canvas-names'), toggleHome = nameToggle.parentElement;
     let draft = null;
@@ -98,7 +98,7 @@
 
     function appendFullDetails(container, result, path, byId, nameA, nameB) {
       container.replaceChildren();
-      container.append(el('p', 'A：' + nameA + '　B（稱呼基準）：' + nameB));
+      container.append(el('p', '查詢成員：' + nameA + '　稱呼基準：' + nameB));
       if (path) {
         container.append(el('p', '關係路徑：' + path.nodes.map(id => byId.get(id).name).join(' → ')));
         path.notes.forEach(note => container.append(el('p', note)));
@@ -140,14 +140,16 @@
       const names = FamilyModel.memberOptionLabels(fullGraph.people);
       const relationshipMemberIds = FamilyModel.relationshipMemberIds(fullGraph.people);
       const relationshipPeople = fullGraph.people.filter(person => relationshipMemberIds.has(person.id));
+      const generationOffset = FamilyDisplayProjection.generationOffset(fullGraph);
+      const optionLabels = new Map(relationshipPeople.map(person => [person.id, `${names.get(person.id)} · 第 ${person.gen + generationOffset} 代`]));
       for (const select of [a, b]) {
         const previous = select.value;
         select.replaceChildren(el('option', '請選擇成員')); select.options[0].value = '';
-        relationshipPeople.forEach(p => { const option = el('option', names.get(p.id)); option.value = p.id; select.append(option); });
+        relationshipPeople.forEach(p => { const option = el('option', optionLabels.get(p.id)); option.value = p.id; select.append(option); });
         select.value = relationshipMemberIds.has(previous) ? previous : '';
       }
       submit.disabled = !engine || !a.value || !b.value;
-      hint.textContent = a.value && b.value ? '查詢：' + names.get(a.value) + ' 是 ' + names.get(b.value) + ' 的誰？' : '查詢：A 是 B 的誰？';
+      hint.textContent = a.value && b.value ? '查詢：' + optionLabels.get(a.value) + ' 是 ' + optionLabels.get(b.value) + ' 的誰？' : '請先選擇稱呼基準與要查詢的成員。';
       if (!a.value || !b.value) active = false;
       summary.hidden = !active; summary.replaceChildren();
       document.getElementById('family-filter').disabled = active;

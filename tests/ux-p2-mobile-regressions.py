@@ -76,11 +76,11 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                         cloud:getComputedStyle(document.getElementById('cloud-sync')).display!=='none',
                         relationshipToolbar:!!document.getElementById('landscape-relationship-open') && getComputedStyle(document.getElementById('landscape-relationship-open')).display!=='none'
                     })""")
-                    assert landscape_toolbar['cloud'] and not landscape_toolbar['relationshipToolbar'], landscape_toolbar
+                    assert not landscape_toolbar['cloud'] and not landscape_toolbar['relationshipToolbar'], landscape_toolbar
                     page.locator('#landscape-more-open').click()
                     page.wait_for_function("document.getElementById('landscape-more-sheet').open")
                     assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_visible()
-                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').count() == 0
+                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').is_visible()
                     assert page.locator('#landscape-more-sheet [data-action="ignored"]').count() == 0
                     page.locator('#landscape-more-close').click()
 
@@ -153,12 +153,12 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                         client:document.querySelector('.tree-controls').clientWidth,
                         scroll:document.querySelector('.tree-controls').scrollWidth
                     })""")
-                    assert portrait_toolbar['cloud'], portrait_toolbar
+                    assert not portrait_toolbar['cloud'], portrait_toolbar
                     assert portrait_toolbar['scroll'] <= portrait_toolbar['client'] + 1, portrait_toolbar
                     page.locator('#portrait-more-open').click()
                     page.wait_for_function("document.getElementById('landscape-more-sheet').open")
                     assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_visible()
-                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').count() == 0
+                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').is_visible()
                     assert page.locator('#landscape-more-sheet [data-action="ignored"]').count() == 0
                     assert not errors, errors
                     print('portrait mobile regressions PASS', portrait_toolbar)

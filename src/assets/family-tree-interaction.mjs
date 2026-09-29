@@ -324,10 +324,7 @@ export function bindPanning(viewport, {
       ids: [a.id, b.id],
       distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
       scale,
-      logical: {
-        x: (viewport.scrollLeft + mid.x) / scale,
-        y: (viewport.scrollTop + mid.y) / scale
-      }
+      logical: viewportController.logicalAtAnchor(mid)
     };
     singleTouch = null;
     suppressClick = true;

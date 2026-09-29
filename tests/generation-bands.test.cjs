@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Bands = require('../src/assets/generation-bands.js');
 const Model = require('../src/assets/family-model.js');
+const Projection = require('../src/assets/family-display-projection.js');
 const demo = require('../fixtures/family.json');
 
 test('generation bands fill the canvas and split connector gaps at their midpoints', () => {
@@ -18,6 +19,16 @@ test('generation bands fill the canvas and split connector gaps at their midpoin
     { gen: 2, top: 230, height: 280 },
     { gen: 4, top: 510, height: 390 }
   ]);
+});
+
+test('display generation offset is shared when a missing ancestor reserves generation one', () => {
+  const graph = Projection.project(Model.build(demo));
+  const offset = Projection.generationOffset(graph);
+  const p1 = graph.people.find(person => person.id === 'p1');
+  assert.equal(p1.gen, 1);
+  assert.equal(offset, 1);
+  assert.equal(p1.gen + offset, 2);
+  assert(Projection.intermediatePlans(graph, { graph }).some(plan => plan.generation === 0));
 });
 
 class FakeElement {

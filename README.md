@@ -270,7 +270,7 @@ npm run test:browser
 
 畫布縮放採用 Semantic Zoom：縮放手勢進行中仍使用 CSS transform 維持流暢，停止後只有跨過 Compact（≤60%）、Condensed（61–85%）、Normal（86–120%）、Detail（>120%）門檻才重新建立卡片與 SVG 路由。Compact 只顯示姓名、Condensed 顯示姓名與所在地，Normal 顯示完整資料；Detail 會重新壓縮 logical card geometry，避免高倍率時只是把卡片無限制放大。關係文字與代數文字會依級距改變 logical font size，連線使用 non-scaling stroke。
 
-加號放在所代表成員的世代：第四代堂表親的父母節點在第三代，祖孫的中間節點在兩者之間的一代。若最早一代仍缺上一代，畫布會一起順延代數，避免出現第零代；提示位置不寫入 JSON。
+加號放在所代表成員的世代：第四代堂表親的父母節點在第三代，祖孫的中間節點在兩者之間的一代。若最早一代仍缺上一代，畫布會一起順延代數，避免出現第零代；提示位置不寫入 JSON。成員清單、搜尋代別與畫布色帶都使用這個順延後的最終顯示代別，因此待補上一代存在時，projection 中原本 `gen = 1` 的成員可能顯示為「第 2 代」，但各介面不會再出現不同代別。
 
 當親生父母以及父母間的手足關係（或共同親生父母）足以證實堂表親路徑時，總覽會自動隱藏重複的直接堂表親連線；原始關係及長幼記錄仍保留，日後路徑不完整時可重新顯示。只有符合堂／表類型的親生路徑才會取代原線。
 
@@ -300,3 +300,10 @@ npm run test:browser
 - Semantic zoom state is shown beside the desktop zoom percentage; mobile pinch/fit gestures show a temporary percentage + information-density HUD.
 - Portrait mobile header keeps only family filter, member list, add member and More. Import/export, Google Drive, family-name editing, canvas-name visibility, legend and ignored intermediate items are available in the More sheet.
 - Google Drive `pending`, `conflict` and `error` states surface an actionable in-canvas attention banner instead of relying only on the small cloud status dot.
+
+### P2 UX refinements
+
+- Mobile新增／編輯成員依「姓名與性別 → 與現有成員的關係 → 選填資料」排列；新成員的所在地、職位、排行與備註預設收合，編輯既有成員時會展開，關係來源／說明／確認狀態另收在每筆關係的進階設定。
+- 畫布人物卡不再顯示空白的所在地、職位與手足序；行動版成員清單也隱藏空值欄位，保留姓名、代別與實際有填的辨識資訊。
+- 桌面關係圖例預設收合；手機主工具列保留「成員」「新增」「更多」短文字，Google Drive、匯入匯出、家族名稱、姓名顯示與圖例等低頻操作集中在 More。手機成員詳情則直接顯示「編輯」「新增親屬」，將「查關係」「定位」收進詳情內的「更多」。
+- 兩人關係選單顯示「姓名 · 第 N 代」，選定後直接呈現完整問句，例如「陳文彬 · 第 3 代 是陳阿土 · 第 2 代的誰？」；完整路徑說明亦改用「查詢成員／稱呼基準」，不再要求使用者對照 A／B。

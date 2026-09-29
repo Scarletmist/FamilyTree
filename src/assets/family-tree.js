@@ -26,12 +26,17 @@ let FAMILY = FamilyApp?.graph?.() || null;
   let treeZoom;
   const relationshipSearch = FamilyRelationshipSearch.createController({ onChange: options => {
     const anchor = options?.preserveViewport && treeZoom ? treeZoom.getStableViewportAnchor() : null;
+    if (options?.preserveViewport && queryScope !== null) {
+      treeZoom.prepareScale(1);
+      queryViewportAction = 'fit';
+    }
     if (!options?.preserveSelection) selectedId = null;
     render();
-    if (anchor) requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
+    if (anchor && queryScope === null) requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
   } });
   const orderKey = FamilyModel.orderKey;
   let selectedId = null;
+  let queryScope = null, beforeQueryView = null, renderView = null, queryViewportAction = null;
   const VIEW_STATE_KEY = 'family-tree:canvas-view:v1:' + location.pathname;
   let initialViewState = (() => {
     try {
@@ -102,7 +107,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     if (!legend || legend.dataset.responsiveDefaultApplied) return;
     legend.dataset.responsiveDefaultApplied = 'true';
     if (typeof initialViewState?.legendOpen === 'boolean') legend.open = initialViewState.legendOpen;
-    else if (window.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches) legend.open = false;
+    else if (window.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px)').matches) legend.open = false;
     legend.addEventListener('toggle', scheduleCanvasViewStateSave);
   }
   function closeSelectedDetails({ focusCanvas = false } = {}) {
@@ -129,6 +134,19 @@ let FAMILY = FamilyApp?.graph?.() || null;
       return;
     }
     const queryView = relationshipSearch.update(FAMILY);
+    const nextQueryScope = queryView.active ? queryView.scope : null;
+    if (nextQueryScope !== queryScope) {
+      if (nextQueryScope !== null) {
+        if (queryScope === null) beforeQueryView = renderView;
+        treeZoom.prepareScale(1);
+        queryViewportAction = 'fit';
+      } else if (beforeQueryView) {
+        treeZoom.prepareScale(beforeQueryView.scale);
+        document.getElementById('family-filter').value = beforeQueryView.filter;
+        queryViewportAction = 'restore';
+      }
+      queryScope = nextQueryScope;
+    }
     const graph = queryView.graph;
     const familySelect = document.getElementById('family-filter');
     if (familySelect) {
@@ -160,7 +178,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
       union?.partners.forEach(id => visibleEdges.add(FamilyModel.intermediateKey('親生祖孫', [id, d.child])));
     }
     const intermediatePlans = FamilyDisplayProjection.intermediatePlans(FAMILY, { graph: FAMILY }).filter(p => visibleIds.has(p.near) && visibleIds.has(p.other) && visibleEdges.has(p.edgeKey));
-    const displayShift = Math.max(0, 1 - Math.min(1, ...intermediatePlans.map(p => p.generation)));
+    const displayShift = FamilyDisplayProjection.generationOffset(FAMILY);
     const uncertainGeneration = Math.max(0, ...FAMILY.people.filter(p => connectedIds.has(p.id)).map(p => p.gen)) + displayShift + 1;
     const layout = createTreeLayout({
       graph,
@@ -225,10 +243,10 @@ let FAMILY = FamilyApp?.graph?.() || null;
           const nameNode = element('span', 'person__name', hideCanvasNames ? 'OOO' : p.name);
           nameNode.dataset.compactName = hideCanvasNames ? 'OOO' : p.name;
           node.appendChild(nameNode);
-          node.appendChild(element('span', 'person__location', '所在地：' + (p.location || '未填寫')));
-          node.appendChild(element('span', 'person__position', '職位：' + (p.position || '未填寫')));
+          if (p.location) node.appendChild(element('span', 'person__location', '所在地：' + p.location));
+          if (p.position) node.appendChild(element('span', 'person__position', '職位：' + p.position));
           const rankGroups = (graph.rankGroups || []).filter(g => g.members.some(m => m.personId === p.id));
-          if (!rankGroups.some(g => g.type === 'sibling')) node.appendChild(element('span', 'person__order', FamilyModel.knownOrder(p) ? '手足序：' + p.siblingOrder : '手足序：未填寫'));
+          if (!rankGroups.some(g => g.type === 'sibling') && FamilyModel.knownOrder(p)) node.appendChild(element('span', 'person__order', '手足序：' + p.siblingOrder));
           if (FamilyModel.knownDiscipleOrder(p) && !rankGroups.some(g => g.type === 'fellowDisciple')) node.appendChild(element('span', 'person__order', '師門序：' + p.discipleOrder));
           if (rankGroups.length) {
             const first = rankGroups[0], member = first.members.find(m => m.personId === p.id);
@@ -259,11 +277,11 @@ let FAMILY = FamilyApp?.graph?.() || null;
     let canvasPaddingTop = baseCanvasPaddingTop;
     if (queryView.active) {
       const resultSummary = document.getElementById('relationship-summary');
-      const mobileResultLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches;
+      const mobileResultLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)').matches;
       if (mobileResultLayout) {
         // Mobile uses a compact floating result bar. Reserve only its fixed top zone
         // in landscape; portrait's normal routing gutter already clears the bar.
-        const landscapeResultLayout = matchMedia('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches;
+        const landscapeResultLayout = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)').matches;
         if (landscapeResultLayout) {
           const resultTop = parseFloat(getComputedStyle(resultSummary).top) || 0;
           canvasPaddingTop = Math.max(canvasPaddingTop, resultTop + 62);
@@ -605,11 +623,31 @@ let FAMILY = FamilyApp?.graph?.() || null;
     });
   }
   function render() {
+    const view = document.querySelector('.tree');
+    renderView = { scale: treeZoom.getScale(), scrollLeft: view.scrollLeft, scrollTop: view.scrollTop,
+      filter: document.getElementById('family-filter').value };
     treeZoom.beforeRender();
     try {
       return renderTree();
     } finally {
       treeZoom.afterRender();
+      const action = queryViewportAction;
+      queryViewportAction = null;
+      if (action === 'fit') {
+        treeZoom.prepareQueryFit();
+        queryViewportAction = 'center';
+        // Semantic density changes node geometry. Rebuild once at the chosen
+        // scale, then center the measured result instead of the old full tree.
+        render();
+      } else if (action === 'center') {
+        treeZoom.centerQuery();
+      } else if (action === 'restore' && beforeQueryView) {
+        view.scrollLeft = beforeQueryView.scrollLeft;
+        view.scrollTop = beforeQueryView.scrollTop;
+        beforeQueryView = null;
+        treeZoom.rememberViewportAnchor();
+        scheduleCanvasViewStateSave();
+      }
       restoreCanvasViewStateOnce();
     }
   }
@@ -661,8 +699,12 @@ let FAMILY = FamilyApp?.graph?.() || null;
     resizeTimer = setTimeout(() => {
       const anchor = pendingResizeAnchor;
       pendingResizeAnchor = null;
+      if (queryScope !== null) {
+        treeZoom.prepareScale(1);
+        queryViewportAction = 'fit';
+      }
       render();
-      requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
+      if (queryScope === null) requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
     }, 150);
   });
   window.addEventListener('pagehide', saveCanvasViewState);

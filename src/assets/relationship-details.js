@@ -281,8 +281,9 @@
       locate.appendChild(element('span', 'details-action__label', '定位'));
       locate.addEventListener('click', () => onLocate?.(person.id));
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
-      const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches;
+      const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (orientation:landscape)').matches;
       const portraitMobile = globalThis.matchMedia?.('(max-width:700px)').matches;
+      const compactMobile = portraitMobile || landscapeMobile;
       if (portraitMobile && !landscapeMobile) {
         collapse.setAttribute('aria-label', '收合關係詳情至底部'); collapse.title = '收合關係詳情至底部';
       }
@@ -294,7 +295,16 @@
       title.id = 'relationship-details-title';
       title.title = person.name + '的關係';
       header.append(back, title, collapse, close);
-      actions.append(edit, query, addRelative, locate);
+      if (compactMobile) {
+        const more = element('details', 'relationship-details__more');
+        const moreSummary = element('summary', 'plain-button relationship-details__more-summary', '更多');
+        moreSummary.setAttribute('aria-label', '更多成員操作');
+        const moreBody = element('div', 'relationship-details__more-body');
+        if (hasRecordedRelationships) moreBody.appendChild(query);
+        moreBody.appendChild(locate);
+        more.append(moreSummary, moreBody);
+        actions.append(edit, addRelative, more);
+      } else actions.append(edit, query, addRelative, locate);
       top.append(header, actions);
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');

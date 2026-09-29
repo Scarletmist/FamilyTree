@@ -60,21 +60,37 @@
     <form id="member-form">
       <div class="form-scroll">
         <fieldset class="form-fields" id="member-fields">
-        <div class="field-grid">
+        <div class="field-grid member-primary-fields">
           <label>姓名（必填）<input id="member-name" name="name" required maxlength="80" autocomplete="off" /></label>
-          <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：臺中市" /></label>
-          <label>職位<input id="member-position" name="position" maxlength="120" placeholder="例如：教師、工程師" /></label>
           <label>性別（用於兄姊弟妹稱呼）<select id="member-gender" name="gender"><option value="U">未填寫</option><option value="M">男</option><option value="F">女</option></select></label>
-          <label>師門次序<input id="member-disciple-order" name="discipleOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
-          <label>手足次序<input id="member-order" name="siblingOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
         </div>
-        <p class="form-note">手足次序以同一組父母的所有子女排序，男女合併，例如 1、2、3。未知可留空，並在下方關係中設定兩人的相對長幼。若有不同家庭或結拜排行，可從成員清單設定「排行群組」。</p>
-        <p class="form-note">師門次序以同一師門內男女合併排序，例如 1、2、3；數字較小者為師兄／師姊，與家族手足次序分開記錄。</p>
-        <label class="member-notes-field">備註說明<textarea id="member-notes" name="notes" rows="3" maxlength="5000" placeholder="可填寫成員的補充說明"></textarea></label>
-        <h3>與現有成員的關係</h3>
-        <p class="form-note">選擇「現有成員是這位成員的誰」。可新增、修改或移除多筆關係。僅新增手足關係不會自動推定其父母，父母請另行填寫。</p>
-        <div id="member-relations"></div>
+        <section class="member-relations-section" aria-labelledby="member-relations-title">
+          <h3 id="member-relations-title">與現有成員的關係</h3>
+          <p class="form-note">先設定主要親屬關係；可新增、修改或移除多筆。僅新增手足不會自動推定父母，父母請另行填寫。</p>
+          <div id="member-relations"></div>
           <button type="button" id="add-relation" class="plain-button">＋ 新增一筆關係</button>
+        </section>
+        <details class="member-optional-fields" open>
+          <summary><span>選填資料</span><small>所在地、職位、排行與備註</small></summary>
+          <div class="member-optional-fields__body">
+            <div class="field-grid">
+              <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：臺中市" /></label>
+              <label>職位<input id="member-position" name="position" maxlength="120" placeholder="例如：教師、工程師" /></label>
+            </div>
+            <details class="member-ranking-fields">
+              <summary>排行與師門（選填）</summary>
+              <div class="member-ranking-fields__body">
+                <div class="field-grid">
+                  <label>手足次序<input id="member-order" name="siblingOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
+                  <label>師門次序<input id="member-disciple-order" name="discipleOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
+                </div>
+                <p class="form-note">手足次序以同一組父母的所有子女排序，男女合併；未知可留空。若有不同家庭或結拜排行，可從成員清單設定「排行群組」。</p>
+                <p class="form-note">師門次序在同一師門內男女合併排序，數字較小者為師兄／師姊，與家族手足次序分開記錄。</p>
+              </div>
+            </details>
+            <label class="member-notes-field">備註說明<textarea id="member-notes" name="notes" rows="3" maxlength="5000" placeholder="可填寫成員的補充說明"></textarea></label>
+          </div>
+        </details>
         </fieldset>
         <p id="member-error" class="form-error" role="alert"></p>
       </div>

@@ -37,6 +37,25 @@ test('source page keeps CSS and dialogs split while rendered HTML is complete', 
   assert.match(rendered, /assets\/family-tree\.css/);
 });
 
+test('P2 UX source keeps progressive member flow, compact defaults and identifiable relationship queries', () => {
+  const shell = fs.readFileSync(path.join(ROOT, 'src', 'family-tree.html'), 'utf8');
+  const dialogs = fs.readFileSync(path.join(ROOT, 'src', 'templates', 'dialogs.html'), 'utf8');
+  const search = fs.readFileSync(path.join(ROOT, 'src', 'assets', 'relationship-search.js'), 'utf8');
+  const mobileToolbar = fs.readFileSync(path.join(ROOT, 'src', 'assets', 'mobile-landscape-toolbar.js'), 'utf8');
+
+  assert.match(shell, /<details class="legend-panel">/);
+  assert.doesNotMatch(shell, /<details class="legend-panel" open>/);
+  const primary = dialogs.indexOf('member-primary-fields');
+  const relations = dialogs.indexOf('member-relations-section');
+  const optional = dialogs.indexOf('member-optional-fields');
+  assert(primary >= 0 && primary < relations && relations < optional, { primary, relations, optional });
+  assert.match(dialogs, /member-ranking-fields/);
+  assert.match(search, /第 \$\{person\.gen \+ generationOffset\} 代/);
+  assert.match(search, /請先選擇稱呼基準與要查詢的成員/);
+  assert.match(mobileToolbar, /data-action="cloud"/);
+  assert.match(mobileToolbar, /portrait-more-text/);
+});
+
 test('static build publishes only src runtime content, never dev, fixtures or templates', async () => {
   const output = await fsp.mkdtemp(path.join(os.tmpdir(), 'family-p2-build-'));
   try {

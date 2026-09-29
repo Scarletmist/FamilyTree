@@ -188,13 +188,15 @@
     window.dispatchEvent(new CustomEvent('familytreeselect', { detail: { id, options: { expandDetails: true } } }));
   }
   function renderMemberList() {
-    const people = FamilyApp.graph()?.people || [], linked = FamilyModel.relationshipMemberIds(people);
+    const graph = FamilyApp.graph();
+    const people = graph?.people || [], linked = FamilyModel.relationshipMemberIds(people);
+    const generationOffset = graph ? FamilyDisplayProjection.generationOffset(graph) : 0;
     const keyword = normalized(searchMembers?.value.trim() || '');
     const visible = people.filter(person => {
       const connected = linked.has(person.id);
       if (memberFilter === 'unlinked' && connected) return false;
       if (!keyword) return true;
-      return normalized([person.name, person.location, person.position, connected ? `第 ${person.gen} 代` : '未設定關係'].join(' ')).includes(keyword);
+      return normalized([person.name, person.location, person.position, connected ? `第 ${person.gen + generationOffset} 代` : '未設定關係'].join(' ')).includes(keyword);
     });
     if (recentSection && recentItems) {
       const byId = new Map(people.map(person => [person.id, person]));
@@ -216,10 +218,11 @@
       const row = document.createElement('tr'); const connected = linked.has(person.id);
       row.dataset.personId = person.id; row.className = 'member-list-row' + (!connected ? ' member-list-unlinked' : '');
       row.tabIndex = 0; row.setAttribute('aria-label', `查看${person.name}並定位到族譜圖`);
-      const values = [person.name, person.location, person.position, connected ? `第 ${person.gen} 代` : ''];
+      const values = [person.name, person.location, person.position, connected ? `第 ${person.gen + generationOffset} 代` : ''];
       const labels = ['姓名', '所在地', '職位', '代別'];
       values.forEach((value, index) => {
         const cell = document.createElement('td'); cell.dataset.label = labels[index];
+        if (!value && index > 0) cell.classList.add('is-empty');
         if (index === 0) {
           const button = document.createElement('button'); button.type = 'button'; button.className = 'member-list-name-button';
           button.textContent = value; button.setAttribute('aria-label', `查看${person.name}並定位到族譜圖`);

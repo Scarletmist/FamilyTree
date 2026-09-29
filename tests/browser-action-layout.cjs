@@ -34,16 +34,17 @@ const { createFamilyServer } = require('../dev/server.cjs');
       });
       assert.equal(layout.overflow,false,JSON.stringify({width,height,layout}));
       if(compact) {
-        assert(layout.topHeight<=52,JSON.stringify(layout));
+        assert(layout.topHeight<=120,JSON.stringify(layout));
         if(width>350) assert(layout.titleVisible&&layout.titleWidth>=30,JSON.stringify(layout));
-        const gaps=await page.locator('.relationship-details__top').evaluate(top=>{
-          const box=s=>top.querySelector(s).getBoundingClientRect();
-          const edit=box('.edit-member'),query=box('.query-relationship'),add=box('.add-relative'),collapse=box('.details-collapse'),close=box('.details-close');
-          return [query.left-edit.right,add.left-query.right,close.left-collapse.right];
-        });
-        assert(gaps.every(g=>g>=1&&g<=3),'Icons must be tightly grouped, not distributed into equal-width columns: '+gaps);
-        const centers=layout.buttons.map(b=>b.y+b.h/2); assert(Math.max(...centers)-Math.min(...centers)<1,'All mobile controls belong in one row');
-        assert.equal(await page.locator('.add-relative .details-action__label').isVisible(),false);
+        assert.equal(await page.locator('.edit-member .details-action__label').isVisible(),true);
+        assert.equal(await page.locator('.add-relative .details-action__label').isVisible(),true);
+        assert.equal(await page.locator('.query-relationship').isVisible(),false);
+        assert.equal(await page.locator('.details-locate').isVisible(),false);
+        assert(await page.locator('.relationship-details__more-summary').isVisible());
+        await page.locator('.relationship-details__more-summary').click();
+        assert(await page.locator('.query-relationship').isVisible());
+        assert(await page.locator('.details-locate').isVisible());
+        await page.locator('.relationship-details__more-summary').click();
         for(const b of layout.buttons) assert(b.w>=44&&b.h>=44&&b.x>=layout.left&&b.x+b.w<=layout.right+1,JSON.stringify(b));
         for(let i=0;i<layout.buttons.length;i++) for(let j=i+1;j<layout.buttons.length;j++) {const a=layout.buttons[i],b=layout.buttons[j];assert(a.x+a.w<=b.x+1||b.x+b.w<=a.x+1||a.y+a.h<=b.y+1||b.y+b.h<=a.y+1,'Overlapping action targets');}
       } else {
@@ -59,9 +60,9 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await close.click();
       if (compact) {
         await page.evaluate(()=>selectFamilyMember('C',{expandDetails:true}));
-        assert.equal(await page.locator('.details-query-placeholder').evaluate(el=>getComputedStyle(el).display),'none','Unlinked members must not leave an empty query slot');
-        const gap=await page.locator('.relationship-details__top').evaluate(top=>top.querySelector('.add-relative').getBoundingClientRect().left-top.querySelector('.edit-member').getBoundingClientRect().right);
-        assert(gap>=1&&gap<=3,'Removing the query action must close the gap');
+        assert.equal(await page.locator('.query-relationship').count(),0,'Unlinked members must not expose a relationship-query action');
+        const gap=await page.locator('.relationship-details__actions').evaluate(actions=>actions.querySelector('.add-relative').getBoundingClientRect().left-actions.querySelector('.edit-member').getBoundingClientRect().right);
+        assert(gap>=4&&gap<=8,'High-frequency mobile actions should keep one compact gap');
       }
       await page.evaluate(()=>editFamilyMember('B'));
       const row=page.locator('.relation-row').first(); assert.equal(await row.getAttribute('data-expanded'),'false');

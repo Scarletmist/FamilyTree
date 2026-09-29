@@ -5,7 +5,7 @@ export function createViewportController({
   hideTooltip = () => {},
   onViewStateChange = () => {}
 } = {}) {
-  const MOBILE_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)';
+  const MOBILE_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px)';
   const MAX_SCALE = 2;
   const SEMANTIC_PROFILES = {
     desktop: [
@@ -46,6 +46,8 @@ export function createViewportController({
   let scale = Number(initialState?.scale) || 1;
   let naturalWidth = 0;
   let naturalHeight = 0;
+  let offsetX = 0, offsetY = 0;
+  let queryExtentX = 0, queryExtentY = 0;
   let rendering = false;
   let generationLabelFrame = 0;
   let semanticMode = null;
@@ -125,8 +127,8 @@ export function createViewportController({
     if (!view || !root || !space) return;
     naturalWidth = Math.max(root.offsetWidth, root.scrollWidth);
     naturalHeight = Math.max(root.offsetHeight, root.scrollHeight);
-    space.style.width = Math.max(view.clientWidth, Math.ceil(naturalWidth * scale)) + 'px';
-    space.style.height = Math.max(view.clientHeight, Math.ceil(naturalHeight * scale)) + 'px';
+    space.style.width = Math.max(view.clientWidth, queryExtentX, Math.ceil(naturalWidth * scale + offsetX)) + 'px';
+    space.style.height = Math.max(view.clientHeight, queryExtentY, Math.ceil(naturalHeight * scale + offsetY)) + 'px';
   }
 
   function updateGenerationLabelPosition() {
@@ -216,6 +218,8 @@ export function createViewportController({
     const root = canvas();
     if (!root) return;
     root.style.transform = `scale(${scale})`;
+    root.style.left = `${offsetX}px`;
+    root.style.top = `${offsetY}px`;
     updateSpacer();
     updateGenerationLabelPosition();
   }
@@ -223,8 +227,8 @@ export function createViewportController({
   function positionLogicalAtAnchor(logical, anchor) {
     const view = viewport();
     if (!view) return;
-    view.scrollLeft = Math.max(0, logical.x * scale - anchor.x);
-    view.scrollTop = Math.max(0, logical.y * scale - anchor.y);
+    view.scrollLeft = Math.max(0, logical.x * scale + offsetX - anchor.x);
+    view.scrollTop = Math.max(0, logical.y * scale + offsetY - anchor.y);
   }
 
   function setScaleAroundLogical(next, logical, anchor) {
@@ -250,13 +254,14 @@ export function createViewportController({
     const anchorY = anchor?.y ?? view.clientHeight / 2;
     if (Math.abs(next - scale) < .001) return scale;
     const logical = {
-      x: (view.scrollLeft + anchorX) / scale,
-      y: (view.scrollTop + anchorY) / scale
+      x: (view.scrollLeft + anchorX - offsetX) / scale,
+      y: (view.scrollTop + anchorY - offsetY) / scale
     };
     return setScaleAroundLogical(next, logical, { x: anchorX, y: anchorY });
   }
 
   function fitWidth() {
+    if (isQueryVisible()) return fitQuery();
     const view = viewport(), root = canvas();
     if (!view || !root) return;
     const width = naturalWidth || Math.max(root.offsetWidth, root.scrollWidth);
@@ -269,6 +274,7 @@ export function createViewportController({
   }
 
   function fitView() {
+    if (isQueryVisible()) return fitQuery();
     const view = viewport(), root = canvas();
     if (!view || !root) return;
     const width = naturalWidth || Math.max(root.offsetWidth, root.scrollWidth);
@@ -281,6 +287,88 @@ export function createViewportController({
     view.scrollLeft = Math.max(0, (width * scale - view.clientWidth) / 2);
     view.scrollTop = 0;
     updateGenerationLabelPosition();
+  }
+
+  function logicalAtAnchor(anchor) {
+    const view = viewport();
+    return { x: (view.scrollLeft + anchor.x - offsetX) / scale,
+      y: (view.scrollTop + anchor.y - offsetY) / scale };
+  }
+
+  // Scope changes are synchronous: discard an old semantic-zoom timer before
+  // measuring the new graph, rather than allowing it to restore an old anchor.
+  function prepareScale(value) {
+    clearSemanticTimer();
+    pendingSemanticRestore = null;
+    offsetX = offsetY = 0;
+    queryExtentX = queryExtentY = 0;
+    scale = clampScale(value);
+    applySemanticMode();
+    const root = canvas();
+    if (root) { root.style.left = '0px'; root.style.top = '0px'; }
+  }
+
+  function queryGeometry() {
+    const view = viewport(), root = canvas();
+    if (!view || !root) return null;
+    const nodes = [...root.querySelectorAll('.person, .intermediate-add')];
+    if (!nodes.length) return null;
+    const origin = root.getBoundingClientRect();
+    const rects = nodes.map(node => node.getBoundingClientRect());
+    const left = (Math.min(...rects.map(r => r.left)) - origin.left) / scale;
+    const right = (Math.max(...rects.map(r => r.right)) - origin.left) / scale;
+    const top = (Math.min(...rects.map(r => r.top)) - origin.top) / scale;
+    const bottom = (Math.max(...rects.map(r => r.bottom)) - origin.top) / scale;
+    const viewRect = view.getBoundingClientRect();
+    let insetTop = 16;
+    for (const selector of ['.page-header', '#relationship-summary']) {
+      const overlay = document.querySelector(selector);
+      if (!overlay || overlay.hidden) continue;
+      const rect = overlay.getBoundingClientRect();
+      if (rect.bottom > viewRect.top && rect.top < viewRect.bottom) {
+        insetTop = Math.max(insetTop, rect.bottom - viewRect.top + 16);
+      }
+    }
+    return { left, right, top, bottom, insetTop,
+      width: Math.max(1, view.clientWidth - 32),
+      height: Math.max(1, view.clientHeight - insetTop - 56) };
+  }
+
+  function prepareQueryFit() {
+    const geometry = queryGeometry();
+    if (!geometry) return;
+    const { left, right, top, bottom, width, height } = geometry;
+    // Keep longer paths readable and pannable instead of shrinking indefinitely.
+    prepareScale(Math.max(.65, Math.min(1, width / (right - left + 32), height / (bottom - top + 32))));
+  }
+
+  const isQueryVisible = () => document.getElementById('relationship-summary')?.hidden === false;
+  function fitQuery() {
+    prepareQueryFit();
+    onSemanticRender();
+    centerQuery();
+  }
+
+  function centerQuery() {
+    const view = viewport(), geometry = queryGeometry();
+    if (!view || !geometry) return;
+    const { left, right, top, bottom, insetTop, width, height } = geometry;
+    const x = (left + right) / 2 * scale;
+    const y = (top + bottom) / 2 * scale;
+    const anchorX = 16 + width / 2;
+    // Long paths start at the first member; short paths are centered below the result.
+    const anchorY = insetTop + height / 2;
+    const targetY = (bottom - top) * scale > height ? top * scale + height / 2 : y;
+    offsetX = Math.max(0, anchorX - x);
+    offsetY = Math.max(0, anchorY - targetY);
+    // Even a narrow canvas needs trailing space to allow the requested pan.
+    queryExtentX = Math.max(0, x - anchorX) + view.clientWidth;
+    queryExtentY = Math.max(0, targetY - anchorY) + view.clientHeight;
+    applyScale();
+    view.scrollLeft = Math.max(0, x - anchorX);
+    view.scrollTop = Math.max(0, targetY - anchorY);
+    updateGenerationLabelPosition();
+    rememberViewportAnchor();
   }
 
   function beforeRender() {
@@ -331,8 +419,8 @@ export function createViewportController({
     }
     const width = Math.max(1, naturalWidth || root.offsetWidth || root.scrollWidth);
     const height = Math.max(1, naturalHeight || root.offsetHeight || root.scrollHeight);
-    const logicalX = (view.scrollLeft + view.clientWidth / 2) / Math.max(.001, scale);
-    const logicalY = (view.scrollTop + view.clientHeight / 2) / Math.max(.001, scale);
+    const logicalX = (view.scrollLeft + view.clientWidth / 2 - offsetX) / Math.max(.001, scale);
+    const logicalY = (view.scrollTop + view.clientHeight / 2 - offsetY) / Math.max(.001, scale);
     return {
       type: 'ratio',
       ratioX: Math.max(0, Math.min(1, logicalX / width)),
@@ -441,8 +529,8 @@ export function createViewportController({
         y: Math.max(0, Math.min(view.clientHeight, event.clientY - rect.top))
       };
       const logical = {
-        x: (view.scrollLeft + anchor.x) / Math.max(.001, scale),
-        y: (view.scrollTop + anchor.y) / Math.max(.001, scale)
+        x: (view.scrollLeft + anchor.x - offsetX) / Math.max(.001, scale),
+        y: (view.scrollTop + anchor.y - offsetY) / Math.max(.001, scale)
       };
       const unit = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? 180 : 1;
       const factor = Math.max(.82, Math.min(1.22, Math.exp(-event.deltaY * unit * .0024)));
@@ -465,8 +553,12 @@ export function createViewportController({
     afterRender,
     setScale,
     setScaleAroundLogical,
+    logicalAtAnchor,
     fitWidth,
     fitView,
+    prepareScale,
+    prepareQueryFit,
+    centerQuery,
     getScale: () => scale,
     getSemanticMode: () => semanticMode || semanticModeForScale(scale),
     getSemanticProfile: () => semanticProfile || semanticProfileForViewport(),

@@ -5,6 +5,8 @@
   const clearTreeViewState = () => window.dispatchEvent(new CustomEvent('familytreeclearview'));
   const form = document.getElementById('member-form');
   const relations = document.getElementById('member-relations');
+  const optionalFields = form.querySelector('.member-optional-fields');
+  const rankingFields = form.querySelector('.member-ranking-fields');
   const removalStatus = document.createElement('div'); removalStatus.className = 'relation-removal-status';
   const removalMessage = document.createElement('span'); removalMessage.setAttribute('role', 'status');
   const restoreRelation = document.createElement('button'); restoreRelation.type = 'button'; restoreRelation.className = 'plain-button';
@@ -81,6 +83,16 @@
   const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接設定）', biaoCousin: '表兄弟姊妹（直接設定）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
+  function syncProgressiveFields({ draft = null } = {}) {
+    const mobile = matchMedia('(max-width:700px)').matches;
+    const fields = draft?.state?.fields || null;
+    const hasOptionalDraft = fields && [fields.location, fields.position, fields.notes, fields.siblingOrder, fields.discipleOrder].some(Boolean);
+    optionalFields.open = !mobile || Boolean(editingId) || Boolean(hasOptionalDraft);
+    const hasRanks = fields
+      ? Boolean(fields.siblingOrder || fields.discipleOrder)
+      : Boolean(form.elements.namedItem('siblingOrder').value || form.elements.namedItem('discipleOrder').value);
+    rankingFields.open = !mobile || hasRanks;
+  }
   function memberFormSnapshot() {
     const field = name => String(form.elements.namedItem(name)?.value ?? '');
     return {
@@ -144,6 +156,7 @@
       note: relation.note, source: relation.source, status: relation.status, groupId: relation.groupId
     }, { expanded: false }));
     [...relations.children].forEach(row => row.updatePreview?.());
+    syncProgressiveFields({ draft });
     scheduleMemberDraft();
   }
   function offerMemberDraft() {
@@ -268,14 +281,20 @@
     const seniority = field('對方的長幼', 'relation-cousin-seniority'); seniority.parentElement.className = 'relation-cousin-field';
     seniority.append(option('unknown', '未確認'), option('older', '對方比此成員年長'), option('younger', '對方比此成員年幼'));
     const rankGroup = field('使用的排行群組', 'relation-group'); rankGroup.required = false;
-    const state = field('確認狀態', 'relation-status'); state.append(option('confirmed', '已確認'), option('pending', '待確認'));
-    const textField = (title, className) => {
+    const advanced = document.createElement('details'); advanced.className = 'relation-advanced';
+    advanced.open = !matchMedia('(max-width:700px)').matches;
+    const advancedSummary = document.createElement('summary'); advancedSummary.textContent = '進階設定：確認狀態、來源與說明';
+    const advancedBody = document.createElement('div'); advancedBody.className = 'relation-advanced__body';
+    advanced.append(advancedSummary, advancedBody); editor.appendChild(advanced);
+    const advancedField = (title, className, tag = 'select') => {
       const label = document.createElement('label'); label.textContent = title; label.className = 'relation-metadata';
-      const input = document.createElement('textarea'); input.className = className; input.rows = 2; input.maxLength = 2000;
-      label.append(input); editor.append(label); return input;
+      const input = document.createElement(tag); input.className = className;
+      if (tag === 'textarea') { input.rows = 2; input.maxLength = 2000; }
+      label.append(input); advancedBody.append(label); return input;
     };
-    const source = textField('關係來源（選填）', 'relation-source');
-    const note = textField('關係說明（選填）', 'relation-note');
+    const state = advancedField('確認狀態', 'relation-status'); state.append(option('confirmed', '已確認'), option('pending', '待確認'));
+    const source = advancedField('關係來源（選填）', 'relation-source', 'textarea');
+    const note = advancedField('關係說明（選填）', 'relation-note', 'textarea');
     remove.addEventListener('click', () => {
       const nextFocus = row.nextElementSibling?.querySelector('.relation-row__toggle') || row.previousElementSibling?.querySelector('.relation-row__toggle') || document.getElementById('add-relation');
       removedRelation = { row, index: [...relations.children].indexOf(row) };
@@ -319,7 +338,11 @@
     row.addEventListener('input', scheduleMemberDraft);
     row.updatePreview = update;
     row.expandEditor = () => setExpanded(true);
-    if (initial) { target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind; seniority.value = initial.seniority || 'unknown'; source.value = initial.source || ''; note.value = initial.note || ''; state.value = initial.status || 'confirmed'; }
+    if (initial) {
+      target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind;
+      seniority.value = initial.seniority || 'unknown'; source.value = initial.source || ''; note.value = initial.note || ''; state.value = initial.status || 'confirmed';
+      advanced.open = Boolean(initial.source || initial.note || initial.status === 'pending');
+    }
     relations.appendChild(row); update(); setExpanded(expanded); scheduleMemberDraft(); if (!initial) target.focus();
   }
   function setSaving(value) {
@@ -377,6 +400,7 @@
       document.getElementById('member-fields').prepend(context);
       [...relations.children].forEach(row => row.updatePreview());
     }
+    syncProgressiveFields();
     setSaving(false);
     resetMemberBaseline();
     dialog.showModal();

@@ -217,5 +217,12 @@
     });
   }
 
-  return { project, intermediatePlans };
+  // Use the full graph even when a query/filter hides an intermediate row.
+  // Missing ancestors reserve display rows without renumbering members by view.
+  function generationOffset(graph) {
+    const plans = intermediatePlans(graph, { graph });
+    return Math.max(0, 1 - Math.min(1, ...plans.map(plan => plan.generation)));
+  }
+
+  return { project, intermediatePlans, generationOffset };
 });

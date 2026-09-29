@@ -146,16 +146,17 @@
   };
   function rememberRecentMember(id) {
     if (!id) return;
-    const people = window.FAMILY?.people || [];
+    const people = FamilyApp.graph()?.people || [];
     if (!people.some(person => person.id === id)) return;
     writeRecentMembers([id, ...readRecentMembers().filter(value => value !== id)]);
     if (dialog.open) renderMemberList();
   }
 
   function currentIgnoredCount() {
-    if (!window.FAMILY?.people) return 0;
-    const ignored = new Set(FamilyModel.ignoredIntermediatePlanIds(window.FAMILY));
-    return new Set(FamilyModel.intermediatePlans(window.FAMILY, { includeIgnored: true }).filter(plan => ignored.has(plan.id)).map(plan => plan.slotId)).size;
+    const data = FamilyApp.snapshot()?.data;
+    if (!data?.people) return 0;
+    const ignored = new Set(FamilyModel.ignoredIntermediatePlanIds(data));
+    return new Set(FamilyModel.intermediatePlans(data, { includeIgnored: true }).filter(plan => ignored.has(plan.id)).map(plan => plan.slotId)).size;
   }
   function refreshIgnoredCount() {
     const value = currentIgnoredCount();
@@ -184,10 +185,10 @@
   function navigateToMember(id) {
     if (!id) return;
     if (dialog.open) dialog.close();
-    window.selectFamilyMember?.(id, { expandDetails: true });
+    window.dispatchEvent(new CustomEvent('familytreeselect', { detail: { id, options: { expandDetails: true } } }));
   }
   function renderMemberList() {
-    const people = window.FAMILY?.people || [], linked = FamilyModel.relationshipMemberIds(people);
+    const people = FamilyApp.graph()?.people || [], linked = FamilyModel.relationshipMemberIds(people);
     const keyword = normalized(searchMembers?.value.trim() || '');
     const visible = people.filter(person => {
       const connected = linked.has(person.id);

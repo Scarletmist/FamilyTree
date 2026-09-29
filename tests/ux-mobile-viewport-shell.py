@@ -8,10 +8,11 @@ import tempfile
 import urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from browser_assets import html_without_asset_scripts, install_family_assets
 
 ROOT = Path(__file__).resolve().parents[1]
-DEMO = json.loads((ROOT / 'data/family.json').read_text())
-HTML = re.sub(r'<script src="assets/[^"\n]+"></script>', '', (ROOT / 'family-tree.html').read_text())
+DEMO = json.loads((ROOT / 'fixtures/family.json').read_text())
+HTML = html_without_asset_scripts(ROOT)
 ASSETS = [
     'family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js',
     'relationship-search.js', 'connector-routing.js', 'label-layout.js', 'family-tree.js',
@@ -25,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='family-mobile-shell-') as temp:
     command = [
         'node', '-e',
         "const {createFamilyServer}=require(process.argv[1]);const s=createFamilyServer({dataFile:process.argv[2]});s.listen(0,'127.0.0.1',()=>console.log(s.address().port));",
-        str(ROOT / 'server.cjs'), str(data_file)
+        str(ROOT / 'dev/server.cjs'), str(data_file)
     ]
     server = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
@@ -62,8 +63,7 @@ with tempfile.TemporaryDirectory(prefix='family-mobile-shell-') as temp:
                     return new Response(JSON.stringify(result.payload), {status:result.status, headers:{'Content-Type':'application/json'}});
                 };
             }""")
-            for asset in ASSETS:
-                page.add_script_tag(content=(ROOT / 'assets' / asset).read_text())
+            install_family_assets(page, ROOT)
             page.wait_for_function('(count) => window.FAMILY && window.FAMILY.people.length === count', arg=len(DEMO['people']))
             return context, page, errors
 

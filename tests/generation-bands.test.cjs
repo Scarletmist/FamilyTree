@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Bands = require('../assets/generation-bands.js');
-const Model = require('../assets/family-model.js');
-const demo = require('../data/family.json');
+const Bands = require('../src/assets/generation-bands.js');
+const Model = require('../src/assets/family-model.js');
+const demo = require('../fixtures/family.json');
 
 test('generation bands fill the canvas and split connector gaps at their midpoints', () => {
   assert.deepEqual(Bands.calculate([], 500), []);
@@ -57,7 +57,7 @@ test('backgrounds and vertical labels use the actual generation number without a
 });
 
 test('server serves the generation module and its script is loaded before the graph', async () => {
-  const { createFamilyServer } = require('../server.cjs');
+  const { createFamilyServer } = require('../dev/server.cjs');
   const server = createFamilyServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {

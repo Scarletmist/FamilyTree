@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { createFamilyServer } = require('../server.cjs');
+const { createFamilyServer } = require('../dev/server.cjs');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 (async () => {

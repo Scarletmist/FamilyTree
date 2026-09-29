@@ -1,13 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model');
-const Details = require('../assets/relationship-details');
-const Kinship = require('../assets/kinship').create(require('../data/kinship-terms.json'));
+const Model = require('../src/assets/family-model');
+const Projection = require('../src/assets/family-display-projection');
+const Details = require('../src/assets/relationship-details');
+const Kinship = require('../src/assets/kinship').create(require('../src/data/kinship-terms.json'));
 const p = (id, gender = 'M', relationships = []) => ({ id, name: id, gender, location: '', position: '', siblingOrder: null, relationships });
 const parent = personId => ({ type: 'parent', personId, kind: '親生' });
 for (const [type, prefix] of [['tangCousin', '堂'], ['biaoCousin', '表']]) test(`${prefix} relatives can be recorded directly, reversed and edited without inventing parents`, () => {
   const data = { schemaVersion: 2, people: [p('A'), p('B', 'F', [{ type, personId: 'A', seniority: 'older' }])] };
-  const graph = Model.build(data);
+  const graph = Projection.project(Model.build(data));
   assert.equal(graph.descents.length, 0); assert.equal(graph.people[0].gen, graph.people[1].gen);
   assert.equal(Kinship.query(graph, 'A', 'B').paths[0].title, prefix + '兄');
   assert.equal(Kinship.query(graph, 'B', 'A').paths[0].title, prefix + '妹');
@@ -23,7 +24,7 @@ test('later fathers and their sibling relation coexist with direct cousin and kn
   data.people.push(p('C'), p('D', 'M', [{ type: 'sibling', personId: 'C' }]));
   data = Model.replaceMember(data, { ...data.people[0], relationships: [...Model.relationshipsFor(data, 'A'), parent('C')] });
   data = Model.replaceMember(data, { ...data.people[1], relationships: [...Model.relationshipsFor(data, 'B'), parent('D')] });
-  const graph = Model.build(data), result = Kinship.query(graph, 'A', 'B');
+  const graph = Projection.project(Model.build(data)), result = Kinship.query(graph, 'A', 'B');
   assert.deepEqual(result.paths[0].nodes, ['B', 'D', 'C', 'A']);
   assert.equal(result.paths[0].title, '堂兄');
   assert.ok(result.paths.some(path => path.edges.length === 1 && path.title === '堂兄'));

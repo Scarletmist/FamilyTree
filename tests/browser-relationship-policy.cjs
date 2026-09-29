@@ -4,8 +4,8 @@ const path = require('node:path');
 const os = require('node:os');
 const http = require('node:http');
 const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const { createFamilyServer } = require('../server.cjs');
-const { build } = require('../build.cjs');
+const { createFamilyServer } = require('../dev/server.cjs');
+const { build } = require('../dev/build.cjs');
 const person = (id, gender='M', siblingOrder=null, relationships=[]) => ({id,name:id,gender,siblingOrder,relationships,location:'',position:''});
 const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person('A'),person('B','F'),person('D'),person('T')].map((p,i)=>({...p,name:['阿明','阿華','重複資料','師父'][i]}))});
 (async()=>{

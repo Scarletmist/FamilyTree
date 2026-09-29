@@ -1,0 +1,153 @@
+  <dialog id="member-list-dialog" aria-labelledby="member-list-title">
+    <div class="dialog-header"><h2 id="member-list-title">所有成員</h2><button type="button" id="close-member-list" class="details-icon" aria-label="關閉成員清單" title="關閉成員清單"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
+    <div class="dialog-scroll member-list-scroll">
+      <div class="member-list-sticky">
+        <div class="member-list-toolbar">
+          <label class="member-list-search-label" for="member-list-search">搜尋成員<input id="member-list-search" type="search" autocomplete="off" placeholder="姓名、所在地、職位或代別" /></label>
+          <button type="button" id="open-ignored-intermediates" class="plain-button member-list-secondary open-ignored-intermediates" data-ignored-count="0" aria-label="已忽略待補項目，共 0 項">已忽略待補項目 <span id="ignored-intermediate-count">（0）</span></button>
+        </div>
+        <div class="member-list-filters" role="group" aria-label="成員狀態篩選">
+          <span class="member-list-filter-label">狀態</span>
+          <button type="button" class="member-list-filter" data-member-filter="all" aria-pressed="true">全部</button>
+          <button type="button" class="member-list-filter" data-member-filter="unlinked" aria-pressed="false">未設定關係</button>
+        </div>
+        <p id="member-list-count"></p>
+      </div>
+      <section id="member-list-recent" class="member-list-recent" aria-labelledby="member-list-recent-title" hidden>
+        <strong id="member-list-recent-title" class="member-list-recent__title">最近查看</strong>
+        <div id="member-list-recent-items" class="member-list-recent__items"></div>
+      </section>
+      <p id="member-list-empty" class="member-list-empty" hidden>找不到符合的成員。</p>
+      <table class="member-list-table"><thead><tr><th scope="col">姓名</th><th scope="col">所在地</th><th scope="col">職位</th><th scope="col">代別</th></tr></thead><tbody id="member-list-body"></tbody></table>
+    </div>
+  </dialog>
+  <dialog id="ignored-intermediate-dialog" aria-labelledby="ignored-intermediate-title">
+    <div class="dialog-header"><h2 id="ignored-intermediate-title">已忽略待補項目</h2><button type="button" id="close-ignored-intermediates" class="details-icon" aria-label="關閉已忽略待補項目" title="關閉已忽略待補項目"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
+    <div class="dialog-scroll">
+      <p class="form-note">這些待補親屬已被設為不顯示；需要繼續補登時可隨時恢復。</p>
+      <div id="ignored-intermediate-list" class="ignored-intermediate-list"></div>
+      <p id="ignored-intermediate-empty" class="ignored-intermediate-empty" hidden>目前沒有已忽略的待補項目。</p>
+      <p id="ignored-intermediate-error" class="form-error" role="alert"></p>
+    </div>
+  </dialog>
+  <dialog id="family-name-dialog" class="family-name-dialog" aria-labelledby="family-name-dialog-title">
+    <div class="dialog-header">
+      <h2 id="family-name-dialog-title">編輯家族名稱</h2>
+      <button type="button" id="close-family-name-dialog" class="details-icon" aria-label="關閉家族名稱表單" title="關閉家族名稱表單"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button>
+    </div>
+    <form id="family-name-form">
+      <div class="form-scroll">
+        <fieldset class="form-fields" id="family-name-fields">
+          <label for="family-name-input">家族名稱
+            <input id="family-name-input" name="familyName" required maxlength="80" autocomplete="off" placeholder="例如：陳氏家族" />
+          </label>
+          <p class="form-note">名稱會儲存至族譜 JSON，並同步更新頁面標題。最多 80 個字元。</p>
+        </fieldset>
+        <p id="family-name-error" class="form-error" role="alert"></p>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="refresh-family-name" class="plain-button">更新目前資料</button>
+        <button type="button" id="cancel-family-name" class="plain-button">取消</button>
+        <button type="submit" id="save-family-name" class="primary-button">儲存名稱</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="member-dialog" aria-labelledby="member-dialog-title">
+    <div class="dialog-header">
+      <h2 id="member-dialog-title">新增成員</h2>
+      <button type="button" id="close-member-dialog" class="details-icon" aria-label="關閉成員表單" title="關閉成員表單"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button>
+    </div>
+    <form id="member-form">
+      <div class="form-scroll">
+        <fieldset class="form-fields" id="member-fields">
+        <div class="field-grid">
+          <label>姓名（必填）<input id="member-name" name="name" required maxlength="80" autocomplete="off" /></label>
+          <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：臺中市" /></label>
+          <label>職位<input id="member-position" name="position" maxlength="120" placeholder="例如：教師、工程師" /></label>
+          <label>性別（用於兄姊弟妹稱呼）<select id="member-gender" name="gender"><option value="U">未填寫</option><option value="M">男</option><option value="F">女</option></select></label>
+          <label>師門次序<input id="member-disciple-order" name="discipleOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
+          <label>手足次序<input id="member-order" name="siblingOrder" type="number" min="1" max="999" step="1" placeholder="未知可留空" /></label>
+        </div>
+        <p class="form-note">手足次序以同一組父母的所有子女排序，男女合併，例如 1、2、3。未知可留空，並在下方關係中設定兩人的相對長幼。若有不同家庭或結拜排行，可從成員清單設定「排行群組」。</p>
+        <p class="form-note">師門次序以同一師門內男女合併排序，例如 1、2、3；數字較小者為師兄／師姊，與家族手足次序分開記錄。</p>
+        <label class="member-notes-field">備註說明<textarea id="member-notes" name="notes" rows="3" maxlength="5000" placeholder="可填寫成員的補充說明"></textarea></label>
+        <h3>與現有成員的關係</h3>
+        <p class="form-note">選擇「現有成員是這位成員的誰」。可新增、修改或移除多筆關係。僅新增手足關係不會自動推定其父母，父母請另行填寫。</p>
+        <div id="member-relations"></div>
+          <button type="button" id="add-relation" class="plain-button">＋ 新增一筆關係</button>
+        </fieldset>
+        <p id="member-error" class="form-error" role="alert"></p>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="refresh-family" class="plain-button">更新資料</button>
+        <button type="button" id="cancel-member" class="plain-button">取消</button>
+        <button type="submit" id="save-member" class="primary-button">儲存成員</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="unsaved-changes-dialog" class="unsaved-changes-dialog" aria-labelledby="unsaved-changes-title">
+    <div class="dialog-header"><h2 id="unsaved-changes-title">捨棄未儲存的修改？</h2></div>
+    <div class="dialog-scroll">
+      <p>目前表單還有尚未儲存的內容。若現在離開，這些修改將不會保留。</p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="keep-editing-member" class="plain-button">繼續編輯</button>
+      <button type="button" id="discard-member-changes" class="primary-button">捨棄修改</button>
+    </div>
+  </dialog>
+  <dialog id="member-draft-dialog" class="member-draft-dialog" aria-labelledby="member-draft-title">
+    <div class="dialog-header"><h2 id="member-draft-title">找到尚未完成的成員資料</h2></div>
+    <div class="dialog-scroll">
+      <p id="member-draft-message">找到尚未完成的成員資料。</p>
+      <p class="form-note">草稿只保留在目前瀏覽器分頁中，不會同步到 Google Drive。</p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="discard-member-draft" class="plain-button">捨棄草稿</button>
+      <button type="button" id="resume-member-draft" class="primary-button">繼續編輯</button>
+    </div>
+  </dialog>
+  <dialog id="cloud-sync-dialog" class="cloud-sync-dialog" aria-labelledby="cloud-sync-title">
+    <div class="dialog-header">
+      <h2 id="cloud-sync-title">Google Drive 跨裝置同步</h2>
+      <button type="button" id="close-cloud-sync-dialog" class="details-icon" aria-label="關閉雲端同步" title="關閉雲端同步"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18 M6 6l12 12"/></svg></button>
+    </div>
+    <div class="dialog-scroll cloud-sync-panel">
+      <div class="cloud-sync-state-card">
+        <strong id="cloud-sync-message">讀取同步狀態中…</strong>
+        <p id="cloud-sync-meta"></p>
+      </div>
+      <p class="cloud-sync-help">跨裝置同步的雲端資料只會儲存在您授權的 Google 帳號中；本網站不會在伺服端留存或集中保存您的族譜資料。使用同一 Google 帳號即可在不同裝置同步同一份族譜。</p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="cloud-sync-disconnect" class="plain-button" hidden>中斷連結</button>
+      <button type="button" id="cloud-sync-action" class="primary-button">連結 Google Drive</button>
+    </div>
+  </dialog>
+  <dialog id="cloud-conflict-dialog" aria-labelledby="cloud-conflict-title">
+    <div class="dialog-header"><h2 id="cloud-conflict-title">偵測到同步衝突</h2><button type="button" id="close-cloud-conflict-dialog" class="details-icon" aria-label="關閉同步衝突處理" title="關閉同步衝突處理"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
+    <div class="dialog-scroll">
+      <p>此裝置與 Google Drive 都有不同變更。為避免誤覆蓋，請選擇要保留的版本。</p>
+      <div class="cloud-conflict-grid">
+        <div class="cloud-conflict-option"><strong>此裝置版本</strong><span id="cloud-conflict-local-summary"></span></div>
+        <div class="cloud-conflict-option"><strong>Google Drive 版本</strong><span id="cloud-conflict-remote-summary"></span></div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="cloud-conflict-cancel" class="plain-button">稍後處理</button>
+      <button type="button" id="cloud-conflict-use-remote" class="plain-button">下載 Google Drive 版本</button>
+      <button type="button" id="cloud-conflict-use-local" class="primary-button">以此裝置版本覆蓋雲端</button>
+    </div>
+  </dialog>
+  <dialog id="import-dialog" aria-labelledby="import-title">
+    <div class="dialog-header"><h2 id="import-title">匯入族譜</h2><button type="button" id="close-import-dialog" class="details-icon" aria-label="關閉匯入族譜" title="關閉匯入族譜"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
+    <div class="dialog-scroll">
+      <p id="import-summary"></p>
+      <p class="form-note">匯入會取代目前全部成員與關係。匯入前會自動保留上一份資料備份。</p>
+      <p id="import-error" class="form-error" role="alert"></p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="refresh-import" class="plain-button">更新目前資料</button>
+      <button type="button" id="cancel-import" class="plain-button">取消</button>
+      <button type="button" id="confirm-import" class="primary-button">取代並匯入</button>
+    </div>
+  </dialog>

@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const Model = require('../assets/family-model.js');
-const { createFamilyServer } = require('../server.cjs');
-const demo = require('../data/family.json');
+const Model = require('../src/assets/family-model.js');
+const { createFamilyServer } = require('../dev/server.cjs');
+const demo = require('../fixtures/family.json');
 
 async function fixture(fn) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'family-name-test-'));

@@ -1,10 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model');
+const Model = require('../src/assets/family-model');
+const Projection = require('../src/assets/family-display-projection');
 const p = (id, relationships = []) => ({ id, name: id, location: '', position: '', gender: 'U', siblingOrder: null, relationships });
 const parent = personId => ({ type: 'parent', personId, kind: '親生' });
 const teacher = personId => ({ type: 'teacher', personId });
-const levels = people => new Map(Model.build({ schemaVersion: 2, people }).people.map(p => [p.id, p.gen]));
+const levels = people => new Map(Projection.project(Model.build({ schemaVersion: 2, people })).people.map(p => [p.id, p.gen]));
 test('unanchored teacher is above an anchored student; unrelated members stay put', () => {
   const g = levels([p('G'), p('P', [parent('G')]), p('S', [parent('P'), teacher('T')]), p('T'), p('X')]);
   assert.equal(g.get('S') - g.get('T'), 1);
@@ -40,7 +41,7 @@ test('adding a teachers father and cousin branch preserves placement of the whol
     for (const id of ['B0', 'D0']) assert.equal(g.get(id), 2);
     for (const id of ['B1', 'D1', 'D2']) assert.equal(g.get(id), 3);
     assert.equal(g.get('S'), 4); assert.equal(g.get('G'), 1);
-    const plans = Model.intermediatePlans({ schemaVersion: 2, people });
+    const plans = Projection.intermediatePlans({ schemaVersion: 2, people });
     assert.equal(plans.find(plan => plan.relationships.some(r => r.personId === 'B0')).generation, 1);
   }
 });

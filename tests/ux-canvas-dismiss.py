@@ -1,16 +1,17 @@
 import json, re, subprocess, tempfile, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from browser_assets import html_without_asset_scripts, install_family_assets
 
 ROOT = Path(__file__).resolve().parents[1]
-DEMO = json.loads((ROOT / 'data/family.json').read_text())
-HTML = re.sub(r'<script src="assets/[^"\n]+"></script>', '', (ROOT / 'family-tree.html').read_text())
+DEMO = json.loads((ROOT / 'fixtures/family.json').read_text())
+HTML = html_without_asset_scripts(ROOT)
 ASSETS = ['family-model.js','relationship-details.js','generation-bands.js','kinship.js','relationship-search.js','connector-routing.js','label-layout.js','family-tree.js','family-storage.js','family-repository.js','member-form.js','member-tools.js','mobile-landscape-toolbar.js']
 
 with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
     data = Path(temp) / 'family.json'
     data.write_text(json.dumps(DEMO, ensure_ascii=False, indent=2) + '\n')
-    server = subprocess.Popen(['node','-e',"const {createFamilyServer}=require(process.argv[1]);const s=createFamilyServer({dataFile:process.argv[2]});s.listen(0,'127.0.0.1',()=>console.log(s.address().port));",str(ROOT/'server.cjs'),str(data)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    server = subprocess.Popen(['node','-e',"const {createFamilyServer}=require(process.argv[1]);const s=createFamilyServer({dataFile:process.argv[2]});s.listen(0,'127.0.0.1',()=>console.log(s.address().port));",str(ROOT/'dev/server.cjs'),str(data)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         port = int(server.stdout.readline().strip()); base = f'http://127.0.0.1:{port}'
         def request(route, method='GET', body=None):
@@ -24,7 +25,7 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
             page = ctx.new_page(); page.set_default_timeout(4000); errors=[]; page.on('pageerror',lambda e:errors.append(str(e)))
             page.expose_binding('familyRequest', bridge); page.set_content(HTML, wait_until='load')
             page.evaluate("""() => { Object.defineProperty(crypto,'randomUUID',{value:()=>String(Date.now())+'-0000-4000-8000-000000000001',configurable:true}); window.fetch=async(url,options={})=>{const result=await window.familyRequest({url,method:options.method||'GET',body:options.body||null});return new Response(JSON.stringify(result.payload),{status:result.status,headers:{'Content-Type':'application/json'}})} }""")
-            for asset in ASSETS: page.add_script_tag(content=(ROOT/'assets'/asset).read_text())
+            install_family_assets(page, ROOT)
             page.wait_for_function('(n)=>window.FAMILY&&window.FAMILY.people.length===n', arg=len(DEMO['people']))
             page.wait_for_function("document.querySelector('#kinship-status').textContent === ''")
 

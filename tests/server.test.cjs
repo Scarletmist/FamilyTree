@@ -4,13 +4,16 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const { randomUUID } = require('node:crypto');
-const { createFamilyServer } = require('../server.cjs');
-const Model = require('../assets/family-model.js');
-const demo = require('../data/family.json');
+const { createFamilyServer } = require('../dev/server.cjs');
+const Model = require('../src/assets/family-model.js');
+const Projection = require('../src/assets/family-display-projection.js');
+const demo = require('../fixtures/family.json');
 const person = (id, relationships = [], siblingOrder = null) => ({ id, name: id, location: '', position: '', gender: 'U', siblingOrder, relationships });
 
 test('numeric ordering and relationship-derived generations', () => {
-  const graph = Model.build(demo);
+  const domain = Model.build(demo);
+  assert(domain.people.every(person => !Object.hasOwn(person, 'gen')));
+  const graph = Projection.project(domain);
   const byId = new Map(graph.people.map(p => [p.id, p]));
   assert.equal(byId.get('p24').gen, byId.get('p11').gen);
   assert.equal(byId.get('p24').gen, 3);
@@ -21,7 +24,7 @@ test('numeric ordering and relationship-derived generations', () => {
 
 test('single parents, shared parents without marriage, reverse child relation and standalone members', () => {
   const data = { schemaVersion: 2, people: [person('A', [{ type: 'child', personId: 'C', kind: '親生' }]), person('B'), person('C', [{ type: 'parent', personId: 'B', kind: '親生' }], 1), person('D', [{ type: 'parent', personId: 'A', kind: '親生' }], 2), person('E')] };
-  const graph = Model.build(data);
+  const graph = Projection.project(Model.build(data));
   assert.equal(graph.unions.length, 2);
   assert(graph.unions.every(u => !u.married));
   assert(graph.unions.some(u => u.partners.length === 1));

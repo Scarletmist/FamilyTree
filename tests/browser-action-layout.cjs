@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const { createFamilyServer } = require('../server.cjs');
+const { createFamilyServer } = require('../dev/server.cjs');
 (async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'family-actions-'));
   const person = (id, name, gender, order, relationships=[]) => ({id,name,gender,siblingOrder:order,relationships,location:'',position:''});

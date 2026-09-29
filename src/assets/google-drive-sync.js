@@ -16,8 +16,6 @@
   const clientId = document.querySelector('meta[name="google-oauth-client-id"]')?.content?.trim() || window.FAMILY_GOOGLE_CLIENT_ID || '';
   const scope = 'https://www.googleapis.com/auth/drive.appdata';
   const fileName = 'family-tree.json';
-  const driveBase = 'https://www.googleapis.com/drive/v3/files';
-  const uploadBase = 'https://www.googleapis.com/upload/drive/v3/files';
   let accessToken = null;
   let tokenExpiresAt = 0;
   let syncConnected = false;
@@ -281,77 +279,19 @@
       .then(() => navigator.onLine ? syncNow({ interactive: false }) : null)
       .catch(() => refreshUiFromState().catch(() => {}));
   }
-  async function driveFetch(url, options = {}) {
-    if (!accessToken || Date.now() >= tokenExpiresAt - 5_000) throw new Error('Google 授權已過期；請在下一次操作時允許恢復同步，或開啟雲端面板重新授權。');
-    const response = await fetch(url, {
-      ...options,
-      headers: { ...(options.headers || {}), Authorization: 'Bearer ' + accessToken }
-    });
-    if (response.status === 401) {
+  const driveClient = FamilyGoogleDriveClient.create({
+    fileName,
+    getAccessToken: () => accessToken && Date.now() < tokenExpiresAt - 5_000 ? accessToken : null,
+    validateData: data => FamilyModel.build(data),
+    onUnauthorized: async () => {
       accessToken = null;
       tokenExpiresAt = 0;
       clearStoredToken();
       stopPolling();
       prepareAuthorization();
       await refreshUiFromState();
-      throw new Error('Google 授權已過期；下次操作時會自動嘗試恢復同步。');
     }
-    if (!response.ok) {
-      let detail = '';
-      try { detail = (await response.json())?.error?.message || ''; } catch {}
-      throw new Error(detail || `Google Drive API 發生錯誤（${response.status}）。`);
-    }
-    return response;
-  }
-  async function findRemote() {
-    const query = `'appDataFolder' in parents and name = '${fileName.replaceAll("'", "\\'")}' and trashed = false`;
-    const params = new URLSearchParams({
-      spaces: 'appDataFolder',
-      q: query,
-      orderBy: 'modifiedTime desc',
-      pageSize: '10',
-      fields: 'files(id,name,version,modifiedTime,size)'
-    });
-    const payload = await (await driveFetch(driveBase + '?' + params)).json();
-    return payload.files?.[0] || null;
-  }
-  function multipartBody(metadata, data) {
-    const boundary = 'family_tree_' + crypto.randomUUID().replaceAll('-', '');
-    const json = JSON.stringify(data, null, 2);
-    const body = new Blob([
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
-      JSON.stringify(metadata),
-      `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
-      json,
-      `\r\n--${boundary}--`
-    ]);
-    return { body, contentType: `multipart/related; boundary=${boundary}` };
-  }
-  async function createRemote(data) {
-    const multipart = multipartBody({ name: fileName, mimeType: 'application/json', parents: ['appDataFolder'] }, data);
-    const params = new URLSearchParams({ uploadType: 'multipart', fields: 'id,name,version,modifiedTime,size' });
-    return (await (await driveFetch(uploadBase + '?' + params, {
-      method: 'POST',
-      headers: { 'Content-Type': multipart.contentType },
-      body: multipart.body
-    })).json());
-  }
-  async function updateRemote(fileId, data) {
-    const params = new URLSearchParams({ uploadType: 'media', fields: 'id,name,version,modifiedTime,size' });
-    return (await (await driveFetch(`${uploadBase}/${encodeURIComponent(fileId)}?${params}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-      body: JSON.stringify(data, null, 2)
-    })).json());
-  }
-  async function downloadRemote(remote) {
-    const response = await driveFetch(`${driveBase}/${encodeURIComponent(remote.id)}?alt=media`);
-    let data;
-    try { data = JSON.parse((await response.text()).replace(/^\uFEFF/, '')); }
-    catch { throw new Error('Google Drive 上的族譜檔案不是有效的 JSON。'); }
-    FamilyModel.build(data);
-    return data;
-  }
+  });
   function waitForConflictChoice(local, remote, remoteData) {
     if (!conflictDialog) return Promise.resolve('cloud');
     document.getElementById('cloud-conflict-local-summary').textContent = `此裝置：${local.data.people.length} 位成員`;
@@ -373,25 +313,13 @@
   document.getElementById('close-cloud-conflict-dialog')?.addEventListener('click', () => resolveConflict('cancel'));
   conflictDialog?.addEventListener('cancel', event => { event.preventDefault(); resolveConflict('cancel'); });
 
-  async function handleConflict(local, remote, interactive) {
-    setUi('conflict', '此裝置與 Google Drive 都有不同的族譜版本', '請選擇要保留哪一份資料。');
-    if (!interactive) return { outcome: 'conflict' };
-    const remoteData = await downloadRemote(remote);
-    const choice = await waitForConflictChoice(local, remote, remoteData);
-    if (choice === 'cancel') return { outcome: 'cancelled' };
-    const latestLocal = await repository.read(), latestRemote = await findRemote();
-    if (latestLocal.version !== local.version || !latestRemote || latestRemote.id !== remote.id || latestRemote.version !== remote.version) throw new Error('預覽期間資料已更新，請重新同步並檢查最新差異。');
-    if (choice === 'local') {
-      setUi('syncing', '正在以此裝置資料更新 Google Drive…');
-      const uploaded = await updateRemote(remote.id, local.data);
-      await repository.markCloudSynced({ fileId: uploaded.id, remoteVersion: uploaded.version }, local.version);
-      return { outcome: 'uploaded', remote: uploaded };
-    }
-    setUi('syncing', '正在從 Google Drive 載入族譜…');
-    const data = remoteData;
-    await repository.replaceFromCloud(data, { fileId: remote.id, remoteVersion: remote.version }, local.version);
-    return { outcome: 'downloaded', remote };
-  }
+  const syncEngine = FamilySyncEngine.create({
+    repository,
+    remote: driveClient,
+    isOnline: () => navigator.onLine,
+    onStatus: (state, text, detail = '') => setUi(state, text, detail),
+    resolveConflict: ({ local, remote, remoteData }) => waitForConflictChoice(local, remote, remoteData)
+  });
   async function doSync(interactive) {
     if (!navigator.onLine) throw new Error('目前離線；資料已保存在 IndexedDB，恢復網路後再同步。');
     if (!accessToken || Date.now() >= tokenExpiresAt - TOKEN_VALIDITY_MARGIN_MS) {
@@ -402,43 +330,7 @@
       setUi('syncing', '正在取得 Google 授權…');
       await authorize();
     }
-    setUi('syncing', '正在檢查 Google Drive…');
-    const [local, state, remote] = await Promise.all([repository.read(), repository.getSyncState(), findRemote()]);
-    if (!remote) {
-      setUi('syncing', '正在建立 Google Drive 雲端族譜…');
-      const created = await createRemote(local.data);
-      await repository.markCloudSynced({ fileId: created.id, remoteVersion: created.version }, local.version);
-      return { outcome: 'created', remote: created };
-    }
-
-    const sameFile = state.fileId === remote.id;
-    const knowsRemoteVersion = sameFile && typeof state.remoteVersion === 'string' && state.remoteVersion.length > 0;
-    if (!knowsRemoteVersion) {
-      if (repository.isPristine(local.data) && !state.dirty) {
-        setUi('syncing', '正在從 Google Drive 載入族譜…');
-        const data = await downloadRemote(remote);
-        await repository.replaceFromCloud(data, { fileId: remote.id, remoteVersion: remote.version }, local.version);
-        return { outcome: 'downloaded', remote };
-      }
-      return handleConflict(local, remote, interactive);
-    }
-
-    if (remote.version !== state.remoteVersion) {
-      if (state.dirty) return handleConflict(local, remote, interactive);
-      setUi('syncing', 'Google Drive 有較新資料，正在下載…');
-      const data = await downloadRemote(remote);
-      await repository.replaceFromCloud(data, { fileId: remote.id, remoteVersion: remote.version }, local.version);
-      return { outcome: 'downloaded', remote };
-    }
-
-    if (state.dirty) {
-      setUi('syncing', '正在將此裝置的變更上傳至 Google Drive…');
-      const uploaded = await updateRemote(remote.id, local.data);
-      await repository.markCloudSynced({ fileId: uploaded.id, remoteVersion: uploaded.version }, local.version);
-      return { outcome: 'uploaded', remote: uploaded };
-    }
-    await repository.markCloudSynced({ fileId: remote.id, remoteVersion: remote.version }, local.version);
-    return { outcome: 'unchanged', remote };
+    return syncEngine.sync({ interactive });
   }
   async function syncNow({ interactive = true } = {}) {
     if (syncInFlight) return syncInFlight;

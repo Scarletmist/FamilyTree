@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { build } = require('../build.cjs');
+const { build } = require('../dev/build.cjs');
 
 async function tempDir() {
   return fs.mkdtemp(path.join(os.tmpdir(), 'family-build-sync-'));
@@ -26,6 +26,16 @@ test('static build injects Google OAuth client ID and includes cloud sync code',
     assert.match(syncJs, /requestAccessToken\(\{ prompt: '' \}\)/);
     assert.match(syncJs, /TOKEN_REFRESH_WINDOW_MS = 5 \* 60_000/);
     assert.match(syncJs, /opportunisticAuthorizeFromGesture/);
+    const treeModule = await fs.readFile(path.join(output, 'assets', 'family-tree.js'), 'utf8');
+    for (const name of [
+      'family-tree-renderer.mjs',
+      'family-tree-layout.mjs',
+      'family-tree-viewport.mjs',
+      'family-tree-interaction.mjs'
+    ]) {
+      assert.match(treeModule, new RegExp(`from ['"]\\./${name.replace('.', '\\.')}`));
+      await fs.access(path.join(output, 'assets', name));
+    }
     await assert.rejects(fs.access(path.join(output, 'data', 'family.json')));
   } finally {
     if (previous === undefined) delete process.env.GOOGLE_OAUTH_CLIENT_ID;

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { connectorGroups } = require('../assets/family-model');
-const { sharedSegments, segments, overlapLength } = require('../assets/connector-routing');
+const { connectorGroups } = require('../src/assets/family-model');
+const { sharedSegments, segments, overlapLength } = require('../src/assets/connector-routing');
 const edge = (from, to, kind) => ({ from, to, kind });
 const graph = { bonds: [{ kind: '手足', members: ['B', 'C'] }], descents: [], unions: [], mentorships: [] };
 const shared = (g, edges) => new Set(connectorGroups(g, edges).map(s => s.group)).size === 1;

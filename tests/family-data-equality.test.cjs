@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model.js');
+const Model = require('../src/assets/family-model.js');
 
 test('sameJsonData ignores object key order but preserves array/content changes', () => {
   const a = {

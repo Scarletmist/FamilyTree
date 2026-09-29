@@ -1,0 +1,426 @@
+/* Persistence boundary. GitHub Pages uses IndexedDB as the primary store; HTTP exists only as a local dev adapter. */
+(function () {
+  'use strict';
+  const isStatic = document.querySelector('meta[name="family-storage-mode"]')?.content === 'browser';
+  let storagePath = '/';
+  try {
+    if (location.protocol === 'http:' || location.protocol === 'https:') storagePath = new URL('./', location.href).pathname;
+  } catch {}
+  const legacyKey = 'family-static-v1:' + storagePath;
+  const dbName = 'family-tree-v2:' + storagePath;
+  const storeName = 'records';
+  const HISTORY_LIMIT = 10;
+  const defaultData = () => ({ schemaVersion: 2, familyName: '我的家族', people: [] });
+  const emptySyncState = () => ({ fileId: null, remoteVersion: null, dirty: false, connected: false, lastSyncedAt: null });
+  let dbPromise = null;
+
+  function repositoryError(message, status = 400, code = 'STORE_ERROR') {
+    return Object.assign(new Error(message), { status, code });
+  }
+  function assertPayload(payload) {
+    if (!payload || typeof payload !== 'object' || typeof payload.version !== 'string') throw new Error('瀏覽器族譜資料格式不正確。');
+    FamilyModel.build(payload.data);
+    return payload;
+  }
+  function openDb() {
+    if (!isStatic) return Promise.reject(new Error('開發模式不使用 IndexedDB 儲存族譜。'));
+    if (!('indexedDB' in window)) return Promise.reject(new Error('此瀏覽器不支援 IndexedDB。'));
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName, { keyPath: 'key' });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('無法開啟 IndexedDB。'));
+      request.onblocked = () => reject(new Error('IndexedDB 更新被其他分頁阻擋，請關閉其他族譜分頁後重試。'));
+    }).catch(error => { dbPromise = null; throw error; });
+    return dbPromise;
+  }
+  async function recordGet(key) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const request = tx.objectStore(storeName).get(key);
+      request.onsuccess = () => resolve(request.result?.value ?? null);
+      request.onerror = () => reject(request.error || new Error('無法讀取 IndexedDB。'));
+    });
+  }
+  async function recordPutMany(entries) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      entries.forEach(([key, value]) => store.put({ key, value }));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('無法寫入 IndexedDB。'));
+      tx.onabort = () => reject(tx.error || new Error('IndexedDB 寫入已取消。'));
+    });
+  }
+  async function migrateLegacy() {
+    const existing = await recordGet('current');
+    if (existing) return assertPayload(existing);
+    let legacy = null;
+    try {
+      const text = localStorage.getItem(legacyKey);
+      if (text) legacy = assertPayload(JSON.parse(text));
+    } catch {}
+    if (!legacy) return null;
+    const entries = [
+      ['current', { ...legacy, savedAt: Date.now() }],
+      ['sync', { ...emptySyncState(), dirty: true }]
+    ];
+    try {
+      const backupText = localStorage.getItem(legacyKey + ':before-import');
+      if (backupText) entries.push(['before-import', { ...assertPayload(JSON.parse(backupText)), savedAt: Date.now() }]);
+    } catch {}
+    await recordPutMany(entries);
+    try {
+      localStorage.removeItem(legacyKey);
+      localStorage.removeItem(legacyKey + ':before-import');
+    } catch {}
+    return legacy;
+  }
+  async function readStatic() {
+    const migrated = await migrateLegacy();
+    const saved = migrated || await recordGet('current');
+    if (!saved) return { data: defaultData(), version: 'empty' };
+    const history = await recordGet('history');
+    return { ...assertPayload(saved), undoLabel: history?.[0]?.label || null };
+  }
+  function emitChange(payload, source) {
+    window.dispatchEvent(new CustomEvent('familyrepositorychange', { detail: { payload, source } }));
+  }
+
+  async function executeStatic(command) {
+    await migrateLegacy();
+    const db = await openDb();
+    let outcome;
+    try {
+      outcome = await new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const currentRequest = store.get('current');
+        const historyRequest = store.get('history');
+        const syncRequest = store.get('sync');
+        let result = null, applied = false, settled = false;
+
+        const fail = error => {
+          if (settled) return;
+          settled = true;
+          try { tx.abort(); } catch {}
+          reject(error);
+        };
+        const apply = () => {
+          if (applied || [currentRequest, historyRequest, syncRequest].some(request => request.readyState !== 'done')) return;
+          applied = true;
+          const current = currentRequest.result?.value || { data: defaultData(), version: 'empty' };
+          const history = Array.isArray(historyRequest.result?.value) ? historyRequest.result.value : [];
+          const sync = { ...emptySyncState(), ...(syncRequest.result?.value || {}) };
+          if (command.expectedVersion && current.version !== command.expectedVersion) {
+            fail(repositoryError('資料已在其他分頁或雲端更新，請更新資料後再儲存。', 409, 'STALE_VERSION'));
+            return;
+          }
+          let change;
+          try { change = FamilyCommands.apply(current.data, command); }
+          catch (error) {
+            if (!error.status) error.status = 400;
+            fail(error);
+            return;
+          }
+          if (change.unchanged) {
+            result = { ...current, undoLabel: history[0]?.label || null, ...(change.memberId ? { memberId: change.memberId } : {}) };
+            return;
+          }
+          try { FamilyModel.build(change.data); }
+          catch (error) {
+            if (!error.status) error.status = 400;
+            fail(error);
+            return;
+          }
+          const saved = {
+            data: change.data,
+            version: crypto.randomUUID(),
+            savedAt: Date.now(),
+            undoLabel: change.label
+          };
+          const nextHistory = [{ data: current.data, version: current.version, savedAt: Date.now(), label: change.label }, ...history].slice(0, HISTORY_LIMIT);
+          const nextSync = { ...sync, dirty: true };
+          store.put({ key: 'current', value: saved });
+          store.put({ key: 'history', value: nextHistory });
+          store.put({ key: 'sync', value: nextSync });
+          if (change.backupBeforeImport) store.put({ key: 'before-import', value: { ...current, savedAt: Date.now() } });
+          result = {
+            ...saved,
+            ...(change.memberId ? { memberId: change.memberId } : {}),
+            ...(change.backupBeforeImport ? { backupCreated: true } : {})
+          };
+        };
+
+        currentRequest.onsuccess = apply;
+        historyRequest.onsuccess = apply;
+        syncRequest.onsuccess = apply;
+        currentRequest.onerror = () => fail(currentRequest.error || repositoryError('無法讀取本機族譜版本。'));
+        historyRequest.onerror = () => fail(historyRequest.error || repositoryError('無法讀取復原歷史。'));
+        syncRequest.onerror = () => fail(syncRequest.error || repositoryError('無法讀取同步狀態。'));
+        tx.oncomplete = () => { if (!settled) { settled = true; resolve(result); } };
+        tx.onerror = () => { if (!settled) { settled = true; reject(tx.error || repositoryError('無法寫入 IndexedDB。')); } };
+        tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || repositoryError('IndexedDB 寫入已取消。')); } };
+      });
+    } catch (error) {
+      if (error?.status) throw error;
+      throw repositoryError('瀏覽器 IndexedDB 儲存空間不足或不允許儲存，本次變更尚未儲存。', 400, 'STORE_WRITE_FAILED');
+    }
+    if (outcome) emitChange(outcome, 'local');
+    return outcome;
+  }
+
+  async function undoStatic(expectedVersion) {
+    await migrateLegacy();
+    const db = await openDb();
+    let result;
+    try {
+      result = await new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const currentRequest = store.get('current');
+        const historyRequest = store.get('history');
+        const syncRequest = store.get('sync');
+        let outcome = null, applied = false, settled = false;
+        const fail = error => {
+          if (settled) return;
+          settled = true;
+          try { tx.abort(); } catch {}
+          reject(error);
+        };
+        const apply = () => {
+          if (applied || [currentRequest, historyRequest, syncRequest].some(request => request.readyState !== 'done')) return;
+          applied = true;
+          const current = currentRequest.result?.value || { data: defaultData(), version: 'empty' };
+          const history = Array.isArray(historyRequest.result?.value) ? historyRequest.result.value : [];
+          if (expectedVersion && current.version !== expectedVersion) {
+            fail(repositoryError('資料已被其他操作更新，無法復原舊版本。請先更新資料。', 409, 'STALE_VERSION'));
+            return;
+          }
+          if (!history.length) {
+            fail(repositoryError('目前沒有可復原的修改。', 409, 'NO_UNDO'));
+            return;
+          }
+          const target = history[0];
+          try { FamilyModel.build(target.data); }
+          catch (error) {
+            if (!error.status) error.status = 400;
+            fail(error);
+            return;
+          }
+          const saved = { data: target.data, version: crypto.randomUUID(), savedAt: Date.now(), undoLabel: history[1]?.label || null };
+          const sync = { ...emptySyncState(), ...(syncRequest.result?.value || {}), dirty: true };
+          store.put({ key: 'current', value: saved });
+          store.put({ key: 'history', value: history.slice(1) });
+          store.put({ key: 'sync', value: sync });
+          outcome = { ...saved, undoneLabel: target.label || '上一項修改' };
+        };
+        currentRequest.onsuccess = apply;
+        historyRequest.onsuccess = apply;
+        syncRequest.onsuccess = apply;
+        currentRequest.onerror = () => fail(currentRequest.error || repositoryError('無法讀取本機族譜版本。'));
+        historyRequest.onerror = () => fail(historyRequest.error || repositoryError('無法讀取復原歷史。'));
+        syncRequest.onerror = () => fail(syncRequest.error || repositoryError('無法讀取同步狀態。'));
+        tx.oncomplete = () => { if (!settled) { settled = true; resolve(outcome); } };
+        tx.onerror = () => { if (!settled) { settled = true; reject(tx.error || repositoryError('無法復原上一項修改。')); } };
+        tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || repositoryError('復原操作已取消。')); } };
+      });
+    } catch (error) {
+      if (error?.status) throw error;
+      throw repositoryError('瀏覽器 IndexedDB 儲存空間不足或不允許儲存，本次復原尚未完成。', 400, 'STORE_WRITE_FAILED');
+    }
+    emitChange(result, 'local');
+    return result;
+  }
+
+  async function devJson(url, options = {}) {
+    const response = await fetch(url, options);
+    let payload;
+    try { payload = await response.json(); }
+    catch { throw repositoryError('本機開發伺服器回傳無效資料。', response.status || 500, 'DEV_RESPONSE_INVALID'); }
+    if (!response.ok) throw repositoryError(payload.error || '本機開發操作失敗。', response.status, 'DEV_REQUEST_FAILED');
+    return payload;
+  }
+
+  async function load() {
+    return isStatic ? readStatic() : devJson('/api/family', { cache: 'no-store' });
+  }
+  async function addMember({ member, requestId, version }) {
+    return isStatic
+      ? executeStatic({ type: 'addMember', member, requestId, expectedVersion: version })
+      : devJson('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member, requestId, version }) });
+  }
+  async function updateMember(id, { member, version }) {
+    return isStatic
+      ? executeStatic({ type: 'updateMember', id, member, expectedVersion: version })
+      : devJson('/api/members/' + encodeURIComponent(id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member, version }) });
+  }
+  async function updateFamilyName({ familyName, version }) {
+    return isStatic
+      ? executeStatic({ type: 'updateFamilyName', familyName, expectedVersion: version })
+      : devJson('/api/family/name', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ familyName, version }) });
+  }
+  async function updateIntermediateIgnore({ planId, ignored, version }) {
+    return isStatic
+      ? executeStatic({ type: 'updateIntermediateIgnore', planId, ignored, expectedVersion: version })
+      : devJson('/api/family/intermediate-ignore', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planId, ignored, version }) });
+  }
+  async function manageFamily(body) {
+    return isStatic
+      ? executeStatic({ ...body, type: 'manageFamily', expectedVersion: body.version })
+      : devJson('/api/family/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+  async function importFamily({ data, version }) {
+    return isStatic
+      ? executeStatic({ type: 'importFamily', data, expectedVersion: version })
+      : devJson('/api/family/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, version }) });
+  }
+  async function undo(expectedVersion) {
+    return isStatic
+      ? undoStatic(expectedVersion)
+      : devJson('/api/family/undo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: expectedVersion }) });
+  }
+  async function exportData() {
+    return isStatic ? (await readStatic()).data : devJson('/api/family/export', { cache: 'no-store' });
+  }
+
+  async function getSyncState() {
+    if (!isStatic) return emptySyncState();
+    const state = await recordGet('sync');
+    return { ...emptySyncState(), ...(state || {}) };
+  }
+  async function setSyncState(patch) {
+    if (!isStatic) return getSyncState();
+    const db = await openDb();
+    const state = await new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.get('sync');
+      let next;
+      request.onsuccess = () => {
+        next = { ...emptySyncState(), ...(request.result?.value || {}), ...patch };
+        store.put({ key: 'sync', value: next });
+      };
+      request.onerror = () => reject(request.error || new Error('無法讀取同步狀態。'));
+      tx.oncomplete = () => resolve(next);
+      tx.onerror = () => reject(tx.error || new Error('無法更新同步狀態。'));
+      tx.onabort = () => reject(tx.error || new Error('同步狀態更新已取消。'));
+    });
+    window.dispatchEvent(new CustomEvent('familyreposyncstate', { detail: state }));
+    return state;
+  }
+  async function replaceFromCloud(data, remote = {}, expectedLocalVersion = null) {
+    if (!isStatic) throw new Error('開發模式不支援 Google Drive 同步。');
+    FamilyModel.build(data);
+    const db = await openDb();
+    const result = await new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const currentRequest = store.get('current');
+      const syncRequest = store.get('sync');
+      let saved, sync, changed = false, settled = false;
+      const apply = () => {
+        if (currentRequest.readyState !== 'done' || syncRequest.readyState !== 'done' || saved) return;
+        const current = currentRequest.result?.value || { data: defaultData(), version: 'empty' };
+        if (expectedLocalVersion && current.version !== expectedLocalVersion) {
+          const error = repositoryError('同步期間此裝置又有新的修改，已停止下載以避免覆蓋。', 409, 'LOCAL_CHANGED');
+          settled = true;
+          try { tx.abort(); } catch {}
+          reject(error);
+          return;
+        }
+        changed = !FamilyModel.sameJsonData(current.data, data);
+        saved = changed ? { data, version: crypto.randomUUID(), savedAt: Date.now() } : current;
+        sync = {
+          ...emptySyncState(),
+          ...(syncRequest.result?.value || {}),
+          fileId: remote.fileId || null,
+          remoteVersion: remote.remoteVersion || null,
+          dirty: false,
+          connected: true,
+          lastSyncedAt: Date.now()
+        };
+        if (changed) {
+          store.put({ key: 'current', value: saved });
+          store.put({ key: 'history', value: [] });
+        }
+        store.put({ key: 'sync', value: sync });
+      };
+      currentRequest.onsuccess = apply;
+      syncRequest.onsuccess = apply;
+      currentRequest.onerror = () => { if (!settled) { settled = true; reject(currentRequest.error || new Error('無法讀取本機族譜版本。')); } };
+      syncRequest.onerror = () => { if (!settled) { settled = true; reject(syncRequest.error || new Error('無法讀取同步狀態。')); } };
+      tx.oncomplete = () => { if (!settled) { settled = true; resolve({ saved, sync, changed }); } };
+      tx.onerror = () => { if (!settled) { settled = true; reject(tx.error || new Error('無法寫入 Google Drive 下載資料。')); } };
+      tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || new Error('Google Drive 下載資料寫入已取消。')); } };
+    });
+    if (result.changed) emitChange(result.saved, 'cloud');
+    window.dispatchEvent(new CustomEvent('familyreposyncstate', { detail: result.sync }));
+    return result.saved;
+  }
+  async function markCloudSynced(remote = {}, expectedLocalVersion = null) {
+    if (!isStatic) throw new Error('開發模式不支援 Google Drive 同步。');
+    const db = await openDb();
+    const state = await new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const currentRequest = store.get('current');
+      const syncRequest = store.get('sync');
+      let next;
+      const apply = () => {
+        if (currentRequest.readyState !== 'done' || syncRequest.readyState !== 'done' || next) return;
+        const current = currentRequest.result?.value || { data: defaultData(), version: 'empty' };
+        next = {
+          ...emptySyncState(),
+          ...(syncRequest.result?.value || {}),
+          fileId: remote.fileId || null,
+          remoteVersion: remote.remoteVersion || null,
+          dirty: expectedLocalVersion ? current.version !== expectedLocalVersion : false,
+          connected: true,
+          lastSyncedAt: Date.now()
+        };
+        store.put({ key: 'sync', value: next });
+      };
+      currentRequest.onsuccess = apply;
+      syncRequest.onsuccess = apply;
+      currentRequest.onerror = () => reject(currentRequest.error || new Error('無法讀取本機族譜版本。'));
+      syncRequest.onerror = () => reject(syncRequest.error || new Error('無法讀取同步狀態。'));
+      tx.oncomplete = () => resolve(next);
+      tx.onerror = () => reject(tx.error || new Error('無法更新同步狀態。'));
+      tx.onabort = () => reject(tx.error || new Error('同步狀態更新已取消。'));
+    });
+    window.dispatchEvent(new CustomEvent('familyreposyncstate', { detail: state }));
+    return state;
+  }
+  function isPristine(data) {
+    if (!data || !Array.isArray(data.people) || data.people.length !== 0) return false;
+    const name = data.familyName == null ? '我的家族' : String(data.familyName).trim();
+    return !name || name === '我的家族';
+  }
+
+  window.FamilyRepository = {
+    isStatic,
+    load,
+    read: load,
+    addMember,
+    updateMember,
+    updateFamilyName,
+    updateIntermediateIgnore,
+    manageFamily,
+    importFamily,
+    undo,
+    exportData,
+    getSyncState,
+    setSyncState,
+    replaceFromCloud,
+    markCloudSynced,
+    isPristine,
+    storageLabel: isStatic ? 'IndexedDB' : 'Dev API'
+  };
+})();

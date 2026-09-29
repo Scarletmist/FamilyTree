@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { createFamilyServer } = require('../server.cjs');
+const { createFamilyServer } = require('../dev/server.cjs');
+const { renderFamilyTreeHtml } = require('../dev/site-source.cjs');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 const initial = { schemaVersion: 2, people: [person('A'), person('B', [{ type: 'tangCousin', personId: 'A', seniority: 'older' }])] };
@@ -41,7 +42,7 @@ async function checkGeometry(page) {
       const page = await context.newPage();
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       if (mode === 'static') {
-        const html = (await fs.readFile(path.join(__dirname, '../family-tree.html'), 'utf8')).replace('<head>', '<head><meta name="family-storage-mode" content="browser">');
+        const html = await renderFamilyTreeHtml({ browserStorage: true });
         await page.route(base + '/', route => route.fulfill({ contentType: 'text/html', body: html }));
         await page.addInitScript(data => {
           if (!localStorage.getItem('family-static-v1:/')) localStorage.setItem('family-static-v1:/', JSON.stringify({ data, version: 'initial' }));

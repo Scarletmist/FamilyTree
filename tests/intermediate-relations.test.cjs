@@ -1,13 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model');
+const Model = require('../src/assets/family-model');
+const Projection = require('../src/assets/family-display-projection');
 const p = (id, relationships = [], gender = 'M') => ({ id, name: id, gender, location: '', position: '', siblingOrder: null, relationships });
 const child = personId => ({ type: 'child', personId, kind: '親生' });
 
 test('unanchored missing parents stop at generation one without shifting known branches', () => {
   const data = { schemaVersion: 2, people: [p('A', [{ type: 'tangCousin', personId: 'B' }]), p('B'), p('G', [child('P')]), p('P', [child('C')]), p('C')] };
-  assert(Model.intermediatePlans(data).every(plan => plan.generation === 1));
-  const people = Model.build(data).people;
+  assert(Projection.intermediatePlans(data).every(plan => plan.generation === 1));
+  const people = Projection.project(Model.build(data)).people;
   assert.equal(people.find(p => p.id === 'G').gen, 1);
   assert.equal(people.find(p => p.id === 'C').gen, 3);
 });
@@ -15,10 +16,10 @@ test('unanchored missing parents stop at generation one without shifting known b
 test('known first-generation relatives reserve an ancestor row while unknown peers do not', () => {
   const data = { schemaVersion: 2, people: [p('A', [child('C'), { type: 'sibling', personId: 'B' }]), p('B'), p('C'),
     p('X', [{ type: 'tangCousin', personId: 'Y' }]), p('Y')] };
-  const plans = Model.intermediatePlans(data);
+  const plans = Projection.intermediatePlans(data);
   assert.equal(plans.find(p => p.edgeKey.startsWith('手足|')).generation, 0);
   assert(plans.filter(p => p.edgeKey.startsWith('堂親|')).every(p => p.generation === 1));
-  const graph = Model.build(data);
+  const graph = Projection.project(Model.build(data));
   const shift = 1 - Math.min(1, ...plans.map(p => p.generation));
   assert.equal(shift, 1);
   assert.equal(graph.people.find(p => p.id === 'A').gen + shift, 2);
@@ -41,7 +42,7 @@ test('contract siblings are not sufficient evidence for merging cousin father sl
 });
 test('adding a father aligns both cousin branches even when the other branch is already anchored', () => {
   const data = { schemaVersion: 2, people: [p('G', [child('P')]), p('P', [child('B')]), p('B'), p('A', [{ type: 'tangCousin', personId: 'B' }]), p('C', [child('A')])] };
-  const byId = new Map(Model.build(data).people.map(p => [p.id, p]));
+  const byId = new Map(Projection.project(Model.build(data)).people.map(p => [p.id, p]));
   assert.equal(byId.get('A').gen, byId.get('B').gen);
   assert.equal(byId.get('C').gen, byId.get('A').gen - 1);
 });
@@ -58,7 +59,7 @@ test('completed cousin paths hide only matching biological shortcuts and remain 
   }
 });
 test('rank one determines eldest sibling even when the other rank is blank', () => {
-  const Details = require('../assets/relationship-details');
+  const Details = require('../src/assets/relationship-details');
   const first = { ...p('A'), siblingOrder: 1 }, unknown = p('B', [], 'F');
   assert.equal(Details.siblingRole(first, unknown), '長兄');
   assert.equal(Details.siblingRole(unknown, first), '妹');

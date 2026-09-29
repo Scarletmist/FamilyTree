@@ -1,10 +1,13 @@
+/* Local development/test harness only. Production GitHub Pages persists family data in browser IndexedDB. */
 const http = require('node:http');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const Model = require('./assets/family-model.js');
+const Model = require('../src/assets/family-model.js');
+const Commands = require('../src/assets/family-commands.js');
+const { renderFamilyTreeHtml, resolvePublicFile, mimeTypeFor } = require('./site-source.cjs');
 
-function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json') } = {}) {
+function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/family.json') } = {}) {
   let writes = Promise.resolve();
   const HISTORY_LIMIT = 10;
   let history = [];
@@ -37,68 +40,58 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
     history = history.slice(0, HISTORY_LIMIT);
     return { ...saved, undoLabel: label };
   }
-  function memberInput(input, id) {
-    const p = { id, name: input?.name, location: input?.location, position: input?.position,
-      gender: input?.gender, siblingOrder: input?.siblingOrder, relationships: input?.relationships };
-    if (input?.discipleOrder !== undefined) p.discipleOrder = input.discipleOrder;
-    if (input?.notes !== undefined) p.notes = input.notes;
-    Model.validateMember(p);
-    p.name = p.name.trim(); p.location = p.location.trim(); p.position = p.position.trim();
-    return p;
+  function applyCommand(data, command) {
+    try { return { change: Commands.apply(data, command) }; }
+    catch (error) { return { error, status: error.status || 400 }; }
   }
   async function add(body) {
     const current = await read();
-    if (!body || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.requestId || '') || !body.member) return [400, { error: '新增資料格式不正確。' }];
-    let p;
-    try { p = memberInput(body.member, `p-${body.requestId}`); } catch (error) { return [400, { error: error.message }]; }
-    // A retry after a lost response returns the original save instead of adding a duplicate.
-    const existing = current.data.people.find(person => person.id === p.id);
-    if (existing) return JSON.stringify(existing) === JSON.stringify(p) ? [200, { ...current, memberId: p.id }] : [409, { error: '此筆新增已儲存，請重新開啟新增表單。' }];
+    if (!body || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.requestId || '') || !body.member) {
+      return [400, { error: '新增資料格式不正確。' }];
+    }
+    let candidate;
+    try { candidate = Commands.memberInput(body.member, 'p-' + body.requestId); }
+    catch (error) { return [error.status || 400, { error: error.message }]; }
+    // A retry after a lost response returns the original save before stale-version rejection.
+    const existing = current.data.people.find(person => person.id === candidate.id);
+    if (existing) return JSON.stringify(existing) === JSON.stringify(candidate)
+      ? [200, { ...current, memberId: candidate.id }]
+      : [409, { error: '此筆新增已儲存，請重新開啟新增表單。' }];
     if (body.version !== current.version) return [409, { error: '資料已被其他操作更新，請按「更新資料」後檢查表單再儲存。' }];
-    const data = { ...current.data, people: current.data.people.concat(p) };
-    try { Model.build(data); } catch (error) { return [400, { error: error.message }]; }
-    return [201, { ...await persistChange(current, data, `新增成員「${p.name}」`), memberId: p.id }];
+    const { change, error, status } = applyCommand(current.data, { type: 'addMember', member: body.member, requestId: body.requestId });
+    if (error) return [status, { error: error.message }];
+    return [201, { ...await persistChange(current, change.data, change.label), memberId: change.memberId }];
   }
   async function edit(id, body) {
     const current = await read();
-    if (!current.data.people.some(p => p.id === id)) return [404, { error: '找不到要修改的成員，請更新資料。' }];
+    if (!current.data.people.some(person => person.id === id)) return [404, { error: '找不到要修改的成員，請更新資料。' }];
     if (body?.version !== current.version) return [409, { error: '資料已被其他操作更新，請重新載入成員資料後再修改。' }];
-    let data;
-    try { data = Model.replaceMember(current.data, memberInput(body.member, id)); }
-    catch (error) { return [400, { error: error.message }]; }
-    return [200, { ...await persistChange(current, data, `更新成員「${data.people.find(person => person.id === id)?.name || id}」`), memberId: id }];
+    const { change, error, status } = applyCommand(current.data, { type: 'updateMember', id, member: body?.member });
+    if (error) return [status, { error: error.message }];
+    return [200, { ...await persistChange(current, change.data, change.label), memberId: change.memberId }];
   }
   async function updateFamilyName(body) {
     const current = await read();
     if (body?.version !== current.version) return [409, { error: '資料已被其他操作更新，請更新目前資料後確認名稱再儲存。' }];
-    let familyName;
-    try {
-      if (!body || !Object.hasOwn(body, 'familyName')) throw new Error('請填寫家族名稱。');
-      familyName = Model.normalizeFamilyName(body.familyName);
-    } catch (error) { return [400, { error: error.message }]; }
-    if (current.data.familyName === familyName) return [200, current];
-    // Preserve all members, relationships and unknown top-level metadata.
-    return [200, await persistChange(current, { ...current.data, familyName }, '修改家族名稱')];
+    const { change, error, status } = applyCommand(current.data, { type: 'updateFamilyName', familyName: body?.familyName });
+    if (error) return [status, { error: error.message }];
+    if (change.unchanged) return [200, current];
+    return [200, await persistChange(current, change.data, change.label)];
   }
   async function updateIntermediateIgnore(body) {
     const current = await read();
     if (body?.version !== current.version) return [409, { error: '資料已被其他操作更新，請更新目前資料後再操作。' }];
-    if (typeof body?.planId !== 'string' || !body.planId || body.planId.length > 500 || typeof body?.ignored !== 'boolean') return [400, { error: '待補項目設定格式不正確。' }];
-    const allPlans = Model.intermediatePlans(current.data, { includeIgnored: true });
-    const ignored = new Set(Model.ignoredIntermediatePlanIds(current.data));
-    const target = allPlans.find(plan => plan.id === body.planId);
-    if (body.ignored && !target) return [409, { error: '此待補項目已不存在，請更新資料後再試。' }];
-    const slotIds = target ? allPlans.filter(plan => plan.slotId === target.slotId).map(plan => plan.id) : [body.planId];
-    slotIds.forEach(id => body.ignored ? ignored.add(id) : ignored.delete(id));
-    return [200, await persistChange(current, { ...current.data, ignoredIntermediatePlans: [...ignored].sort() }, body.ignored ? '忽略待補親屬' : '恢復待補親屬')];
+    const { change, error, status } = applyCommand(current.data, { type: 'updateIntermediateIgnore', planId: body?.planId, ignored: body?.ignored });
+    if (error) return [status, { error: error.message }];
+    return [200, await persistChange(current, change.data, change.label)];
   }
   async function importFamily(body) {
     const current = await read();
     if (body?.version !== current.version) return [409, { error: '目前資料已更新，請按「更新目前資料」確認後再匯入。' }];
-    try { Model.build(body.data); } catch (error) { return [400, { error: error.message }]; }
-    // Keep the previous dataset recoverable before replacing the whole family.
+    const { change, error, status } = applyCommand(current.data, { type: 'importFamily', data: body?.data });
+    if (error) return [status, { error: error.message }];
     await atomicWrite(dataFile + '.backup.json', JSON.stringify(current.data, null, 2) + '\n');
-    return [200, { ...await persistChange(current, body.data, '匯入族譜'), backupCreated: true }];
+    return [200, { ...await persistChange(current, change.data, change.label), backupCreated: true }];
   }
   async function undoFamily(body) {
     const current = await read();
@@ -113,17 +106,10 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
   async function manageFamily(body) {
     const current = await read();
     if (body?.version !== current.version) return [409, { error: '資料已更新，請重新整理頁面後，再開啟管理視窗確認變更。' }];
-    let data;
-    try { data = Model.manageFamily(current.data, body); }
-    catch (error) { return [400, { error: error.message }]; }
-    return [200, await persistChange(current, data, body.action === 'merge' ? '合併成員' : '修改排行群組')];
+    const { change, error, status } = applyCommand(current.data, { ...body, type: 'manageFamily' });
+    if (error) return [status, { error: error.message }];
+    return [200, await persistChange(current, change.data, change.label)];
   }
-  const assets = new Map([
-    ['/', ['family-tree.html', 'text/html']],
-    ['/data/kinship-terms.json', ['data/kinship-terms.json', 'application/json']],
-    ['/family-tree.html', ['family-tree.html', 'text/html']],
-    ...['family-management.js', 'label-layout.js', 'connector-routing.js', 'family-repository.js', 'member-tools.js', 'kinship.js', 'relationship-search.js', 'family-model.js', 'relationship-details.js', 'generation-bands.js', 'family-tree.js', 'family-storage.js', 'member-form.js', 'google-drive-sync.js', 'mobile-gesture-policy.js', 'mobile-landscape-toolbar.js'].map(name => ['/assets/' + name, ['assets/' + name, 'text/javascript']])
-  ]);
   const server = http.createServer(async (req, res) => {
     try {
       const expected = new Set([`127.0.0.1:${server.address().port}`, `localhost:${server.address().port}`]);
@@ -161,11 +147,22 @@ function createFamilyServer({ dataFile = path.join(__dirname, 'data/family.json'
         const [status, payload] = await operation;
         return reply(res, status, payload);
       }
-      const asset = assets.get(url.pathname);
-      if (req.method === 'GET' && asset) {
-        const content = await fs.readFile(path.join(__dirname, asset[0]));
-        res.writeHead(200, { 'Content-Type': asset[1] + '; charset=utf-8', 'Cache-Control': 'no-store' });
+      if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/family-tree.html')) {
+        const content = await renderFamilyTreeHtml();
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(content);
+      }
+      if (req.method === 'GET') {
+        const file = resolvePublicFile(url.pathname);
+        if (file) {
+          try {
+            const content = await fs.readFile(file);
+            res.writeHead(200, { 'Content-Type': mimeTypeFor(file) + '; charset=utf-8', 'Cache-Control': 'no-store' });
+            return res.end(content);
+          } catch (error) {
+            if (error.code !== 'ENOENT') throw error;
+          }
+        }
       }
       return reply(res, 404, { error: '找不到此頁面。' });
     } catch (error) {

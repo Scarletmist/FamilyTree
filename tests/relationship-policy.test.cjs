@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model');
-const Details = require('../assets/relationship-details');
-const Kinship = require('../assets/kinship').create(require('../data/kinship-terms.json'));
+const Model = require('../src/assets/family-model');
+const Details = require('../src/assets/relationship-details');
+const Kinship = require('../src/assets/kinship').create(require('../src/data/kinship-terms.json'));
 const p = (id, gender = 'M', relationships = [], siblingOrder = null) => ({id,name:id,gender,relationships,siblingOrder,location:'',position:''});
 const data = people => ({schemaVersion:2,people});
 const relation = (type,personId,seniority='older') => ({type,personId,seniority});

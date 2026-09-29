@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model.js');
+const Model = require('../src/assets/family-model.js');
 
 test('relationshipMemberIds includes both relation sources and targets, excluding unlinked members', () => {
   const people = [

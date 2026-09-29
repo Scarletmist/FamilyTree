@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Storage = require('../assets/family-storage.js');
-const Model = require('../assets/family-model.js');
+const Storage = require('../src/assets/family-storage.js');
+const Model = require('../src/assets/family-model.js');
 function environment({ cookies = true, storage = true } = {}) {
   const jar = new Map(), values = new Map();
   return { location: { port: '4173', protocol: 'http:' }, document: {

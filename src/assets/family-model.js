@@ -161,12 +161,8 @@
       const root = rootOf(i), previous = slotIds.get(root);
       if (!previous || plan.id < previous) slotIds.set(root, plan.id);
     });
-    // Only an established family generation may reserve a new ancestor row.
-    // An isolated peer relationship still has no evidence for generation zero.
-    const result = plans.map((plan, i) => {
-      const person = byId.get(plan.near);
-      return { ...plan, slotId: slotIds.get(rootOf(i)), generation: Math.max(person.generationKnown ? 0 : 1, person.gen - 1) };
-    });
+    // Slot identity is semantic; the display projection decides which generation row owns the slot.
+    const result = plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)) }));
     return includeIgnored ? result : result.filter(plan => !ignored.has(plan.id));
   }
   function fail(message) { throw new Error(message); }
@@ -235,116 +231,35 @@
       }
     }
     const edges = [...parents.values()];
-    // Derive display levels from parent/child (+1), grandparent/grandchild (+2) and peers (0).
-    // Mentorship does not imply a family generation.
-    const adjacency = new Map(people.map(p => [p.id, []]));
-    function link(a, b, offset) { adjacency.get(a).push([b, offset]); adjacency.get(b).push([a, -offset]); }
-    edges.forEach(e => link(e.parent, e.child, e.generations));
-    [...spouses.values(), ...siblings.values(), ...sworn.values()].forEach(([a, b]) => link(a, b, 0));
-    // First cousins share a generation, including while one parental branch is incomplete.
-    cousins.forEach(({ members: [a, b] }) => link(a, b, 0));
-    const levels = new Map();
-    const familyComponents = [], componentOf = new Map();
-    for (const p of people) {
-      if (levels.has(p.id)) continue;
-      const component = [p.id];
-      levels.set(p.id, 0);
-      for (let i = 0; i < component.length; i++) {
-        const id = component[i];
-        for (const [next, offset] of adjacency.get(id)) {
-          const value = levels.get(id) + offset;
-          if (levels.has(next)) {
-            if (levels.get(next) !== value) throw relationshipError(`關係階層互相矛盾：「${byId.get(id).name}」與「${byId.get(next).name}」的父母、子女、祖孫或手足設定和既有路徑不一致，請檢查方向與代差。`, [id, next]);
-          } else { levels.set(next, value); component.push(next); }
+    // Hierarchy consistency is a domain invariant even though generation placement is display-only.
+    const hierarchy = new Map(people.map(p => [p.id, []]));
+    function constrain(a, b, offset) {
+      hierarchy.get(a).push([b, offset]);
+      hierarchy.get(b).push([a, -offset]);
+    }
+    edges.forEach(edge => constrain(edge.parent, edge.child, edge.generations));
+    [...spouses.values(), ...siblings.values(), ...sworn.values()].forEach(([a, b]) => constrain(a, b, 0));
+    cousins.forEach(({ members: [a, b] }) => constrain(a, b, 0));
+    const hierarchyLevels = new Map();
+    for (const person of people) {
+      if (hierarchyLevels.has(person.id)) continue;
+      const component = [person.id];
+      hierarchyLevels.set(person.id, 0);
+      for (let index = 0; index < component.length; index++) {
+        const id = component[index];
+        for (const [next, offset] of hierarchy.get(id)) {
+          const value = hierarchyLevels.get(id) + offset;
+          if (hierarchyLevels.has(next)) {
+            if (hierarchyLevels.get(next) !== value) throw relationshipError(`關係階層互相矛盾：「${byId.get(id).name}」與「${byId.get(next).name}」的父母、子女、祖孫或手足設定和既有路徑不一致，請檢查方向與代差。`, [id, next]);
+          } else {
+            hierarchyLevels.set(next, value);
+            component.push(next);
+          }
         }
       }
-      const min = Math.min(...component.map(id => levels.get(id)));
-      const generationKnown = component.some(id => levels.get(id) !== min);
-      component.forEach(id => {
-        byId.get(id).gen = levels.get(id) - min + 1;
-        Object.defineProperty(byId.get(id), 'generationKnown', { value: generationKnown, enumerable: false, configurable: true });
-      });
-      component.forEach(id => componentOf.set(id, familyComponents.length));
-      familyComponents.push(component);
     }
-    // Adding a teacher's relatives must not discard the placement previously
-    // supplied by their student. Align whole independent family components;
-    // mentorship within one family never overrides its established offsets.
-    const componentLinks = familyComponents.map(() => []);
-    for (const m of mentors.values()) {
-      const t = componentOf.get(m.teacher), s = componentOf.get(m.student);
-      if (t === s || familyComponents[t].length < 2 || familyComponents[s].length < 2) continue;
-      componentLinks[t].push({ next: s, from: m.teacher, to: m.student, offset: 1 });
-      componentLinks[s].push({ next: t, from: m.student, to: m.teacher, offset: -1 });
-    }
-    const aligned = new Set();
-    const componentOrder = familyComponents.map((ids, index) => ({ ids, index }))
-      .sort((a, b) => b.ids.length - a.ids.length || [...a.ids].sort()[0].localeCompare([...b.ids].sort()[0]));
-    for (const { index } of componentOrder) {
-      if (aligned.has(index)) continue;
-      const queue = [index]; aligned.add(index);
-      for (let i = 0; i < queue.length; i++) for (const link of componentLinks[queue[i]]) {
-        if (aligned.has(link.next)) continue;
-        const shift = byId.get(link.from).gen + link.offset - byId.get(link.to).gen;
-        familyComponents[link.next].forEach(id => { byId.get(id).gen += shift; });
-        aligned.add(link.next); queue.push(link.next);
-      }
-      const ids = queue.flatMap(i => familyComponents[i]);
-      const shift = Math.max(0, 1 - Math.min(...ids.map(id => byId.get(id).gen)));
-      ids.forEach(id => { byId.get(id).gen += shift; });
-    }
-    // Mentorship supplies display placement only when a member has no family/peer
-    // anchor. An unanchored teacher goes one row above the student. Preserve all
-    // established family offsets and never turn mentorship into a parent edge.
-    const contacts = new Map(people.map(p => [p.id, []]));
-    for (const m of mentors.values()) {
-      const freeTeacher = !adjacency.get(m.teacher).length;
-      if (!freeTeacher && adjacency.get(m.student).length) continue;
-      const offset = freeTeacher ? 1 : 0;
-      contacts.get(m.teacher).push([m.student, offset]);
-      contacts.get(m.student).push([m.teacher, -offset]);
-    }
-    const placed = new Set(people.filter(p => adjacency.get(p.id).length).map(p => p.id));
-    const queue = [...placed].sort((a, b) => byId.get(a).gen - byId.get(b).gen || a.localeCompare(b));
-    function placeContacts() {
-      for (let i = 0; i < queue.length; i++) for (const [next, offset] of contacts.get(queue[i])) {
-        if (placed.has(next)) continue;
-        byId.get(next).gen = byId.get(queue[i]).gen + offset;
-        placed.add(next); queue.push(next);
-      }
-      queue.length = 0;
-    }
-    placeContacts();
-    for (const p of people) if (!placed.has(p.id)) { placed.add(p.id); queue.push(p.id); placeContacts(); }
-    // If a student was in generation 1, shift only its connected display group
-    // together so the new teacher can occupy generation 1 without a generation 0.
-    const visited = new Set();
-    for (const p of people) {
-      if (visited.has(p.id)) continue;
-      const component = [p.id]; visited.add(p.id);
-      for (let i = 0; i < component.length; i++) for (const [next] of [...adjacency.get(component[i]), ...contacts.get(component[i])]) {
-        if (!visited.has(next)) { visited.add(next); component.push(next); }
-      }
-      const shift = Math.max(0, 1 - Math.min(...component.map(id => byId.get(id).gen)));
-      if (shift) component.forEach(id => { byId.get(id).gen += shift; });
-    }
-    // Explicit fellow disciples share a display row only when no other relation
-    // supplies an anchor. Do not infer their age order from family sibling ranks.
-    const anchoredPeers = new Set();
-    for (const p of people) for (const r of p.relationships) if (r.type !== 'fellowDisciple' && !isCousin(r.type)) { anchoredPeers.add(p.id); anchoredPeers.add(r.personId); }
-    const peerLinks = new Map(people.map(p => [p.id, []]));
-    fellows.forEach(([a, b]) => { peerLinks.get(a).push(b); peerLinks.get(b).push(a); });
-    cousins.forEach(({ members: [a, b] }) => { peerLinks.get(a).push(b); peerLinks.get(b).push(a); });
-    const peerPlaced = new Set(anchoredPeers);
-    const peerQueue = [...anchoredPeers].sort((a, b) => byId.get(a).gen - byId.get(b).gen || a.localeCompare(b));
-    function placePeers() {
-      for (let i = 0; i < peerQueue.length; i++) for (const next of peerLinks.get(peerQueue[i])) if (!peerPlaced.has(next)) {
-        byId.get(next).gen = byId.get(peerQueue[i]).gen; peerPlaced.add(next); peerQueue.push(next);
-      }
-      peerQueue.length = 0;
-    }
-    placePeers();
-    for (const p of people) if (!peerPlaced.has(p.id)) { peerPlaced.add(p.id); peerQueue.push(p.id); placePeers(); }
+    // Generation placement is intentionally excluded from the domain graph.
+    // Browser rendering applies FamilyDisplayProjection after this validation/build step.
     // A school is connected by explicit fellowship or a recorded common teacher.
     const schoolLinks = new Map(people.map(p => [p.id, []]));
     fellows.forEach(([a, b]) => { schoolLinks.get(a).push(b); schoolLinks.get(b).push(a); });

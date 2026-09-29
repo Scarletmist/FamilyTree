@@ -1,14 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model');
-const Details = require('../assets/relationship-details');
-const Kinship = require('../assets/kinship').create(require('../data/kinship-terms.json'));
+const Model = require('../src/assets/family-model');
+const Projection = require('../src/assets/family-display-projection');
+const Details = require('../src/assets/relationship-details');
+const Kinship = require('../src/assets/kinship').create(require('../src/data/kinship-terms.json'));
 const p = (id, relationships = []) => ({ id, name: id, gender: 'U', location: '', position: '', siblingOrder: null, relationships });
 const parent = personId => ({ type: 'parent', personId, kind: '親生' });
 const fellow = personId => ({ type: 'fellowDisciple', personId });
 test('fellow disciples inherit an anchored peer generation without moving anchored relatives', () => {
   const data = { schemaVersion: 2, people: [p('G'), p('P', [parent('G')]), p('S', [parent('P')]), p('F', [fellow('S')]), p('H', [fellow('F')])] };
-  const graph = Model.build(data);
+  const graph = Projection.project(Model.build(data));
   assert.deepEqual(graph.people.map(p => p.gen), [1, 2, 3, 3, 3]);
   assert.equal(Kinship.query(graph, 'F', 'S').paths[0].title, '師兄弟姊妹');
   assert.equal(Details.buildGroups(graph, 'S').at(-1).id, 'fellowDisciples');
@@ -16,7 +17,7 @@ test('fellow disciples inherit an anchored peer generation without moving anchor
   assert.equal(Model.build(Model.replaceMember(data, { ...data.people[3], relationships: [] })).bonds.length, 0);
 });
 test('anchored fellow disciples keep different family generations; isolated peers align', () => {
-  const graph = Model.build({ schemaVersion: 2, people: [p('G'), p('S', [parent('G'), fellow('G')]), p('A', [fellow('B')]), p('B')] });
+  const graph = Projection.project(Model.build({ schemaVersion: 2, people: [p('G'), p('S', [parent('G'), fellow('G')]), p('A', [fellow('B')]), p('B')] }));
   assert.deepEqual(graph.people.map(p => p.gen), [1, 2, 1, 1]);
 });
 test('notes remain optional for old JSON and validated when present', () => {

@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model.js');
-const Details = require('../assets/relationship-details.js');
-const demo = require('../data/family.json');
+const Model = require('../src/assets/family-model.js');
+const Details = require('../src/assets/relationship-details.js');
+const demo = require('../fixtures/family.json');
 
 const graph = Model.build(demo);
 const group = (id, type) => Details.buildGroups(graph, id).find(g => g.id === type);
@@ -202,7 +202,7 @@ test('drawer keeps a short member navigation history for relative-to-relative br
 });
 
 test('local server serves the new relationship details module', async () => {
-  const { createFamilyServer } = require('../server.cjs');
+  const { createFamilyServer } = require('../dev/server.cjs');
   const server = createFamilyServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {

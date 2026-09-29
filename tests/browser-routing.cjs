@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { createFamilyServer } = require('../server.cjs');
+const { createFamilyServer } = require('../dev/server.cjs');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 const data = { schemaVersion: 2, people: [
@@ -79,13 +79,13 @@ async function check(page, scenario) {
       const top = await page.locator('#tree-connectors').evaluate(svg => Math.min(...[...svg.querySelectorAll('path[data-points]')].map(p => p.getBBox().y)));
       assert(top >= 7, 'crossing arcs and endpoint symbols have clearance from canvas top');
     }
-    await fs.writeFile(dataFile, JSON.stringify(require('../data/family.json')));
+    await fs.writeFile(dataFile, JSON.stringify(require('../fixtures/family.json')));
     await page.reload();
-    await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../data/family.json').people.length);
+    await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../fixtures/family.json').people.length);
     await check(page, 'existing family dataset');
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.reload();
-    await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../data/family.json').people.length);
+    await page.waitForFunction(count => window.FAMILY?.people.length === count, require('../fixtures/family.json').people.length);
     const visibleRows = await page.evaluate(() => {
       const viewport = document.getElementById('tree-canvas').parentElement;
       const bounds = viewport.getBoundingClientRect();

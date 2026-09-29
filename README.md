@@ -36,13 +36,21 @@
 
 一般 `siblingOrder` 與 `discipleOrder` 仍保留，供未使用群組的既有資料使用。新版可讀取舊資料；含新關係欄位的匯出檔請使用新版程式開啟。
 
-管理變更使用 `POST /api/family/manage`，須傳入目前 `version`，以及 `action: "rankGroups"` 和完整 `rankGroups`，或 `action: "merge"`、`keepId`、`removeId`、選擇保留的 `fields`。開發 API 與靜態 IndexedDB 共用驗證；變更可從固定復原入口復原。靜態版歷史存於 IndexedDB，開發伺服器歷史維持於記憶體、重啟後清空。
+管理操作由瀏覽器端的 `FamilyApp` 以語意化 command 呼叫（例如排行群組、合併與復原），正式 GitHub Pages 執行路徑不依賴 REST API。資料變更由 `FamilyCommands` 與 `FamilyModel` 共用驗證，並由 `FamilyRepository` 在 IndexedDB 單一 readwrite transaction 內完成版本檢查、資料寫入、復原歷史與 sync dirty 標記。固定復原入口仍保留。僅本機開發伺服器提供相容的 `/api/*` adapter，方便既有開發與 server 測試；其歷史維持於記憶體、重啟後清空。
 
 驗證指令：`node --test tests/*.test.cjs`、`node tests/browser-static.cjs`、`node tests/browser-relationship-policy.cjs`。瀏覽器測試可用 `PLAYWRIGHT_MODULE` 指定 Playwright 位置、`PLAYWRIGHT_CHANNEL` 指定瀏覽器。新測試涵蓋開發與靜態模式、群組、合併／復原、匯入差異、模擬 Google Drive 衝突，以及直向／橫向／平板與模擬鍵盤可視區域。這些模擬不取代 iOS 實機鍵盤驗證。
 
+## 專案目錄
+
+- `src/`：唯一的 production source。`family-tree.html` 是精簡頁面 shell，`assets/family-tree.css` 保存樣式，`templates/dialogs.html` 保存 dialog markup；`assets/` 與 `data/kinship-terms.json` 都會進入正式靜態站。
+- `dev/`：只供開發與建置使用，包含 `server.cjs`、`build.cjs` 與 `site-source.cjs`。這些檔案不會發布到 GitHub Pages。
+- `fixtures/`：測試／本機 dev adapter 的示範族譜資料。`fixtures/family.json` 永遠不會被 build 複製到 `dist/`。
+- `tests/`：Node 與瀏覽器回歸測試。
+- `dist/`：由建置產生的唯一發布輸出，不應手動維護。
+
 ## 靜態建置與 GitHub Pages
 
-執行 `node build.cjs`（或 `npm run build`）產生 `dist/`，首頁為 `dist/index.html`，也保留 `family-tree.html` 入口。不需安裝套件。建置只複製指定的前端程式及稱謂設定檔，**不包含 `data/family.json`、本機伺服器或任何開發成員資料**。
+執行 `node dev/build.cjs`（或 `npm run build`）產生 `dist/`，首頁為 `dist/index.html`，也保留 `family-tree.html` 入口。不需安裝套件。建置只從 `src/` 複製 production runtime，並在建置時展開 `src/templates/`；**不包含 `fixtures/family.json`、`dev/`、source templates 或任何開發成員資料**。
 
 靜態網站首次開啟為空白族譜，可直接新增成員或匯入自己的 JSON。新增、修改、家族名稱與匯入內容都先儲存在該網站路徑的 **IndexedDB**；重新整理與離線時仍可讀寫。舊版曾儲存在 `localStorage` 的族譜與「匯入前備份」會在第一次載入時自動遷移至 IndexedDB，成功後移除舊鍵。JSON 匯入／匯出功能仍保留，可作為人工備份與資料搬移方式；清除瀏覽器網站資料仍會刪除本機 IndexedDB。
 
@@ -56,7 +64,7 @@
 
 資源採相對路徑，支援 `https://帳號.github.io/專案名稱/`。設定方式參照 [GitHub Pages 官方工作流程文件](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。目前僅建立建置與部署設定，未替 repository 開啟 Pages 或執行遠端發佈。
 
-`assets/family-repository.js` 統一處理儲存：開發版呼叫本機 API，建置版透過 HTML 的 `family-storage-mode=browser` 設定使用 IndexedDB。`assets/google-drive-sync.js` 只在靜態版啟用，負責 Google OAuth 與 Drive `appDataFolder` 同步。請透過 HTTP/HTTPS 靜態伺服器預覽 `dist/`，不要直接雙擊 HTML。
+正式執行架構以瀏覽器為中心：`FamilyApp` 保存目前 application snapshot 與衍生 graph，`FamilyCommands` 定義純資料 mutation，`FamilyRepository` 將 **IndexedDB 視為 primary store**。Google Drive 是選用的 remote replica：`family-sync-engine.js` 負責 local/remote 版本決策與衝突流程，`google-drive-client.js` 只負責 Drive `appDataFolder` I/O，而 `google-drive-sync.js` 留下 OAuth、排程與同步 UI。請透過 HTTP/HTTPS 靜態伺服器預覽 `dist/`，不要直接雙擊 HTML。
 
 ### Google Drive 跨裝置同步設定
 
@@ -100,7 +108,7 @@ GOOGLE_OAUTH_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com npm run build
 
 選擇 A 與 B，按「查詢兩人關係」。B 是稱呼基準，結果顯示「A 為 B 的……」。畫布僅顯示所選路徑上的成員與連線，例如堂親會保留兩人的父親，以及資料中用來連接父親的共同祖先。「交換 A／B」可查看反向稱呼，「顯示全部」可回到完整族譜；查詢不會改寫成員 JSON。
 
-稱謂及規則儲存在 `data/kinship-terms.json`。網頁啟動時自動讀取此檔案，修改後重新整理即可生效，無需修改 JavaScript。載入或格式錯誤時會顯示重試按鈕，原有族譜仍可使用。稱謂依據[教育部《國語辭典簡編本》親朋稱呼表](https://dict.concised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0)，來源網址與查核日期也記錄於設定檔。
+稱謂及規則儲存在 `src/data/kinship-terms.json`。網頁啟動時自動讀取建置後的 `data/kinship-terms.json`，修改 source 後重新建置／重新整理即可生效，無需修改 JavaScript。載入或格式錯誤時會顯示重試按鈕，原有族譜仍可使用。稱謂依據[教育部《國語辭典簡編本》親朋稱呼表](https://dict.concised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0)，來源網址與查核日期也記錄於設定檔。
 
 - `direct`：單一關係的稱呼；`labels`：可重用的稱謂運算式。
 - `rules`：依順序比對，第一條符合者生效。`patterns` 由 B 走向 A，例如 `parent/sibling/child` 表示父母的手足的子女；`when` 的各條件須同時成立。經同一父母的 `parent/child` 會在判讀時折合為 `sibling`，畫布仍保留實際父母。
@@ -112,21 +120,22 @@ GOOGLE_OAUTH_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com npm run build
 
 驗證：`node --test tests/*.test.cjs`；有 Playwright 時可執行 `node tests/browser-kinship.cjs`，以 `PLAYWRIGHT_MODULE` 指定模組位置，`PLAYWRIGHT_CHANNEL` 指定瀏覽器（預設 msedge）。
 
-## 開發模式啟動
+## 本機開發／測試伺服器
 
-需要 Node.js 20 或更新版本，無需安裝第三方套件。在此資料夾執行：
+`dev/server.cjs` **不是正式部署架構的一部分**，只作為本機開發與 server regression test harness。GitHub Pages 正式版不需要 Node.js、Server 或 `/api/*`；正式資料永遠先寫入瀏覽器 IndexedDB。
+
+若需要測試 dev adapter，需要 Node.js 20 或更新版本。在此資料夾執行：
 
 ```sh
-node server.cjs
+node dev/server.cjs
 ```
 
-開啟 http://127.0.0.1:4173/family-tree.html 。也可使用 `npm start`。
-伺服器只監聽本機。直接雙擊 HTML 不會啟用讀寫功能。
-若連接埠已使用，可設定 `PORT` 換一個連接埠。
+開啟 http://127.0.0.1:4173/family-tree.html 。也可使用 `npm start`（環境有 npm 時）。
+伺服器只監聽本機；若連接埠已使用，可設定 `PORT`。要驗證與正式 GitHub Pages 相同的儲存路徑，應優先建置 `dist/` 並以一般靜態 HTTP server 開啟。
 
 ## JSON 資料
 
-`data/family.json` 僅供本機開發模式使用；靜態發佈版使用瀏覽器儲存或匯入的 JSON。每位成員包含自己的關係清單：
+`fixtures/family.json` 僅是本機 dev adapter／測試用資料；靜態發佈版不會打包它，正式資料使用 IndexedDB 或由使用者匯入的 JSON。每位成員包含自己的關係清單：
 
 ```json
 {
@@ -281,7 +290,9 @@ npm run test:browser
 
 關係比較若無法整條路徑對應單一稱謂，會先比對其中可辨識的片段，選擇能縮短串接文字的組合。例如「師兄弟的父親的父親的父親的妻子」會顯示「師兄弟的曾祖父的妻子」。片段中的長幼以該片段的起點判斷，父母系別不明、性別未填與非親生關係的提示仍保留；不會因縮寫而刪除畫布上的中間成員，或將祖父的配偶直接當作親生祖母。
 
-`family-model.js` 負責資料驗證與代別，`family-repository.js` 負責開發 API／靜態 IndexedDB 儲存，`google-drive-sync.js` 負責靜態版 Google Drive `appDataFolder` 同步，`family-tree.js` 負責畫布，`relationship-details.js` 負責可收折的關係與備註，`kinship.js` 搭配稱謂 JSON 判讀關係。`build.cjs` 產生靜態發佈目錄並注入 Google OAuth Client ID。
+`family-model.js` 只負責 domain 資料驗證、關係語意與 domain graph，不再保存畫面代別；`family-display-projection.js` 將 domain graph 投影成含 `gen` 的顯示 graph，並負責師徒／同門等畫面 placement。`family-repository.js` 負責開發 API adapter／靜態 IndexedDB 儲存，`FamilyApp` 保存 application snapshot 與 projected graph，資料更新以 `familyappchange` 通知 UI，不再依賴 `window.FAMILY`。Google Drive 的 transport、同步決策與 OAuth/UI 分別由 `google-drive-client.js`、`family-sync-engine.js`、`google-drive-sync.js` 負責。
+
+族譜畫布使用 GitHub Pages 原生支援的 ES Modules，不需要 bundler。`src/assets/family-tree.js` 是 coordinator；`family-tree-viewport.mjs` 負責縮放、viewport anchor 與 semantic zoom，`family-tree-layout.mjs` 負責 generation blocks 與 connector lane layout，`family-tree-renderer.mjs` 負責 DOM/SVG 基礎 renderer 與圖例，`family-tree-interaction.mjs` 負責 tooltip、pan/pinch、dismiss 與 mobile Back 行為。`relationship-details.js` 負責可收折的關係與備註，`kinship.js` 搭配稱謂 JSON 判讀關係；`dev/build.cjs` 只會複製 `src/assets`、`src/data`，並透過 `dev/site-source.cjs` 展開 HTML partial、注入 Google OAuth Client ID，避免 dev／fixture 誤發布。
 
 ### P1 interaction refinements
 

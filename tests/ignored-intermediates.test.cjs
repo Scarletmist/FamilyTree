@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const Model = require('../assets/family-model.js');
-const { createFamilyServer } = require('../server.cjs');
+const Model = require('../src/assets/family-model.js');
+const { createFamilyServer } = require('../dev/server.cjs');
 
 const person = (id, relationships = [], gender = 'U') => ({ id, name:id, location:'', position:'', gender, siblingOrder:null, relationships });
 const child = id => ({ type:'child', personId:id, kind:'親生' });

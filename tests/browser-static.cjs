@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const http = require('node:http');
 const path = require('node:path');
 const os = require('node:os');
-const { build } = require('../build.cjs');
+const { build } = require('../dev/build.cjs');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', location: '', position: '', siblingOrder: null, relationships, notes });
 (async () => {

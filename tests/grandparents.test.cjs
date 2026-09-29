@@ -1,12 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model.js');
-const Details = require('../assets/relationship-details.js');
+const Model = require('../src/assets/family-model.js');
+const Projection = require('../src/assets/family-display-projection.js');
+const Details = require('../src/assets/relationship-details.js');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 
 for (const kind of Model.KINDS) test(`${kind}: direct grandparent and inverse survive editing and display two generations apart`, () => {
   const data = { schemaVersion: 2, people: [person('G'), person('C', [{ type: 'grandparent', personId: 'G', kind }])] };
-  const graph = Model.build(data);
+  const graph = Projection.project(Model.build(data));
   assert.deepEqual(graph.people.map(p => p.gen), [1, 3]);
   assert.equal(graph.descents[0].generations, 2);
   assert.equal(Details.buildGroups(graph, 'C')[0].id, 'grandparents');

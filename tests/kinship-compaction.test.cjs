@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Model = require('../assets/family-model');
-const config = require('../data/kinship-terms.json');
-const { create } = require('../assets/kinship');
+const Model = require('../src/assets/family-model');
+const config = require('../src/data/kinship-terms.json');
+const { create } = require('../src/assets/kinship');
 function fixture(types, overrides = {}) {
   const people = Array.from({ length: types.length + 1 }, (_, i) => ({
     id: 'p' + i, name: 'p' + i, gender: 'M', location: '', position: '', siblingOrder: null,

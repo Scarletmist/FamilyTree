@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { place, overlaps } = require('../assets/label-layout');
+const { place, overlaps } = require('../src/assets/label-layout');
 const bounds = { left: 80, right: 500, top: 12, bottom: 400 };
 test('coincident labels separate and avoid cards, retaining all labels', () => {
   const labels = Array.from({ length: 15 }, () => ({ x: 200, y: 110, width: 90, height: 22 }));

@@ -1,6 +1,8 @@
 (function () {
   'use strict';
   const dialog = document.getElementById('member-dialog');
+  const selectTreeMember = (id, options = {}) => window.dispatchEvent(new CustomEvent('familytreeselect', { detail: { id, options } }));
+  const clearTreeViewState = () => window.dispatchEvent(new CustomEvent('familytreeclearview'));
   const form = document.getElementById('member-form');
   const relations = document.getElementById('member-relations');
   const removalStatus = document.createElement('div'); removalStatus.className = 'relation-removal-status';
@@ -175,8 +177,9 @@
     select.value = [...select.options].some(o => o.value === previous) ? previous : '';
   }
   function accept(payload, restored = false) {
-    const graph = FamilyModel.build(payload.data);
-    snapshot = payload;
+    if (FamilyApp.snapshot() !== payload) FamilyApp.adopt(payload, restored ? 'backup' : 'ui');
+    snapshot = FamilyApp.snapshot();
+    const graph = FamilyApp.graph();
     restoredBackup = restored;
     const storage = FamilyRepository.isStatic ? 'IndexedDB' : restored ? null : backup.save(payload);
     backupStatus.textContent = FamilyRepository.isStatic ? '已儲存至此瀏覽器（IndexedDB）；可連結 Google Drive 跨裝置同步，JSON 匯出仍可作為離線備份。' : restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
@@ -184,8 +187,6 @@
     familyTitle.textContent = familyName + '族譜圖';
     document.title = '族譜圖 — ' + familyName;
     familyNameButton.disabled = restored;
-    window.FAMILY = graph;
-    window.renderFamilyTree();
     addButton.disabled = restored;
     document.getElementById('import-json').disabled = restored;
     document.getElementById('export-json').disabled = false;
@@ -193,22 +194,18 @@
     window.dispatchEvent(new CustomEvent('familyintermediatechange'));
   }
   async function load() {
-    const response = await FamilyRepository.request('/api/family', { cache: 'no-store' });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || '無法載入族譜。');
+    const payload = await FamilyApp.load();
     accept(payload);
   }
   async function undoLastChange(expectedVersion) {
-    const response = await FamilyRepository.request('/api/family/undo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: expectedVersion })
-    });
-    const payload = await response.json();
-    if (!response.ok) { showStatus(payload.error || '無法復原上一項修改。', 'error'); return false; }
+    let payload;
+    try { payload = await FamilyApp.undo(expectedVersion); }
+    catch (error) { showStatus(error.message || '無法復原上一項修改。', 'error'); return false; }
     document.getElementById('family-filter').value = '';
     delete document.querySelector('.tree').dataset.scope;
-    window.clearFamilyViewState?.();
+    clearTreeViewState();
     accept(payload);
-    window.selectFamilyMember(null);
+    selectTreeMember(null);
     showStatus(`已復原「${payload.undoneLabel || '上一項修改'}」。`, 'info');
     return true;
   }
@@ -392,13 +389,7 @@
     else showStatus('此中間關係已更新，請重新整理後再選擇。', 'warning');
   };
   async function updateIntermediateIgnored(planId, ignored) {
-    const response = await FamilyRepository.request('/api/family/intermediate-ignore', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ planId, ignored, version: snapshot.version })
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || '無法更新待補項目。');
+    const payload = await FamilyApp.updateIntermediateIgnore({ planId, ignored, version: snapshot.version });
     accept(payload);
     return payload;
   }
@@ -471,9 +462,7 @@
     catch (e) { nameError.textContent = e.message; return; }
     setNameSaving(true);
     try {
-      const response = await FamilyRepository.request('/api/family/name', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ familyName, version: nameVersion }) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || '儲存名稱失敗，請重試。');
+      const payload = await FamilyApp.updateFamilyName({ familyName, version: nameVersion });
       accept(payload);
       nameDialog.close();
       showUndoStatus(`已將家族名稱更新為「${familyName}」。`, payload);
@@ -487,8 +476,7 @@
     editingId: () => editingId,
     async manage(body) {
       if (restoredBackup) throw new Error('目前為備份檢視，請重新連線後再編輯。');
-      const response = await FamilyRepository.request('/api/family/manage', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-      const payload = await response.json(); if (!response.ok) throw new Error(payload.error || '無法儲存。');
+      const payload = await FamilyApp.manageFamily(body);
       accept(payload); showUndoStatus('已儲存修改。', payload); return payload;
     },
     undo: () => undoLastChange(snapshot.version),
@@ -562,14 +550,14 @@
       const candidate = { ...member, id: editingId || 'p-' + requestId };
       if (editingId) FamilyModel.replaceMember(snapshot.data, candidate);
       else FamilyModel.build({ ...snapshot.data, people: [...snapshot.data.people, candidate] });
-      const response = await FamilyRepository.request(editingId ? '/api/members/' + encodeURIComponent(editingId) : '/api/members', { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member, requestId, version: snapshot.version }) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || '儲存失敗，請重試。');
+      const payload = editingId
+        ? await FamilyApp.updateMember(editingId, { member, version: snapshot.version })
+        : await FamilyApp.addMember({ member, requestId, version: snapshot.version });
       document.getElementById('family-filter').value = '';
       clearMemberDraft();
       accept(payload); closeMemberNow(true);
       // Keep the diagram available for filling the next intermediate slot.
-      window.selectFamilyMember(document.getElementById('intermediate-context') ? null : payload.memberId);
+      selectTreeMember(document.getElementById('intermediate-context') ? null : payload.memberId);
       showUndoStatus(`已${editingId ? '更新' : '新增'}「${member.name}」。`, payload);
     } catch (e) {
       error.textContent = e.message || '連線中斷，請重試。';
@@ -619,14 +607,12 @@
     importing = true; importError.textContent = '';
     ['confirm-import', 'cancel-import', 'refresh-import', 'close-import-dialog'].forEach(id => document.getElementById(id).disabled = true);
     try {
-      const response = await FamilyRepository.request('/api/family/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: stagedImport.data, version: importVersion }) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || '匯入失敗，請重試。');
+      const payload = await FamilyApp.importFamily({ data: stagedImport.data, version: importVersion });
       document.getElementById('family-filter').value = '';
       delete document.querySelector('.tree').dataset.scope;
       window.clearRecentFamilyMembers?.();
-      window.clearFamilyViewState?.();
-      accept(payload); window.selectFamilyMember(null);
+      clearTreeViewState();
+      accept(payload); selectTreeMember(null);
       importDialog.close(); stagedImport = null;
       showUndoStatus(`已匯入 ${payload.data.people.length} 位成員，並保留匯入前備份。`, payload);
     } catch (e) { importError.textContent = e.message; }
@@ -636,9 +622,8 @@
     const button = document.getElementById('export-json'); button.disabled = true;
     try {
       // Export the latest persisted JSON, including changes from other open pages.
-      const response = restoredBackup ? new Response(JSON.stringify(snapshot.data, null, 2), { headers: { 'Content-Type': 'application/json' } }) : await FamilyRepository.request('/api/family/export', { cache: 'no-store' });
-      if (!response.ok) throw new Error((await response.json()).error || '匯出失敗。');
-      const url = URL.createObjectURL(await response.blob());
+      const data = restoredBackup ? snapshot.data : await FamilyApp.exportData();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2) + '\n'], { type: 'application/json' }));
       const link = document.createElement('a'); link.href = url; link.download = 'family.json';
       document.body.appendChild(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -656,7 +641,7 @@
     accept(event.detail.payload);
     document.getElementById('family-filter').value = '';
     delete document.querySelector('.tree').dataset.scope;
-    window.selectFamilyMember(null);
+    selectTreeMember(null);
     showStatus('已從 Google Drive 載入較新的族譜資料。', 'info');
   });
   load().catch(e => {

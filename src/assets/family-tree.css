@@ -314,6 +314,8 @@ dialog > .form-actions,dialog form > .form-actions { flex:none; margin-top:0; pa
 /* Keep search inputs at 16px or above to prevent iOS focus zoom in every popover. */
 .select-dropdown .select-search { flex:none; width:100%; box-sizing:border-box; font:inherit; font-size:max(16px, 1rem); padding:8px; border:1px solid #c5b8a6; border-radius:5px; }
 .select-options { overflow:auto; min-height:0; }
+.select-dropdown .select-search[hidden] { display:none; }
+.select-options:focus-visible { outline:2px solid #286e86; outline-offset:-2px; border-radius:4px; }
 .management-toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px; }
 .family-management-dialog { width:min(680px,calc(100vw - 24px)); }
 .family-management-dialog .dialog-header h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
@@ -1295,6 +1297,7 @@ dialog > .form-actions button,dialog form > .form-actions button { min-height:va
   }
   .workspace-toolbar .legend-panel > summary::-webkit-details-marker { display:none; }
   .workspace-toolbar .legend-panel > summary::after { content:'▾'; margin-left:6px; }
+  .workspace-toolbar .legend-panel[open] > summary::after { content:'▴'; }
   .workspace-toolbar .legend-panel[open] > summary { background:#e9e4dc; }
   .workspace-toolbar .legend-panel > .legend {
     position:absolute; z-index:25; top:calc(100% + 8px); right:16px;
@@ -1561,7 +1564,7 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
     transition:opacity 180ms var(--ease-out),transform 180ms var(--ease-out);
   }
   html[data-motion-input="pointer"] .tree__canvas svg [data-people] {
-    transition:opacity 120ms var(--ease-out);
+    transition:opacity 180ms var(--ease-out);
   }
   :is(.cloud-sync-alert,.relationship-summary)[hidden] { pointer-events:none; }
   @starting-style {

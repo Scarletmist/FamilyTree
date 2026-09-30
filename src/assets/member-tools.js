@@ -4,6 +4,10 @@
   const controls = new WeakMap();
   let active = null, nextId = 0;
   const normalized = text => text.normalize('NFKC').toLocaleLowerCase();
+  // These are fixed enums, unlike member/family/rank-group lists populated
+  // from user data. Larger enums keep search if their choices grow later.
+  const fixedChoices = '#member-gender, .relation-kind, .relation-cousin-seniority, .relation-status';
+  const needsSearch = select => !select.matches(fixedChoices) || select.options.length > 8;
   function close(restore = false) {
     if (!active) return;
     const control = active; active = null;
@@ -29,7 +33,7 @@
   }
   function draw(control) {
     const { select, search, list, hint } = control;
-    const keyword = normalized(search.value.trim());
+    const keyword = search.hidden ? '' : normalized(search.value.trim());
     control.options = [...select.options].filter(option => !option.disabled && normalized(option.textContent).includes(keyword));
     list.replaceChildren();
     control.index = Math.max(0, control.options.findIndex(option => option.selected));
@@ -46,13 +50,16 @@
   function highlight(control) {
     [...control.list.children].forEach((item, i) => item.classList.toggle('is-active', i === control.index));
     const item = control.list.children[control.index];
+    const focusTarget = control.search.hidden ? control.list : control.search;
+    const otherTarget = control.search.hidden ? control.search : control.list;
+    otherTarget.removeAttribute('aria-activedescendant');
     if (item) {
-      control.search.setAttribute('aria-activedescendant', item.id);
+      focusTarget.setAttribute('aria-activedescendant', item.id);
       const rect = item.getBoundingClientRect(), listRect = control.list.getBoundingClientRect();
       if (rect.top < listRect.top) control.list.scrollTop -= listRect.top - rect.top;
       else if (rect.bottom > listRect.bottom) control.list.scrollTop += rect.bottom - listRect.bottom;
     }
-    else control.search.removeAttribute('aria-activedescendant');
+    else focusTarget.removeAttribute('aria-activedescendant');
   }
   function choose(control, index) {
     const option = control.options[index]; if (!option) return;
@@ -64,9 +71,13 @@
   }
   function open(control) {
     if (control.select.matches(':disabled')) return;
-    close(); active = control; control.search.value = ''; draw(control);
+    close(); active = control; control.search.value = '';
+    control.search.hidden = !needsSearch(control.select);
+    control.list.tabIndex = control.search.hidden ? 0 : -1;
+    draw(control);
     control.panel.showPopover(); position(control);
-    control.trigger.setAttribute('aria-expanded', 'true'); control.search.focus({ preventScroll: true });
+    control.trigger.setAttribute('aria-expanded', 'true');
+    (control.search.hidden ? control.list : control.search).focus({ preventScroll: true });
   }
   function enhance() {
     if (active && (!active.select.isConnected || active.select.matches(':disabled'))) close();
@@ -90,7 +101,7 @@
         trigger.addEventListener('click', event => { event.preventDefault(); active === control ? close() : open(control); });
         trigger.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); open(control); } });
         search.addEventListener('input', () => draw(control));
-        search.addEventListener('keydown', event => {
+        panel.addEventListener('keydown', event => {
           if (event.isComposing) return;
           if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); control.index = Math.max(0, Math.min(control.options.length - 1, control.index + (event.key === 'ArrowDown' ? 1 : -1))); highlight(control); }
           if (event.key === 'Enter') { event.preventDefault(); choose(control, control.index); }

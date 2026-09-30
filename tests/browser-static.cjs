@@ -115,7 +115,8 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     await page.click('#confirm-import'); await page.waitForFunction(() => FamilyApp.graph().people.length === 2);
     async function choose(selector, label) {
       await page.locator(selector).locator('..').locator('.select-trigger').click();
-      await page.locator('.select-dropdown:popover-open input').fill(label);
+      const search = page.locator('.select-dropdown:popover-open input');
+      if (await search.isVisible()) await search.fill(label);
       const name = selector.startsWith('#relationship-') ? new RegExp('^'+label+' · 第 \\d+ 代$') : label;
       await page.locator('.select-dropdown:popover-open').getByRole('option', { name, exact: true }).click();
     }

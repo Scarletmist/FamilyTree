@@ -21,7 +21,8 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
       const select = page.locator(selector);
       const label = await select.locator('option').evaluateAll((options, value) => options.find(o => o.value === value).textContent, value);
       await select.locator('..').locator('.select-trigger').click();
-      await page.locator('.select-dropdown:popover-open input').fill(label);
+      const search = page.locator('.select-dropdown:popover-open input');
+      if (await search.isVisible()) await search.fill(label);
       await page.locator('.select-dropdown:popover-open [role=option]').filter({ hasText: label }).first().click();
     }
     let fail = true;

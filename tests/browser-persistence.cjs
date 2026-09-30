@@ -30,7 +30,8 @@ const person = (id, relationships = []) => ({ id, name: id, gender: 'M', locatio
       const select = row.locator(selector);
       const text = await select.locator('option').evaluateAll((options, value) => options.find(option => option.value === value).textContent, value);
       await select.locator('..').locator('.select-trigger').click();
-      await page.locator('.select-dropdown:popover-open input').fill(text);
+      const search = page.locator('.select-dropdown:popover-open input');
+      if (await search.isVisible()) await search.fill(text);
       await page.locator('.select-dropdown:popover-open [role=option]').filter({ hasText: text }).first().click();
     }
     assert.match(await row.locator('.relation-preview').textContent(), /祖父母.*契子女/);

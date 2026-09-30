@@ -248,6 +248,9 @@
       remember(panel);
       panel.dataset.memberId = personId || '';
       const person = graph?.people.find(p => p.id === personId);
+      if (!person && !panel.hidden) {
+        globalThis.dispatchEvent?.(new CustomEvent('familydetailslayoutbefore', { detail:{ preserveScroll:true } }));
+      }
       panel.hidden = !person;
       panel.inert = !person;
       // Keep the last contents painted during CSS exit, while closing the

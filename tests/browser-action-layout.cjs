@@ -13,7 +13,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
   let browser;
   try {
     browser = await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'msedge'});
-    for (const [width,height,touch] of [[1440,900,false],[1200,900,false],[1280,900,false],[918,884,false],[320,740,true],[360,800,true],[390,844,true],[700,1000,true],[568,320,true],[844,390,true],[667,375,false],[1024,768,true]]) {
+    for (const [width,height,touch] of [[1440,900,false],[1200,900,false],[1280,900,false],[918,884,false],[320,740,true],[360,800,true],[390,844,true],[700,1000,true],[568,320,true],[844,390,true],[667,375,false],[1024,768,true]].filter(([width,height])=>!process.env.TEST_VIEWPORT || process.env.TEST_VIEWPORT===`${width}x${height}`)) {
       const context=await browser.newContext({viewport:{width,height},isMobile:touch,hasTouch:touch});
       const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
       await page.goto(`http://127.0.0.1:${server.address().port}/`); await page.waitForFunction(()=>window.FamilyEditor?.snapshot() && document.querySelector('.person'));
@@ -85,6 +85,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
         assert(await page.locator('#relationship-details-title').isVisible(),'Without history the title should remain visible even on narrow phones');
       }
       await page.locator('.relationship-entry__person[data-person-id=B]').click();
+      await page.waitForTimeout(300); // Measure docking after the new camera settles.
       if(await page.locator('#relationship-details').getAttribute('data-collapsed')==='true') await page.locator('.relationship-details__tab').click();
       const layout=await page.locator('#relationship-details').evaluate(panel=>{
         const top=panel.querySelector('.relationship-details__top'), bounds=panel.getBoundingClientRect();
@@ -128,7 +129,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
         else await page.locator('#relationship-reset').click();
         await page.waitForTimeout(100);
         const afterQuery = await page.locator('.tree').evaluate(el=>({left:el.scrollLeft,top:el.scrollTop}));
-        assert(Math.abs(beforeQuery.left-afterQuery.left)<=2&&Math.abs(beforeQuery.top-afterQuery.top)<=2,'Leaving comparison restores the original full-tree viewport');
+        assert(Math.abs(beforeQuery.left-afterQuery.left)<=2&&Math.abs(beforeQuery.top-afterQuery.top)<=2,JSON.stringify({reason:'Leaving comparison restores the original full-tree viewport',width,beforeQuery,afterQuery}));
         await page.evaluate(()=>window.dispatchEvent(new CustomEvent('familytreeselect',{detail:{id:'B',options:{expandDetails:true}}})));
       }
       assert.equal(await fs.readFile(dataFile,'utf8'),initialData,'Pure layout and navigation must not write family data');
@@ -167,6 +168,20 @@ const { createFamilyServer } = require('../dev/server.cjs');
       }
       await page.evaluate(()=>editFamilyMember('B'));
       await page.locator('#member-dialog').evaluate(async dialog=>{await Promise.all(dialog.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
+      const genderTrigger = page.locator('#member-gender').locator('..').locator('.select-trigger');
+      await genderTrigger.focus(); await page.keyboard.press('ArrowDown');
+      let popup = page.locator('.select-dropdown:popover-open');
+      assert.equal(await popup.locator('.select-search').isVisible(), false);
+      assert.equal(await popup.getByRole('listbox').evaluate(list=>document.activeElement===list), true);
+      assert.equal(await popup.getByRole('option').count(), 3);
+      await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#member-gender').inputValue(), 'M');
+      assert.equal(await genderTrigger.evaluate(button=>document.activeElement===button), true);
+      await genderTrigger.click();
+      await page.locator('.select-dropdown:popover-open').getByRole('option',{name:'女',exact:true}).click();
+      assert.equal(await page.locator('#member-gender').inputValue(), 'F');
+      await genderTrigger.click(); await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#member-dialog').evaluate(dialog=>dialog.open), true);
       const row=page.locator('.relation-row').first(); assert.equal(await row.getAttribute('data-expanded'),'false');
       assert(await row.locator('.remove-relation').isVisible()); assert.match(await row.locator('.remove-relation').getAttribute('aria-label'),/年長成員甲/);
       if(compact) {
@@ -178,6 +193,40 @@ const { createFamilyServer } = require('../dev/server.cjs');
       assert.match(await page.locator('.relation-removal-status').textContent(),/儲存後才會套用/);
       await page.getByRole('button',{name:'復原剛移除的關係'}).click(); assert.equal(await page.locator('.relation-row').count(),1);
       assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('relation-row__toggle')),true);
+      await row.locator('.relation-row__toggle').click();
+      await row.locator('.relation-type').locator('..').locator('.select-trigger').click();
+      popup = page.locator('.select-dropdown:popover-open');
+      assert(await popup.locator('.select-search').isVisible(), 'Larger fixed lists keep search');
+      await popup.locator('.select-search').fill('父母');
+      await popup.getByRole('option',{name:'父母',exact:true}).click();
+      await row.locator('.relation-kind').locator('..').locator('.select-trigger').click();
+      popup = page.locator('.select-dropdown:popover-open');
+      assert.equal(await popup.locator('.select-search').isVisible(), false);
+      assert.equal(await popup.getByRole('option').count(), 5);
+      await page.keyboard.press('Escape');
+      if (width === 1440) {
+        await row.locator('.relation-type').locator('..').locator('.select-trigger').click();
+        await page.locator('.select-dropdown:popover-open').getByRole('option',{name:'堂兄弟姊妹（直接設定）',exact:true}).click();
+        for (const [selector,count] of [['.relation-cousin-seniority',3],['.relation-status',2]]) {
+          if (selector === '.relation-status' && !await row.locator('.relation-advanced').evaluate(details=>details.open)) {
+            await row.locator('.relation-advanced > summary').click();
+          }
+          await row.locator(selector).locator('..').locator('.select-trigger').click();
+          popup = page.locator('.select-dropdown:popover-open');
+          assert.equal(await popup.locator('.select-search').isVisible(), false);
+          assert.equal(await popup.getByRole('option').count(), count);
+          await page.keyboard.press('Escape');
+        }
+      }
+      await row.locator('.relation-type').locator('..').locator('.select-trigger').click();
+      await page.locator('.select-dropdown:popover-open').getByRole('option',{name:'手足',exact:true}).click();
+      await row.locator('.relation-target').locator('..').locator('.select-trigger').click();
+      popup = page.locator('.select-dropdown:popover-open');
+      assert(await popup.locator('.select-search').isVisible(), 'Small member lists still support lookup');
+      await popup.locator('.select-search').fill('找不到的成員');
+      assert.equal(await popup.getByRole('option').count(), 0);
+      await page.keyboard.press('Escape');
+      await row.locator('.relation-row__toggle').click();
       await page.screenshot({path:path.join(dir,`${width}-${height}-form.png`)});
       await page.locator('.remove-relation').click(); await page.locator('#close-member-dialog').click();
       assert(await page.locator('#unsaved-changes-dialog').isVisible()); await page.click('#discard-member-changes');

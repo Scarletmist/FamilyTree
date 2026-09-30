@@ -114,7 +114,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await settle();
       assert(await didAnimate('relationship-details'));
       assert.equal((await motion(panel)).opacity, '1');
-      duration(await motion('.tree__canvas svg [data-people]'), reducedMotion === 'reduce' ? 80 : 120);
+      duration(await motion('.tree__canvas svg [data-people]'), reducedMotion === 'reduce' ? 80 : 180);
       if (await page.locator(panel).getAttribute('data-collapsed') === 'true') {
         await activate('.relationship-details__tab');
         await settle();

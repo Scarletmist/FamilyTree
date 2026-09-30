@@ -48,6 +48,8 @@ export function createViewportController({
   let naturalHeight = 0;
   let offsetX = 0, offsetY = 0;
   let queryExtentX = 0, queryExtentY = 0;
+  let preservedInspectorExtentX = 0;
+  let renderedScene = null, renderedScope = null;
   let rendering = false;
   let generationLabelFrame = 0;
   let semanticMode = null;
@@ -60,11 +62,108 @@ export function createViewportController({
   let semanticHudTimer = 0;
   let wheelGestureTimer = 0;
   let zoomControlsAttentionTimer = 0;
+  let focusFrame = 0;
+  let focusTarget = null;
+  let pendingCloseScroll = null;
 
   const viewport = () => document.querySelector('.tree');
   const canvas = () => document.getElementById('tree-canvas');
   const spacer = () => document.getElementById('tree-zoom-spacer');
   const isMobileLayout = () => matchMedia(MOBILE_QUERY).matches;
+
+  function cancelMemberFocus() {
+    cancelAnimationFrame(focusFrame);
+    focusFrame = 0;
+    focusTarget = null;
+  }
+
+  function restoreScrollPosition(position) {
+    const view = viewport();
+    if (!view) return;
+    cancelMemberFocus();
+    pendingCloseScroll = null; // Explicit restoration wins over a queued dock close.
+    const left = Math.max(0, Math.min(Number(position.left) || 0, naturalWidth * scale + offsetX));
+    const top = Math.max(0, Number(position.top) || 0);
+    // Include the reserved scrollbar gutter when retaining an exact view.
+    preservedInspectorExtentX = Math.max(preservedInspectorExtentX, left + view.offsetWidth);
+    applyScale();
+    view.scrollTo({ left, top, behavior:'instant' });
+    updateGenerationLabelPosition(); rememberViewportAnchor(); onViewStateChange();
+    // Keep this exact restoration authoritative through the next layout
+    // observer delivery, just as member navigation owns its focus frames.
+    focusFrame = requestAnimationFrame(() => {
+      focusFrame = requestAnimationFrame(() => { focusFrame = 0; rememberViewportAnchor(); });
+    });
+    // Keep this exact restoration authoritative through the next layout
+    // observer delivery, just as member navigation owns its focus frames.
+    focusFrame = requestAnimationFrame(() => {
+      focusFrame = requestAnimationFrame(() => { focusFrame = 0; rememberViewportAnchor(); });
+    });
+  }
+
+  // Scroll the viewport itself; scrollIntoView can also move page/dialog
+  // ancestors and cannot account for the portrait inspector covering the tree.
+  function focusMember(id) {
+    cancelMemberFocus();
+    const view = viewport();
+    const node = canvas()?.querySelector(`.person[data-person-id="${CSS.escape(id)}"]`);
+    if (!view || !node) return;
+    view.dispatchEvent(new Event('familycanvasfocus'));
+    hideTooltip();
+    const animate = globalThis.FamilyMotion?.shouldScrollSmooth() || false;
+    focusFrame = requestAnimationFrame(time => {
+      if (!node.isConnected) { cancelMemberFocus(); return; }
+      const rect = view.getBoundingClientRect(), member = node.getBoundingClientRect();
+      let top = rect.top + view.clientTop, bottom = top + view.clientHeight;
+      if (isMobileLayout()) {
+        const details = document.getElementById('relationship-details');
+        if (details && !details.hidden) {
+          const panel = details.getBoundingClientRect();
+          if (panel.top > top && panel.top < bottom && panel.width > view.clientWidth / 2) bottom = panel.top - 12;
+        }
+        const summary = document.getElementById('relationship-summary');
+        if (summary && !summary.hidden) top = Math.min(bottom, Math.max(top, summary.getBoundingClientRect().bottom + 12));
+      }
+      const start = { left:view.scrollLeft, top:view.scrollTop };
+      focusTarget = {
+        left:Math.max(0, Math.min(view.scrollWidth - view.clientWidth,
+          start.left + member.left + member.width / 2 - (rect.left + view.clientLeft + view.clientWidth / 2))),
+        top:Math.max(0, Math.min(view.scrollHeight - view.clientHeight,
+          start.top + member.top + member.height / 2 - (top + bottom) / 2))
+      };
+      const target = focusTarget;
+      const apply = progress => view.scrollTo({
+        left:start.left + (target.left - start.left) * progress,
+        top:start.top + (target.top - start.top) * progress,
+        behavior:'instant'
+      });
+      if (!animate || Math.hypot(target.left - start.left, target.top - start.top) < 2) {
+        apply(1);
+        // Keep ownership through this frame's inspector ResizeObserver delivery.
+        focusFrame = requestAnimationFrame(() => { cancelMemberFocus(); rememberViewportAnchor(); });
+        return;
+      }
+      // Use the same strong ease-out token as the rest of the UI. Scrolling
+      // needs rAF so a drag/zoom/new selection can take over at its current point.
+      const curve = getComputedStyle(document.documentElement).getPropertyValue('--ease-out').match(/[\d.]+/g)?.map(Number) || [.23,1,.32,1];
+      const coordinate = (t, a, b) => 3 * (1-t) ** 2 * t * a + 3 * (1-t) * t ** 2 * b + t ** 3;
+      const ease = progress => {
+        let low = 0, high = 1;
+        for (let i = 0; i < 16; i++) {
+          const t = (low + high) / 2;
+          if (coordinate(t, curve[0], curve[2]) < progress) low = t; else high = t;
+        }
+        return coordinate((low + high) / 2, curve[1], curve[3]);
+      };
+      const step = now => {
+        const progress = Math.min(1, (now - time) / 240);
+        apply(progress === 1 ? 1 : ease(progress));
+        if (progress < 1) focusFrame = requestAnimationFrame(step);
+        else { cancelMemberFocus(); rememberViewportAnchor(); onViewStateChange(); }
+      };
+      focusFrame = requestAnimationFrame(step);
+    });
+  }
 
   function semanticProfileForViewport() {
     const width = window.innerWidth || document.documentElement.clientWidth || 0;
@@ -127,8 +226,16 @@ export function createViewportController({
     if (!view || !root || !space) return;
     naturalWidth = Math.max(root.offsetWidth, root.scrollWidth);
     naturalHeight = Math.max(root.offsetHeight, root.scrollHeight);
-    space.style.width = Math.max(view.clientWidth, queryExtentX, Math.ceil(naturalWidth * scale + offsetX)) + 'px';
-    space.style.height = Math.max(view.clientHeight, queryExtentY, Math.ceil(naturalHeight * scale + offsetY)) + 'px';
+    let bottomClearance = 0;
+    const details = document.getElementById('relationship-details');
+    if (isMobileLayout() && details && !details.hidden) {
+      const viewRect = view.getBoundingClientRect(), panel = details.getBoundingClientRect();
+      if (panel.top > viewRect.top && panel.top < viewRect.bottom && panel.width > view.clientWidth / 2) {
+        bottomClearance = viewRect.bottom - panel.top + 12;
+      }
+    }
+    space.style.width = Math.max(view.clientWidth, queryExtentX, preservedInspectorExtentX, Math.ceil(naturalWidth * scale + offsetX)) + 'px';
+    space.style.height = Math.max(view.clientHeight, queryExtentY, Math.ceil(naturalHeight * scale + offsetY + bottomClearance)) + 'px';
   }
 
   function updateGenerationLabelPosition() {
@@ -232,6 +339,8 @@ export function createViewportController({
   }
 
   function setScaleAroundLogical(next, logical, anchor) {
+    cancelMemberFocus();
+    preservedInspectorExtentX = 0;
     const view = viewport();
     if (!view) return scale;
     next = clampScale(next);
@@ -298,6 +407,7 @@ export function createViewportController({
   // Scope changes are synchronous: discard an old semantic-zoom timer before
   // measuring the new graph, rather than allowing it to restore an old anchor.
   function prepareScale(value) {
+    preservedInspectorExtentX = 0;
     clearSemanticTimer();
     pendingSemanticRestore = null;
     offsetX = offsetY = 0;
@@ -371,7 +481,10 @@ export function createViewportController({
     rememberViewportAnchor();
   }
 
-  function beforeRender() {
+  function beforeRender({ scene = null, scope = null } = {}) {
+    cancelMemberFocus();
+    if (scene !== renderedScene || scope !== renderedScope) preservedInspectorExtentX = 0;
+    renderedScene = scene; renderedScope = scope;
     const root = canvas();
     rendering = true;
     const current = semanticStateForScale(scale);
@@ -520,6 +633,14 @@ export function createViewportController({
     mobileFit?.addEventListener('click', fitView);
     const view = viewport();
     bindDesktopZoomControlsAttention(view);
+    document.addEventListener('pointerdown', cancelMemberFocus, { capture:true, passive:true });
+    document.addEventListener('keydown', cancelMemberFocus, { capture:true });
+    view?.addEventListener('wheel', cancelMemberFocus, { capture:true, passive:true });
+    window.addEventListener('resize', cancelMemberFocus, { passive:true });
+    matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => {
+      if (focusTarget && viewport()) viewport().scrollTo({ ...focusTarget, behavior:'instant' });
+      cancelMemberFocus();
+    });
     view?.addEventListener('wheel', event => {
       if (isMobileLayout() || (!event.ctrlKey && !event.metaKey)) return;
       event.preventDefault();
@@ -548,8 +669,12 @@ export function createViewportController({
       let size = { width: view.clientWidth, windowWidth: innerWidth, windowHeight: innerHeight };
       let collapsedInspectorAnchor = null;
       let pendingInspectorAnchor = null;
-      window.addEventListener('familydetailslayoutbefore', () => {
-        if (!isMobileLayout()) pendingInspectorAnchor = captureViewportAnchor();
+      window.addEventListener('familydetailslayoutbefore', event => {
+        if (isMobileLayout()) return;
+        if (event.detail?.preserveScroll) {
+          cancelMemberFocus();
+          pendingCloseScroll = { left:view.scrollLeft, top:view.scrollTop };
+        } else { pendingCloseScroll = null; pendingInspectorAnchor = captureViewportAnchor(); }
       });
       new ResizeObserver(() => {
         const next = { width: view.clientWidth, windowWidth: innerWidth, windowHeight: innerHeight };
@@ -558,8 +683,19 @@ export function createViewportController({
         const windowChanged = next.windowWidth !== size.windowWidth || next.windowHeight !== size.windowHeight;
         size = next;
         // Window resizing and virtual keyboards remain handled by the coordinator.
-        if (!changed || windowChanged || isMobileLayout() || rendering || !naturalWidth) { pendingInspectorAnchor = null; return; }
-        if (isQueryVisible()) { collapsedInspectorAnchor = null; fitQuery(); return; }
+        if (!changed || windowChanged || isMobileLayout() || rendering || !naturalWidth) {
+          pendingInspectorAnchor = null; pendingCloseScroll = null; return;
+        }
+        if (pendingCloseScroll) {
+          const position = pendingCloseScroll;
+          pendingCloseScroll = null; pendingInspectorAnchor = null; collapsedInspectorAnchor = null;
+          // Closing reveals more canvas to the right; keep existing content at
+          // its screen position instead of recentering it in the wider viewport.
+          // Reserve enough scroll range even at the old right-hand boundary.
+          restoreScrollPosition(position);
+          return;
+        }
+        if (isQueryVisible() && !focusFrame) { collapsedInspectorAnchor = null; fitQuery(); return; }
         const selectedId = getSelectedId();
         const stable = getStableViewportAnchor();
         let anchor = pendingInspectorAnchor || (selectedId && stable?.personId !== selectedId ? captureViewportAnchor() : stable);
@@ -570,6 +706,7 @@ export function createViewportController({
         if (widening && selectedId) collapsedInspectorAnchor = anchor;
         else collapsedInspectorAnchor = null;
         applyScale();
+        if (focusFrame) return; // Member navigation owns the new inspector width.
         restoreViewportAnchor(anchor);
       }).observe(view);
     }
@@ -602,6 +739,9 @@ export function createViewportController({
     getStableViewportAnchor,
     rememberViewportAnchor,
     restoreViewportAnchor,
+    focusMember,
+    refreshLayout: updateSpacer,
+    restoreScrollPosition,
     isRendering: () => rendering
   };
 }

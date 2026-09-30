@@ -36,6 +36,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
   } });
   const orderKey = FamilyModel.orderKey;
   let selectedId = null;
+  let updateSelectedDetails = null;
   let queryScope = null, beforeQueryView = null, renderView = null, queryViewportAction = null;
   const VIEW_STATE_KEY = 'family-tree:canvas-view:v1:' + location.pathname;
   let initialViewState = (() => {
@@ -113,7 +114,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
   function closeSelectedDetails({ focusCanvas = false } = {}) {
     if (!selectedId) return false;
     selectedId = null;
-    render();
+    if (updateSelectedDetails) updateSelectedDetails(); else render();
     if (focusCanvas) requestAnimationFrame(() => document.querySelector('.tree')?.focus({ preventScroll: true }));
     return true;
   }
@@ -127,6 +128,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     bindGlobalDismiss(closeSelectedDetails);
     bindMobileBackNavigation(closeSelectedDetails);
     memberTooltip.hide(null, true);
+    updateSelectedDetails = null;
     canvas.replaceChildren();
     canvas.style.paddingBottom = '';
     if (!Array.isArray(FAMILY?.people)) {
@@ -579,7 +581,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
         onQuery: id => relationshipSearch.startWithMember(id),
         onLocate: id => {
           const node = nodes.get(id);
-          node?.scrollIntoView({ block: 'center', inline: 'center', behavior: window.FamilyMotion?.shouldScrollSmooth() ? 'smooth' : 'instant' });
+          treeZoom.focusMember(id);
           node?.focus({ preventScroll: true });
         },
         onClose: () => {
@@ -589,7 +591,9 @@ let FAMILY = FamilyApp?.graph?.() || null;
           nodes.get(id)?.focus({ preventScroll: true });
         }
       });
+      treeZoom.refreshLayout();
     }
+    updateSelectedDetails = showDetails;
     showDetails();
     // On entry or a new family, start at the parents; resizing preserves the user's pan.
     const viewport = canvas.parentElement;
@@ -613,8 +617,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
         const view = document.querySelector('.tree');
         if (state && view && typeof state.scrollLeft === 'number' && typeof state.scrollTop === 'number') {
           if (typeof state.scale === 'number' && Number.isFinite(state.scale)) treeZoom.setScale(state.scale);
-          view.scrollLeft = Math.max(0, state.scrollLeft);
-          view.scrollTop = Math.max(0, state.scrollTop);
+          treeZoom.restoreScrollPosition({ left:state.scrollLeft, top:state.scrollTop });
         }
       } finally {
         viewStateRestoring = false;
@@ -626,7 +629,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     const view = document.querySelector('.tree');
     renderView = { scale: treeZoom.getScale(), scrollLeft: view.scrollLeft, scrollTop: view.scrollTop,
       filter: document.getElementById('family-filter').value };
-    treeZoom.beforeRender();
+    treeZoom.beforeRender({ scene:FAMILY, scope:document.getElementById('family-filter').value });
     try {
       return renderTree();
     } finally {
@@ -642,11 +645,8 @@ let FAMILY = FamilyApp?.graph?.() || null;
       } else if (action === 'center') {
         treeZoom.centerQuery();
       } else if (action === 'restore' && beforeQueryView) {
-        view.scrollLeft = beforeQueryView.scrollLeft;
-        view.scrollTop = beforeQueryView.scrollTop;
+        treeZoom.restoreScrollPosition({ left:beforeQueryView.scrollLeft, top:beforeQueryView.scrollTop });
         beforeQueryView = null;
-        treeZoom.rememberViewportAnchor();
-        scheduleCanvasViewStateSave();
       }
       restoreCanvasViewStateOnce();
     }
@@ -657,9 +657,9 @@ let FAMILY = FamilyApp?.graph?.() || null;
       const collapse = expandDetails ? false : matchMedia('(max-width:700px) and (orientation:portrait)').matches;
       relationshipDetails.setCollapsed(document.getElementById('relationship-details'), collapse);
     }
-    render();
-    const node = [...document.querySelectorAll('.person')].find(item => item.dataset.personId === id);
-    node?.scrollIntoView({ block: 'center', inline: 'center' });
+    memberTooltip.hide(null, true);
+    if (updateSelectedDetails) updateSelectedDetails(); else render();
+    if (id) treeZoom.focusMember(id);
     if (id) window.dispatchEvent(new CustomEvent('familymemberviewed', { detail: { id } }));
   }
 

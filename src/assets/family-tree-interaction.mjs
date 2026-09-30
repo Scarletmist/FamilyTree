@@ -268,6 +268,7 @@ export function bindPanning(viewport, {
     if (inertiaFrame) cancelAnimationFrame(inertiaFrame);
     inertiaFrame = 0;
   };
+  viewport.addEventListener('familycanvasfocus', stopInertia);
   const capture = id => {
     try { if (!viewport.hasPointerCapture(id)) viewport.setPointerCapture(id); } catch (_) {}
   };

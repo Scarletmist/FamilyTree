@@ -9,6 +9,7 @@ import json
 import re
 
 CLASSIC_ASSETS = [
+    'family-motion.js',
     'family-model.js',
     'family-display-projection.js',
     'family-commands.js',

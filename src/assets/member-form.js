@@ -40,10 +40,10 @@
   let statusTimer;
   function showStatus(message, kind = 'success', timeout, action = null) {
     clearTimeout(statusTimer);
-    status.replaceChildren();
-    status.dataset.kind = kind;
     status.hidden = !message;
     if (!message) return;
+    status.replaceChildren();
+    status.dataset.kind = kind;
     const text = document.createElement('span'); text.className = 'save-status__message'; text.textContent = message;
     status.appendChild(text);
     if (action?.label && typeof action.onClick === 'function') {

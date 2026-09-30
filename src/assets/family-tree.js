@@ -129,7 +129,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     memberTooltip.hide(null, true);
     canvas.replaceChildren();
     canvas.style.paddingBottom = '';
-    if (typeof FAMILY === 'undefined' || !Array.isArray(FAMILY.people)) {
+    if (!Array.isArray(FAMILY?.people)) {
       canvas.appendChild(element('p', 'tree__error', '正在載入族譜…'));
       return;
     }

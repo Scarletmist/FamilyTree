@@ -142,6 +142,21 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.deepEqual((await page.locator('.person__name').allTextContents()).sort(), ['A', 'B', 'C', 'D']);
     const savedCousin = await page.evaluate(() => FamilyModel.relationshipsFor(FamilyApp.graph(), 'B').find(r => r.type === 'tangCousin'));
     assert.equal(savedCousin.seniority, 'older');
+    const scopeTrigger = page.locator('.family-scope-select .select-trigger');
+    assert.equal(await scopeTrigger.isDisabled(), true, 'Query mode disables the shared scope trigger');
+    await page.click('#relationship-reset');
+    const beforeScope = await page.evaluate(() => JSON.stringify(FamilyApp.snapshot().data));
+    const scopeChoice = await page.locator('#family-filter').evaluate(select => {
+      const option = [...select.options].find(option => option.value);
+      return { value: option.value, label: option.textContent };
+    });
+    await choose('#family-filter', scopeChoice.label);
+    assert.equal(await page.locator('#family-filter').inputValue(), scopeChoice.value);
+    assert.equal(await scopeTrigger.textContent(), scopeChoice.label);
+    assert(await page.locator('.person').count() < 4, 'Selecting a family scopes the canvas');
+    await choose('#family-filter', '所有關係');
+    assert.equal(await page.locator('.person').count(), 4);
+    assert.equal(await page.evaluate(() => JSON.stringify(FamilyApp.snapshot().data)), beforeScope);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => window.editFamilyMember('B'));
     assert.equal(await page.locator('#member-dialog').evaluate(n => n.scrollWidth <= n.clientWidth), true);

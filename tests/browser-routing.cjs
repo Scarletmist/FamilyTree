@@ -54,9 +54,9 @@ async function check(page, scenario) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(250);
     await check(page, 'mobile resize');
-    await page.locator('#family-filter').selectOption('u1');
+    await page.locator('#family-filter').selectOption('u1', { force: true });
     await check(page, 'filtered family');
-    await page.locator('#family-filter').selectOption('');
+    await page.locator('#family-filter').selectOption('', { force: true });
     // Many mentor and peer lines need enough vertical room above every row.
     const dense = structuredClone(data);
     for (let i = 0; i < 32; i++) dense.people.push(person('T' + i, [

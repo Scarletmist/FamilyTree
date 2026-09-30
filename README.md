@@ -48,6 +48,14 @@
 - `tests/`：Node 與瀏覽器回歸測試。
 - `dist/`：由建置產生的唯一發布輸出，不應手動維護。
 
+## 互動動畫
+
+成員詳情開合、dialog、手機關係結果面板、儲存／復原提示與搜尋選單使用原生 CSS 過場。動畫只處理 opacity／transform；畫布尺寸與視角錨點立即更新，拖曳、縮放、搜尋結果與連續查看成員維持原有操作。視窗退出使用 display／overlay 的離散過場，關閉狀態與焦點不等待動畫。
+
+`family-motion.js` 區分指標與鍵盤輸入，鍵盤啟動及操作會立即切換並取消進行中的過場。`prefers-reduced-motion: reduce` 改為 80ms 純淡入淡出；未支援離散過場的瀏覽器使用原有即時切換。
+
+`npm run test:motion:browser` 驗證桌面、手機直橫向、減少動態、快速重開、焦點、成員切換、選單、提示／復原及族譜資料不變；可用 `PLAYWRIGHT_MODULE`、`PLAYWRIGHT_CHANNEL` 指定 Playwright 與瀏覽器。
+
 ## 靜態建置與 GitHub Pages
 
 執行 `node dev/build.cjs`（或 `npm run build`）產生 `dist/`，首頁為 `dist/index.html`，也保留 `family-tree.html` 入口。不需安裝套件。建置只從 `src/` 複製 production runtime，並在建置時展開 `src/templates/`；**不包含 `fixtures/family.json`、`dev/`、source templates 或任何開發成員資料**。

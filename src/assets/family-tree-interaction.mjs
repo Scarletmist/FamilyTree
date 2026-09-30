@@ -6,6 +6,7 @@ export function createMemberTooltip({ getHideNames = () => false } = {}) {
   const HIDE_DELAY = 80;
   const GAP = 12;
   const VIEWPORT_MARGIN = 12;
+  const hoverInput = matchMedia('(hover: hover) and (pointer: fine)');
   let showTimer = 0;
   let hideTimer = 0;
   let anchor = null;
@@ -59,14 +60,14 @@ export function createMemberTooltip({ getHideNames = () => false } = {}) {
   }
 
   function show(node, person, immediate = false) {
-    if (!tooltip || !person.notes) return;
+    if (!tooltip || !person.notes || !hoverInput.matches) return;
     clearTimeout(hideTimer);
     clearTimeout(showTimer);
     anchor = node;
     activePerson = person;
     const reveal = () => {
       showTimer = 0;
-      if (anchor !== node || !node.isConnected) return;
+      if (anchor !== node || !node.isConnected || !hoverInput.matches) return;
       name.textContent = getHideNames() ? 'OOO' : person.name;
       body.textContent = person.notes;
       tooltip.classList.remove('is-visible');
@@ -111,13 +112,19 @@ export function createMemberTooltip({ getHideNames = () => false } = {}) {
   function bind(node, person) {
     if (!person.notes) return;
     node.dataset.hasNote = 'true';
-    node.addEventListener('mouseenter', () => show(node, person));
-    node.addEventListener('mouseleave', () => hide(node));
-    node.addEventListener('focus', () => show(node, person, true));
-    node.addEventListener('blur', () => hide(node));
+    let touchFocus = false;
+    node.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse') show(node, person); });
+    node.addEventListener('pointerleave', () => hide(node));
+    node.addEventListener('pointerdown', event => {
+      touchFocus = event.pointerType !== 'mouse';
+      if (touchFocus) hide(null, true);
+    });
+    node.addEventListener('focus', () => { if (!touchFocus) show(node, person, true); });
+    node.addEventListener('blur', () => { touchFocus = false; hide(node); });
   }
 
   window.addEventListener('resize', schedulePosition);
+  hoverInput.addEventListener('change', () => { if (!hoverInput.matches) hide(null, true); });
   document.getElementById('tree-canvas')?.parentElement?.addEventListener('scroll', schedulePosition, { passive: true });
   return { bind, hide, refreshName, schedulePosition };
 }

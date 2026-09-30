@@ -40,7 +40,7 @@ const demo = require('../fixtures/family.json');
     const after = await viewport.evaluate(el => [el.scrollLeft, el.scrollTop]);
     assert(after[0] > before[0] + 100 && after[1] > before[1] + 60);
     assert.equal(await page.locator('.person[aria-pressed="true"]').count(), 0);
-    await page.selectOption('#family-filter', 'u5');
+    await page.selectOption('#family-filter', 'u5', { force: true });
     await page.locator('[data-person-id="p17"]').click();
     const details = await page.locator('#relationship-details').innerText();
     assert.match(details, /長兄：陳志明/); assert.match(details, /三妹：陳雅雯/); assert.match(details, /五弟：陳冠廷/);

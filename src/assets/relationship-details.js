@@ -206,8 +206,9 @@
       panel.querySelectorAll('details[data-group]').forEach(details => state.set(details.dataset.group, details.open));
       if (state.size) openStates.set(id, state);
     }
-    function setCollapsed(panel, value, { focus = false } = {}) {
-      if (panel.dataset.collapsed !== String(Boolean(value))) {
+    function setCollapsed(panel, value, { focus = false, reveal = true } = {}) {
+      const changed = panel.dataset.collapsed !== String(Boolean(value));
+      if (changed) {
         globalThis.dispatchEvent?.(new CustomEvent('familydetailslayoutbefore'));
       }
       collapsed = Boolean(value);
@@ -221,6 +222,7 @@
       tab.setAttribute('aria-expanded', String(!collapsed));
       const button = content.querySelector('.details-collapse');
       if (button) button.setAttribute('aria-expanded', String(!collapsed));
+      if (changed && reveal && !panel.hidden) globalThis.FamilyMotion?.reveal(collapsed ? tab : content);
       if (focus) (collapsed ? tab : button)?.focus({ preventScroll: true });
     }
     function render(panel, graph, personId, { onEdit, onSelect, onQuery, onLocate, onClose } = {}) {
@@ -244,11 +246,17 @@
           active.classList.contains('details-close') ? 'details-close' : '',
           group: active.closest('details[data-group]')?.dataset.group } : null;
       remember(panel);
-      panel.replaceChildren();
       panel.dataset.memberId = personId || '';
       const person = graph?.people.find(p => p.id === personId);
       panel.hidden = !person;
-      if (!person) return;
+      panel.inert = !person;
+      // Keep the last contents painted during CSS exit, while closing the
+      // inspector logically at once. Reopening replaces them synchronously.
+      if (!person) {
+        if (!globalThis.FamilyMotion?.canAnimate()) panel.replaceChildren();
+        return;
+      }
+      panel.replaceChildren();
       const content = element('div', 'relationship-details__content');
       content.id = 'relationship-details-content';
       const top = element('div', 'relationship-details__top');
@@ -396,7 +404,7 @@
       tab.append(arrow, tabText, tabSummary);
       tab.addEventListener('click', () => setCollapsed(panel, false, { focus: true }));
       panel.append(content, tab);
-      setCollapsed(panel, collapsed);
+      setCollapsed(panel, collapsed, { reveal: false });
       if (focused && !panel.hidden) {
         const target = collapsed ? tab : focused.group ?
           [...panel.querySelectorAll('details[data-group]')].find(group => group.dataset.group === focused.group)?.querySelector('summary') :

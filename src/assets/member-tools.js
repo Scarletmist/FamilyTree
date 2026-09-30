@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const selector = '#relationship-search select, #relationship-summary select, #member-form select';
+  const selector = '#family-filter, #relationship-search select, #relationship-summary select, #member-form select';
   const controls = new WeakMap();
   let active = null, nextId = 0;
   const normalized = text => text.normalize('NFKC').toLocaleLowerCase();
@@ -74,6 +74,7 @@
       let control = controls.get(select);
       if (!control) {
         const wrapper = document.createElement('span'); wrapper.className = 'searchable-select';
+        if (select.id === 'family-filter') wrapper.classList.add('family-scope-select');
         const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'select-trigger';
         const title = select.getAttribute('aria-label') || select.closest('label')?.firstChild?.textContent?.trim() || '選項';
         trigger.setAttribute('aria-label', title); trigger.setAttribute('aria-haspopup', 'dialog'); trigger.setAttribute('aria-expanded', 'false');

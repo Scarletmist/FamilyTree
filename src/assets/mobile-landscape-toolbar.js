@@ -49,14 +49,15 @@
   // remain unique, and compact/mobile layouts keep their original toolbar.
   const compactLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
   const filter = document.getElementById('family-filter');
+  const filterControl = filter.closest('.searchable-select') || filter;
   const filterLabel = document.querySelector('.family-filter-label');
   const scopeSlot = document.querySelector('.workspace-toolbar__scope');
   const filterHome = document.createComment('family scope home');
-  filter.before(filterHome);
+  filterControl.before(filterHome);
   function placeScope() {
     if (!scopeSlot) return;
-    if (compactLayout.matches) { filterHome.before(filterLabel, filter); }
-    else scopeSlot.append(filterLabel, filter);
+    if (compactLayout.matches) { filterHome.before(filterLabel, filterControl); }
+    else scopeSlot.append(filterLabel, filterControl);
   }
   placeScope();
 

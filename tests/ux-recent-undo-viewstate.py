@@ -69,7 +69,7 @@ with tempfile.TemporaryDirectory(prefix='ux81011-') as temp:
         options=filter_select.locator('option').evaluate_all('(opts)=>opts.map(o=>o.value).filter(Boolean)')
         chosen=options[0] if options else ''
         if chosen:
-          filter_select.select_option(chosen); page.wait_for_timeout(120)
+          filter_select.select_option(chosen,force=True); page.wait_for_timeout(120)
         for _ in range(3): page.evaluate("document.querySelector('#tree-zoom-in').click()")
         page.evaluate("""() => { const v=document.querySelector('.tree'); v.scrollLeft=120; v.scrollTop=80; v.dispatchEvent(new Event('scroll')); }""")
         page.wait_for_timeout(300)

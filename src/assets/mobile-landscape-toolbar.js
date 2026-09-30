@@ -39,10 +39,26 @@
   const moreIcon = svg('<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>');
 
   const landscapeMoreButton = createToolbarButton('landscape-more-open', '更多功能', moreIcon, 'landscape-toolbar-control');
+  const desktopMoreButton = createToolbarButton('desktop-more-open', '更多功能', moreIcon, 'desktop-toolbar-control');
+  const desktopMoreText = document.createElement('span'); desktopMoreText.textContent = '更多'; desktopMoreButton.appendChild(desktopMoreText);
   const portraitMoreButton = createToolbarButton('portrait-more-open', '更多功能', moreIcon, 'mobile-icon-control portrait-toolbar-control');
   const portraitMoreText = document.createElement('span'); portraitMoreText.className = 'portrait-more-text'; portraitMoreText.textContent = '更多'; portraitMoreText.setAttribute('aria-hidden', 'true'); portraitMoreButton.appendChild(portraitMoreText);
 
-  controls.append(landscapeMoreButton, portraitMoreButton);
+  controls.append(landscapeMoreButton, portraitMoreButton, desktopMoreButton);
+  // Move the existing filter, rather than cloning it: IDs and change listeners
+  // remain unique, and compact/mobile layouts keep their original toolbar.
+  const compactLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
+  const filter = document.getElementById('family-filter');
+  const filterLabel = document.querySelector('.family-filter-label');
+  const scopeSlot = document.querySelector('.workspace-toolbar__scope');
+  const filterHome = document.createComment('family scope home');
+  filter.before(filterHome);
+  function placeScope() {
+    if (!scopeSlot) return;
+    if (compactLayout.matches) { filterHome.before(filterLabel, filter); }
+    else scopeSlot.append(filterLabel, filter);
+  }
+  placeScope();
 
   const dialog = document.createElement('dialog');
   dialog.id = 'landscape-more-sheet';
@@ -96,13 +112,19 @@
     cloudAction.setAttribute('aria-label', cloudSync.getAttribute('aria-label') || 'Google Drive 同步');
     cloudAction.querySelector('[data-cloud-label]').textContent = cloudState === 'synced' ? 'Google Drive 已同步' : cloudState === 'syncing' ? 'Google Drive 同步中…' : cloudState === 'pending' ? 'Google Drive 有未同步變更' : cloudState === 'conflict' ? 'Google Drive 同步衝突' : cloudState === 'error' ? 'Google Drive 同步錯誤' : 'Google Drive 同步';
     const relationshipActive = mobileSearchEnd && !mobileSearchEnd.hidden;
-    // Portrait already exposes relationship search in the persistent mobile search bar
-    // (or the active-result Modify button), so do not duplicate that action in More.
-    relationshipAction.hidden = portrait.matches;
+    const desktop = !compactLayout.matches;
+    // Desktop exposes these actions in the workspace toolbar. Portrait also
+    // exposes relationship search in its persistent search bar or result actions.
+    relationshipAction.hidden = desktop || portrait.matches;
     // The canvas-name toggle also lives in the portrait search bar. Keep it out of More
     // while that bar is visible, but restore it during an active comparison when the bar
     // is intentionally hidden so the feature remains reachable.
-    canvasAction.hidden = portrait.matches && !relationshipActive;
+    canvasAction.hidden = desktop || (portrait.matches && !relationshipActive);
+    legendAction.hidden = desktop;
+    if (desktop) {
+      legendPanel.hidden = true;
+      legendAction.setAttribute('aria-pressed', 'false');
+    }
     relationshipAction.setAttribute('aria-pressed', String(relationshipActive));
     relationshipAction.setAttribute('aria-label', relationshipActive ? '修改比較關係' : '比較關係');
     relationshipAction.querySelector('[data-relationship-label]').textContent = relationshipActive ? '修改比較關係' : '比較關係';
@@ -115,6 +137,7 @@
   };
   landscapeMoreButton.addEventListener('click', openMore);
   portraitMoreButton.addEventListener('click', openMore);
+  desktopMoreButton.addEventListener('click', openMore);
   dialog.querySelector('#landscape-more-close').addEventListener('click', closeMore);
   dialog.addEventListener('cancel', event => { event.preventDefault(); closeMore(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) closeMore(); });
@@ -143,10 +166,12 @@
 
   function layoutChanged() {
     closeMore();
+    placeScope();
     syncState();
   }
   portrait.addEventListener('change', layoutChanged);
   landscape.addEventListener('change', layoutChanged);
+  compactLayout.addEventListener('change', layoutChanged);
   syncState();
   }
   // The search controls are created by the module entry after classic scripts.

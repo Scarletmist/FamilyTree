@@ -542,6 +542,37 @@ export function createViewportController({
     view?.addEventListener('scroll', scheduleGenerationLabelPosition, { passive: true });
     view?.addEventListener('scroll', onViewStateChange, { passive: true });
     view?.addEventListener('scroll', rememberViewportAnchor, { passive: true });
+    // Opening/collapsing the desktop inspector changes the canvas width without
+    // a window resize. Keep the current anchor, and fit queries to the new space.
+    if (view && typeof ResizeObserver === 'function') {
+      let size = { width: view.clientWidth, windowWidth: innerWidth, windowHeight: innerHeight };
+      let collapsedInspectorAnchor = null;
+      let pendingInspectorAnchor = null;
+      window.addEventListener('familydetailslayoutbefore', () => {
+        if (!isMobileLayout()) pendingInspectorAnchor = captureViewportAnchor();
+      });
+      new ResizeObserver(() => {
+        const next = { width: view.clientWidth, windowWidth: innerWidth, windowHeight: innerHeight };
+        const changed = Math.abs(next.width - size.width) > 1;
+        const widening = next.width > size.width;
+        const windowChanged = next.windowWidth !== size.windowWidth || next.windowHeight !== size.windowHeight;
+        size = next;
+        // Window resizing and virtual keyboards remain handled by the coordinator.
+        if (!changed || windowChanged || isMobileLayout() || rendering || !naturalWidth) { pendingInspectorAnchor = null; return; }
+        if (isQueryVisible()) { collapsedInspectorAnchor = null; fitQuery(); return; }
+        const selectedId = getSelectedId();
+        const stable = getStableViewportAnchor();
+        let anchor = pendingInspectorAnchor || (selectedId && stable?.personId !== selectedId ? captureViewportAnchor() : stable);
+        pendingInspectorAnchor = null;
+        // A small graph may hit a scroll boundary in the wider, collapsed view.
+        // Preserve the original docked anchor so expanding is still reversible.
+        if (!widening && selectedId && collapsedInspectorAnchor?.personId === selectedId) anchor = collapsedInspectorAnchor;
+        if (widening && selectedId) collapsedInspectorAnchor = anchor;
+        else collapsedInspectorAnchor = null;
+        applyScale();
+        restoreViewportAnchor(anchor);
+      }).observe(view);
+    }
     out.dataset.bound = 'true';
     updateControls();
     updateGenerationLabelPosition();

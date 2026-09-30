@@ -43,6 +43,8 @@
       </div>
     </div>
   </header>
+  <div class="workspace-toolbar">
+  <div class="workspace-toolbar__scope"></div>
   <form id="relationship-search" class="relationship-search" aria-label="查詢兩人成員關係">
     <label><select id="relationship-a" required aria-label="成員 A"><option value="">請選擇成員</option></select></label>
     <button type="button" id="relationship-swap" class="plain-button" aria-label="交換兩人成員" title="交換兩人成員"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4" /></svg></button>
@@ -63,9 +65,10 @@
     </div>
   </form>
   <details class="legend-panel">
-    <summary>關係圖例 · 捲軸／按住拖曳移動畫布 · Ctrl/⌘＋滾輪／觸控板縮放 · 點選人物查看關係</summary>
+    <summary title="捲軸／按住拖曳移動畫布 · Ctrl/⌘＋滾輪／觸控板縮放 · 點選人物查看關係">關係圖例</summary>
     <div class="legend" id="relationship-legend"></div>
   </details>
+  </div>
   <div class="workspace">
     <section id="relationship-summary" class="relationship-summary" aria-live="polite" aria-label="兩人關係結果" hidden></section>
     <main class="tree" tabindex="0" aria-label="族譜關係圖，可用捲軸、方向鍵或按住拖曳移動；觸控裝置可雙指縮放">

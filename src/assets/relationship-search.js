@@ -9,6 +9,7 @@
     let engine, config, graph, active = false, pathIndex = 0;
     const el = (tag, text) => { const node = document.createElement(tag); node.textContent = text; return node; };
     const mobile = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
+    const sheetLayout = matchMedia('(max-width:1199px)');
     const landscape = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)');
     const home = document.createComment('relationship search'); form.before(home);
     const bar = el('div'); bar.className = 'mobile-search-bar'; home.after(bar);
@@ -61,14 +62,14 @@
 
     open.addEventListener('click', openSheet); close.addEventListener('click', () => closeSheet());
     dialog.addEventListener('cancel', event => { event.preventDefault(); closeSheet(); });
-    dialog.addEventListener('click', event => { if (mobile.matches && event.target === dialog) closeSheet(); });
+    dialog.addEventListener('click', event => { if ((mobile.matches || sheetLayout.matches) && event.target === dialog) closeSheet(); });
     end.addEventListener('click', () => document.getElementById('relationship-reset').click());
     resultClose.addEventListener('click', closeResultDetails);
     resultDialog.addEventListener('cancel', event => { event.preventDefault(); closeResultDetails(); });
     resultDialog.addEventListener('click', event => { if (event.target === resultDialog && !landscape.matches) closeResultDetails(); });
 
     function layout() {
-      if (mobile.matches) { dialog.append(form); bar.append(nameToggle); }
+      if (mobile.matches || sheetLayout.matches) { dialog.append(form); bar.append(nameToggle); }
       else {
         if (dialog.open) closeSheet();
         closeResultDetails();
@@ -76,6 +77,7 @@
       }
     }
     mobile.addEventListener('change', () => { layout(); onChange({ preserveSelection: true, preserveViewport: true }); });
+    sheetLayout.addEventListener('change', () => { layout(); onChange({ preserveSelection: true, preserveViewport: true }); });
     landscape.addEventListener('change', () => { closeResultDetails(); onChange({ preserveSelection: true, preserveViewport: true }); });
     layout();
 
@@ -212,7 +214,7 @@
       closeResultDetails();
       // Dispatching change also refreshes the custom searchable-select trigger text.
       b.dispatchEvent(new Event('change', { bubbles: true }));
-      if (mobile.matches) {
+      if (mobile.matches || sheetLayout.matches) {
         if (!dialog.open) openSheet();
       } else {
         const trigger = a.closest('.searchable-select')?.querySelector('.select-trigger');

@@ -207,6 +207,9 @@
       if (state.size) openStates.set(id, state);
     }
     function setCollapsed(panel, value, { focus = false } = {}) {
+      if (panel.dataset.collapsed !== String(Boolean(value))) {
+        globalThis.dispatchEvent?.(new CustomEvent('familydetailslayoutbefore'));
+      }
       collapsed = Boolean(value);
       const content = panel.querySelector('.relationship-details__content');
       const tab = panel.querySelector('.relationship-details__tab');

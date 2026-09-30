@@ -78,13 +78,14 @@
   const resumeDraftButton = document.getElementById('resume-member-draft');
   const discardDraftButton = document.getElementById('discard-member-draft');
   const MEMBER_DRAFT_KEY = 'family-tree:member-form-draft:v1';
+  const COMPACT_LAYOUT_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px)';
   let memberBaseline = '', pendingMemberClose = null, currentPlanId = null, pendingDraft = null, draftTimer = null;
   let nameVersion = null, savingName = false;
   const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接設定）', biaoCousin: '表兄弟姊妹（直接設定）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
   function syncProgressiveFields({ draft = null } = {}) {
-    const mobile = matchMedia('(max-width:700px)').matches;
+    const mobile = matchMedia(COMPACT_LAYOUT_QUERY).matches;
     const fields = draft?.state?.fields || null;
     const hasOptionalDraft = fields && [fields.location, fields.position, fields.notes, fields.siblingOrder, fields.discipleOrder].some(Boolean);
     optionalFields.open = !mobile || Boolean(editingId) || Boolean(hasOptionalDraft);
@@ -282,7 +283,7 @@
     seniority.append(option('unknown', '未確認'), option('older', '對方比此成員年長'), option('younger', '對方比此成員年幼'));
     const rankGroup = field('使用的排行群組', 'relation-group'); rankGroup.required = false;
     const advanced = document.createElement('details'); advanced.className = 'relation-advanced';
-    advanced.open = !matchMedia('(max-width:700px)').matches;
+    advanced.open = !matchMedia(COMPACT_LAYOUT_QUERY).matches;
     const advancedSummary = document.createElement('summary'); advancedSummary.textContent = '進階設定：確認狀態、來源與說明';
     const advancedBody = document.createElement('div'); advancedBody.className = 'relation-advanced__body';
     advanced.append(advancedSummary, advancedBody); editor.appendChild(advanced);

@@ -157,7 +157,10 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                     assert portrait_toolbar['scroll'] <= portrait_toolbar['client'] + 1, portrait_toolbar
                     page.locator('#portrait-more-open').click()
                     page.wait_for_function("document.getElementById('landscape-more-sheet').open")
-                    assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_visible()
+                    # Relationship search and canvas-name toggle already have persistent
+                    # portrait controls, so More must not duplicate them while idle.
+                    assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_hidden()
+                    assert page.locator('#landscape-more-sheet [data-action="canvas-names"]').is_hidden()
                     assert page.locator('#landscape-more-sheet [data-action="cloud"]').is_visible()
                     assert page.locator('#landscape-more-sheet [data-action="ignored"]').count() == 0
                     assert not errors, errors

@@ -149,7 +149,11 @@
     undo.textContent = label ? '復原：' + label : '目前沒有可復原的修改';
   }
   window.addEventListener('familyintermediatechange', refreshUndo); refreshUndo();
-  document.querySelector('#member-list-dialog .member-list-sticky').append(toolbar);
+  const memberListSticky = document.querySelector('#member-list-dialog .member-list-sticky');
+  // Management actions are secondary. Keep them in the member-list scroll content
+  // instead of the sticky search/filter header so short mobile viewports retain
+  // enough room for actual member rows.
+  memberListSticky.after(toolbar);
   const duplicate = el('p', '', 'form-note'); duplicate.id = 'member-duplicate-hint'; duplicate.role = 'status'; duplicate.hidden = true;
   const name = document.getElementById('member-name'); name.parentElement.append(duplicate);
   name.addEventListener('input', () => {

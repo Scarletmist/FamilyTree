@@ -63,8 +63,8 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
                         page.locator('#landscape-more-open').click()
                         page.locator('#landscape-more-sheet [data-action="relationship"]').click()
                     else:
-                        page.locator('#portrait-more-open').click()
-                        page.locator('#landscape-more-sheet [data-action="relationship"]').click()
+                        # Portrait has a dedicated, persistent relationship-search entry.
+                        page.locator('#mobile-search-open').click()
                 open_query(); sheet = page.locator('.relationship-sheet'); assert sheet.is_visible(), name
                 page.mouse.click(4, 4); page.wait_for_timeout(60)
                 assert sheet.is_hidden(), name

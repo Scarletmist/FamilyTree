@@ -5,7 +5,7 @@
     const a = document.getElementById('relationship-a'), b = document.getElementById('relationship-b');
     const summary = document.getElementById('relationship-summary');
     const status = document.getElementById('kinship-status'), submit = form.querySelector('[type=submit]');
-    const retry = document.getElementById('kinship-retry');
+    const retry = document.getElementById('kinship-retry'), feedback = document.getElementById('kinship-feedback');
     let engine, config, graph, active = false, pathIndex = 0;
     const el = (tag, text) => { const node = document.createElement(tag); node.textContent = text; return node; };
     const mobile = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
@@ -39,7 +39,7 @@
     const resultBody = el('div'); resultBody.className = 'relationship-result-sheet__body';
     resultDialog.append(resultHeader, resultBody); document.body.append(resultDialog);
 
-    const hint = el('p', '請先選擇稱呼基準與要查詢的成員。'); hint.className = 'relationship-direction'; form.append(hint);
+    const hint = el('p', '請先選擇要查詢的成員與稱呼基準。'); hint.className = 'relationship-direction'; submit.before(hint);
     a.closest('label').classList.add('relationship-field-a'); b.closest('label').classList.add('relationship-field-b');
     a.closest('label').prepend(el('span', '想知道哪位成員？')); b.closest('label').prepend(el('span', '以哪位成員為稱呼基準？'));
     [a, b].forEach(select => select.closest('label').firstElementChild.classList.add('relationship-field-caption'));
@@ -79,15 +79,28 @@
     landscape.addEventListener('change', () => { closeResultDetails(); onChange({ preserveSelection: true, preserveViewport: true }); });
     layout();
 
+    function setFeedback(message = '', { retryable = false } = {}) {
+      status.textContent = message;
+      retry.hidden = !retryable;
+      feedback.hidden = !message && !retryable;
+    }
     async function load() {
-      submit.disabled = true; retry.hidden = true; status.textContent = '正在載入稱謂設定…';
+      submit.disabled = true;
+      form.setAttribute('aria-busy', 'true');
+      // Loading is represented by the disabled submit button + aria-busy. Keeping the
+      // transient status visually empty prevents the toolbar from shifting on startup.
+      setFeedback();
       try {
         const response = await fetch('data/kinship-terms.json', { cache: 'no-store' });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         config = await response.json(); engine = FamilyKinship.create(config);
-        status.textContent = ''; submit.disabled = !graph; onChange();
+        setFeedback(); submit.disabled = !graph; onChange();
       } catch (error) {
-        engine = null; active = false; status.textContent = '稱謂設定檔載入失敗，請檢查檔案後重試。'; retry.hidden = false; onChange();
+        engine = null; active = false;
+        setFeedback('稱謂設定檔載入失敗，請檢查檔案後重試。', { retryable: true });
+        onChange();
+      } finally {
+        form.removeAttribute('aria-busy');
       }
     }
     retry.addEventListener('click', load);
@@ -149,7 +162,8 @@
         select.value = relationshipMemberIds.has(previous) ? previous : '';
       }
       submit.disabled = !engine || !a.value || !b.value;
-      hint.textContent = a.value && b.value ? '查詢：' + optionLabels.get(a.value) + ' 是 ' + optionLabels.get(b.value) + ' 的誰？' : '請先選擇稱呼基準與要查詢的成員。';
+      const peopleById = new Map(relationshipPeople.map(person => [person.id, person]));
+      hint.textContent = a.value && b.value ? `${peopleById.get(a.value).name}是${peopleById.get(b.value).name}的誰？` : '請先選擇要查詢的成員與稱呼基準。';
       if (!a.value || !b.value) active = false;
       summary.hidden = !active; summary.replaceChildren();
       document.getElementById('family-filter').disabled = active;

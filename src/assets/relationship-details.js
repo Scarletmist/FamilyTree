@@ -309,14 +309,14 @@
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
-      profile.appendChild(element('p', '', '所在地：' + (person.location || '未填寫')));
-      profile.appendChild(element('p', '', '職位：' + (person.position || '未填寫')));
-      profile.appendChild(element('p', '', '師門次序：' + (person.discipleOrder ?? '未填寫')));
+      if (person.location) profile.appendChild(element('p', '', '所在地：' + person.location));
+      if (person.position) profile.appendChild(element('p', '', '職位：' + person.position));
+      if (person.discipleOrder != null && person.discipleOrder !== '') profile.appendChild(element('p', '', '師門次序：' + person.discipleOrder));
       for (const group of graph.rankGroups || []) {
         const member = group.members.find(m => m.personId === person.id);
         if (member) profile.appendChild(element('p', '', group.name + '：' + (member.order == null ? '排行未知' : '排行 ' + member.order)));
       }
-      body.appendChild(profile);
+      if (profile.childElementCount) body.appendChild(profile);
       if (person.notes) {
         const notes = element('details', 'relationship-group member-notes'); notes.dataset.group = 'notes';
         notes.open = openStates.get(person.id)?.get('notes') ?? true;

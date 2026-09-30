@@ -51,7 +51,8 @@ test('P2 UX source keeps progressive member flow, compact defaults and identifia
   assert(primary >= 0 && primary < relations && relations < optional, { primary, relations, optional });
   assert.match(dialogs, /member-ranking-fields/);
   assert.match(search, /第 \$\{person\.gen \+ generationOffset\} 代/);
-  assert.match(search, /請先選擇稱呼基準與要查詢的成員/);
+  assert.match(search, /請先選擇要查詢的成員與稱呼基準/);
+  assert.match(search, /\$\{peopleById\.get\(a\.value\)\.name\}是\$\{peopleById\.get\(b\.value\)\.name\}的誰？/);
   assert.match(mobileToolbar, /data-action="cloud"/);
   assert.match(mobileToolbar, /portrait-more-text/);
 });

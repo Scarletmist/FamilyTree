@@ -1,7 +1,9 @@
 (function () {
   'use strict';
 
+  let initialized = false;
   function initialize() {
+    if (initialized) return;
 
   const portrait = matchMedia('(max-width:700px) and (orientation:portrait)');
   const landscape = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)');
@@ -14,7 +16,14 @@
   const importJson = document.getElementById('import-json');
   const exportJson = document.getElementById('export-json');
   const legend = document.getElementById('relationship-legend');
-  if (!controls || !mobileSearchOpen || !editFamilyName || !canvasNames || !cloudSync || !importJson || !exportJson || !legend) return;
+  if (!controls || !mobileSearchOpen || !editFamilyName || !canvasNames || !cloudSync || !importJson || !exportJson || !legend) {
+    // The relationship search entry is created by the ES-module coordinator. In
+    // dynamically injected/test environments it may arrive just after this classic
+    // script, so retry on the next frame instead of permanently skipping the toolbar.
+    requestAnimationFrame(initialize);
+    return;
+  }
+  initialized = true;
 
   const svg = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
   const createToolbarButton = (id, label, icon, className) => {
@@ -87,6 +96,13 @@
     cloudAction.setAttribute('aria-label', cloudSync.getAttribute('aria-label') || 'Google Drive 同步');
     cloudAction.querySelector('[data-cloud-label]').textContent = cloudState === 'synced' ? 'Google Drive 已同步' : cloudState === 'syncing' ? 'Google Drive 同步中…' : cloudState === 'pending' ? 'Google Drive 有未同步變更' : cloudState === 'conflict' ? 'Google Drive 同步衝突' : cloudState === 'error' ? 'Google Drive 同步錯誤' : 'Google Drive 同步';
     const relationshipActive = mobileSearchEnd && !mobileSearchEnd.hidden;
+    // Portrait already exposes relationship search in the persistent mobile search bar
+    // (or the active-result Modify button), so do not duplicate that action in More.
+    relationshipAction.hidden = portrait.matches;
+    // The canvas-name toggle also lives in the portrait search bar. Keep it out of More
+    // while that bar is visible, but restore it during an active comparison when the bar
+    // is intentionally hidden so the feature remains reachable.
+    canvasAction.hidden = portrait.matches && !relationshipActive;
     relationshipAction.setAttribute('aria-pressed', String(relationshipActive));
     relationshipAction.setAttribute('aria-label', relationshipActive ? '修改比較關係' : '比較關係');
     relationshipAction.querySelector('[data-relationship-label]').textContent = relationshipActive ? '修改比較關係' : '比較關係';

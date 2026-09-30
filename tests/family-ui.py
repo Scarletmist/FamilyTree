@@ -110,7 +110,7 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     assert panel.is_visible()
                     if panel.get_attribute('data-collapsed') == 'true':
                         panel.locator('.relationship-details__tab').click()
-                    assert panel.locator('.relationship-details__header .edit-member svg').count() == 1
+                    assert panel.locator('.relationship-details__actions .edit-member svg').count() == 1
                     siblings = panel.locator('details[data-group="siblings"]')
                     siblings.locator('summary').click()
                     assert siblings.locator('.relationship-entry__role').all_text_contents() == ['二妹','三弟','契手足']

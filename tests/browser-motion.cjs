@@ -45,14 +45,14 @@ const { createFamilyServer } = require('../dev/server.cjs');
           }
         });
       });
-      const motion = selector => page.locator(selector).evaluate(element => {
+      const motion = selector => page.locator(selector).first().evaluate(element => {
         const style = getComputedStyle(element);
         return { duration: style.transitionDuration, properties: style.transitionProperty,
           opacity: style.opacity, transform: style.transform, open: element.open, hidden: element.hidden,
           display: style.display, inert: element.inert,
           animations: element.getAnimations().map(animation => ({ property: animation.transitionProperty, duration: animation.effect.getTiming().duration })) };
       });
-      const settle = () => page.waitForTimeout(280);
+      const settle = () => page.waitForTimeout(340);
       const clear = () => page.evaluate(() => { window.motionEvents.length = 0; });
       const didAnimate = id => page.evaluate(id => window.motionEvents.some(event => event.id === id && event.property === 'opacity'), id);
       const duration = (state, ms) => assert(state.duration.split(',').every(value => Number.parseFloat(value) === ms / 1000), JSON.stringify(state));
@@ -72,7 +72,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
 
       await clear();
       await activate('#add-member');
-      duration(await motion('#member-dialog'), reducedMotion === 'reduce' ? 80 : 200);
+      duration(await motion('#member-dialog'), reducedMotion === 'reduce' ? 80 : 240);
       await settle();
       assert(await didAnimate('member-dialog'), 'Pointer dialog entrance should transition');
       assert.equal((await motion('#member-dialog')).opacity, '1');
@@ -80,6 +80,23 @@ const { createFamilyServer } = require('../dev/server.cjs');
         assert.equal((await motion('#member-dialog')).transform, 'none');
         assert(!await page.evaluate(() => window.motionEvents.some(event => event.id === 'member-dialog' && event.property === 'transform')));
       }
+      // New/undone rows animate once; loading an existing row does not.
+      await clear();
+      const rowCount = await page.locator('.relation-row').count();
+      await activate('#add-relation');
+      assert.equal(await page.locator('.relation-row').count(), rowCount + 1);
+      await settle();
+      assert(await page.evaluate(() => window.motionEvents.some(event => String(event.cls).includes('motion-relation-reveal'))));
+      assert.equal(await page.locator('.motion-relation-reveal').count(), 0, 'Reveal classes are cleaned after actual completion');
+      await activate('.relation-row:last-child .remove-relation');
+      await clear();
+      await activate('.relation-removal-status button');
+      await settle();
+      assert.equal(await page.locator('.relation-row').count(), rowCount + 1);
+      assert(await page.evaluate(() => window.motionEvents.some(event => String(event.cls).includes('motion-relation-reveal'))));
+      await activate('.relation-row:last-child .remove-relation');
+      assert.equal(await page.locator('.relation-row').count(), rowCount, 'Restore the form baseline before testing close');
+      await settle(); // Let the draft debounce remove the now-clean draft.
       await activate('#cancel-member');
       assert.equal((await motion('#member-dialog')).open, false, 'Logical close must not wait for paint');
       // Reopen while the old surface/backdrop is still exiting. It must not
@@ -97,6 +114,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await settle();
       assert(await didAnimate('relationship-details'));
       assert.equal((await motion(panel)).opacity, '1');
+      duration(await motion('.tree__canvas svg [data-people]'), reducedMotion === 'reduce' ? 80 : 120);
       if (await page.locator(panel).getAttribute('data-collapsed') === 'true') {
         await activate('.relationship-details__tab');
         await settle();
@@ -118,6 +136,59 @@ const { createFamilyServer } = require('../dev/server.cjs');
       assert.equal((await motion(panel)).inert, true);
       await settle();
 
+      // Exercise cloud surfaces without authenticating or contacting Drive.
+      await page.evaluate(() => {
+        document.documentElement.dataset.motionInput = 'pointer';
+        for (const id of ['cloud-sync-alert', 'cloud-auth-toast']) {
+          document.getElementById(id).hidden = false;
+        }
+      });
+      await settle();
+      for (const id of ['cloud-sync-alert', 'cloud-auth-toast']) {
+        assert(await didAnimate(id), `${id} must have a real entrance`);
+        duration(await motion(`#${id}`), reducedMotion === 'reduce' ? 80 : 180);
+      }
+      await clear();
+      await page.evaluate(() => { document.getElementById('cloud-auth-toast').dataset.authState = 'success'; });
+      await settle();
+      assert(!await didAnimate('cloud-auth-toast'), 'Cloud state updates should not replay entry');
+      await page.evaluate(() => {
+        for (const id of ['cloud-sync-alert', 'cloud-auth-toast']) document.getElementById(id).hidden = true;
+        document.documentElement.dataset.motionInput = 'keyboard';
+        document.getElementById('cloud-auth-toast').hidden = false;
+      });
+      assert.equal((await motion('#cloud-auth-toast')).duration, '0s');
+      await page.evaluate(() => { document.getElementById('cloud-auth-toast').hidden = true; });
+      const smoothPolicy = await page.evaluate(() => {
+        document.documentElement.dataset.motionInput = 'pointer';
+        const pointer = FamilyMotion.shouldScrollSmooth();
+        const button = document.querySelector('.cloud-sync-button');
+        const state = button.dataset.syncState;
+        button.dataset.syncState = 'syncing';
+        const pulse = getComputedStyle(button, '::after').animationName;
+        if (state === undefined) delete button.dataset.syncState; else button.dataset.syncState = state;
+        document.documentElement.dataset.motionInput = 'keyboard';
+        return { pointer, keyboard: FamilyMotion.shouldScrollSmooth(), pulse };
+      });
+      assert.equal(smoothPolicy.pointer, reducedMotion !== 'reduce');
+      assert.equal(smoothPolicy.keyboard, false);
+      if (reducedMotion === 'reduce') assert.equal(smoothPolicy.pulse, 'none');
+      if (!touch && reducedMotion !== 'reduce') {
+        // A longer CSS transition must not be cut off by the old 180ms timer.
+        await page.evaluate(() => {
+          document.documentElement.dataset.motionInput = 'pointer';
+          const element = document.createElement('div');
+          element.id = 'long-reveal-check';
+          element.style.cssText = 'position:fixed;left:-1000px;width:10px;height:10px;transition-duration:260ms';
+          document.body.append(element);
+          FamilyMotion.reveal(element);
+        });
+        await page.waitForTimeout(200);
+        assert(await page.locator('#long-reveal-check').evaluate(element => element.classList.contains('motion-details-reveal')));
+        await page.waitForFunction(() => !document.getElementById('long-reveal-check').classList.contains('motion-details-reveal'));
+        await page.locator('#long-reveal-check').evaluate(element => element.remove());
+      }
+
       // Pointer select entry is subtle; typing/arrow navigation switches to
       // immediate motion and keeps the searchable input focused.
       await activate('#add-member');
@@ -127,7 +198,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       const trigger = '#member-form .select-trigger';
       await activate(trigger);
       await settle();
-      duration(await motion('.select-dropdown:popover-open'), reducedMotion === 'reduce' ? 80 : 125);
+      duration(await motion('.select-dropdown:popover-open'), reducedMotion === 'reduce' ? 80 : 150);
       assert.equal((await motion('.select-dropdown:popover-open')).opacity, '1');
       await page.keyboard.press('Escape');
       await page.locator(trigger).first().focus();
@@ -150,9 +221,12 @@ const { createFamilyServer } = require('../dev/server.cjs');
         });
         await activate('#relationship-search [type=submit]');
         await page.locator('.relationship-result-details').waitFor();
+        await settle();
+        assert(await didAnimate('relationship-summary'), 'First query summary should enter');
+        duration(await motion('#relationship-summary'), reducedMotion === 'reduce' ? 80 : 180);
         await clear();
         await activate('.relationship-result-details');
-        duration(await motion('#relationship-result-sheet'), reducedMotion === 'reduce' ? 80 : 240);
+        duration(await motion('#relationship-result-sheet'), reducedMotion === 'reduce' ? 80 : 280);
         await settle();
         assert(await didAnimate('relationship-result-sheet'));
         assert.equal((await motion('#relationship-result-sheet')).opacity, '1');
@@ -177,7 +251,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await settle();
       assert(await didAnimate('save-status'));
       assert.equal((await motion('#save-status')).opacity, '1');
-      duration(await motion('#save-status'), reducedMotion === 'reduce' ? 80 : 180);
+      duration(await motion('#save-status'), reducedMotion === 'reduce' ? 80 : 200);
       await clear();
       await activate('.save-status__action');
       await page.waitForFunction(() => document.getElementById('save-status').dataset.kind === 'info');

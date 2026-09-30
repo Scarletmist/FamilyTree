@@ -17,6 +17,7 @@
     if (!removedRelation) return;
     const { row, index } = removedRelation;
     relations.insertBefore(row, relations.children[index] || null); removedRelation = null;
+    window.FamilyMotion?.reveal(row, 'motion-relation-reveal');
     restoreRelation.remove(); removalMessage.textContent = '已復原移除的關係，儲存後才會套用。';
     row.querySelector('.relation-row__toggle').focus({ preventScroll: true }); row.scrollIntoView({ block: 'nearest' });
     scheduleMemberDraft();
@@ -344,7 +345,8 @@
       seniority.value = initial.seniority || 'unknown'; source.value = initial.source || ''; note.value = initial.note || ''; state.value = initial.status || 'confirmed';
       advanced.open = Boolean(initial.source || initial.note || initial.status === 'pending');
     }
-    relations.appendChild(row); update(); setExpanded(expanded); scheduleMemberDraft(); if (!initial) target.focus();
+    relations.appendChild(row); update(); setExpanded(expanded); scheduleMemberDraft();
+    if (!initial) { window.FamilyMotion?.reveal(row, 'motion-relation-reveal'); target.focus(); }
   }
   function setSaving(value) {
     saving = value;

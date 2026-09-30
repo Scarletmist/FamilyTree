@@ -1423,14 +1423,14 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
   html[data-motion-input="pointer"] dialog {
     --motion-duration:160ms;
     --motion-curve:var(--ease-out);
-    opacity:0; transform:scale(.98);
+    opacity:0; transform:scale(.96);
     transition:opacity var(--motion-duration) var(--motion-curve),
       transform var(--motion-duration) var(--motion-curve),
       display var(--motion-duration) allow-discrete,
       overlay var(--motion-duration) allow-discrete;
   }
   html[data-motion-input="pointer"] dialog[open] {
-    --motion-duration:200ms;
+    --motion-duration:240ms;
     opacity:1; transform:none;
   }
   html[data-motion-input="pointer"] dialog::backdrop {
@@ -1445,7 +1445,7 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
     transform:translateY(100%);
   }
   html[data-motion-input="pointer"] .relationship-result-sheet[open] {
-    --motion-duration:240ms; transform:none;
+    --motion-duration:280ms; transform:none;
   }
 
   html[data-motion-input="pointer"] .relationship-details {
@@ -1466,13 +1466,13 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
 
   html[data-motion-input="pointer"] .save-status {
     --motion-duration:140ms;
-    opacity:0; transform:translateY(8px);
+    opacity:0; transform:translateY(12px);
     transition:opacity var(--motion-duration) var(--ease-out),
       transform var(--motion-duration) var(--ease-out),
       display var(--motion-duration) allow-discrete;
   }
   html[data-motion-input="pointer"] .save-status:not([hidden]):not(:empty) {
-    --motion-duration:180ms; opacity:1; transform:none;
+    --motion-duration:200ms; opacity:1; transform:none;
   }
   html[data-motion-input="pointer"] .select-dropdown {
     --motion-duration:100ms;
@@ -1482,21 +1482,20 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
       overlay var(--motion-duration) allow-discrete;
   }
   html[data-motion-input="pointer"] .select-dropdown:popover-open {
-    --motion-duration:125ms; opacity:1;
+    --motion-duration:150ms; opacity:1;
   }
   /* Retained exit surfaces never intercept the next interaction. */
   dialog:not([open]),.select-dropdown:not(:popover-open),
   .relationship-details[hidden],.save-status[hidden] { pointer-events:none; }
   dialog:not([open])::backdrop { pointer-events:none; }
-  dialog:not([open])::backdrop { pointer-events:none; }
 
   @starting-style {
-    html[data-motion-input="pointer"] dialog[open] { opacity:0; transform:scale(.98); }
+    html[data-motion-input="pointer"] dialog[open] { opacity:0; transform:scale(.96); }
     html[data-motion-input="pointer"] dialog[open]::backdrop { opacity:0; }
     html[data-motion-input="pointer"] .relationship-result-sheet[open] { transform:translateY(100%); }
     html[data-motion-input="pointer"] .relationship-details:not([hidden]) { opacity:0; transform:var(--details-offset); }
     html[data-motion-input="pointer"] .motion-details-reveal { opacity:0; transform:translateX(8px); }
-    html[data-motion-input="pointer"] .save-status:not([hidden]):not(:empty) { opacity:0; transform:translateY(8px); }
+    html[data-motion-input="pointer"] .save-status:not([hidden]):not(:empty) { opacity:0; transform:translateY(12px); }
     html[data-motion-input="pointer"] .select-dropdown:popover-open { opacity:0; }
   }
 
@@ -1514,7 +1513,7 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
       transform:translateX(100%);
     }
     html[data-motion-input="pointer"] :is(.relationship-sheet,.landscape-more-sheet,.relationship-result-sheet)[open] {
-      --motion-duration:240ms; transform:none;
+      --motion-duration:280ms; transform:none;
     }
     @starting-style {
       html[data-motion-input="pointer"] :is(.relationship-sheet,.landscape-more-sheet,.relationship-result-sheet)[open] { transform:translateX(100%); }
@@ -1536,4 +1535,57 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
   /* Changing to keyboard input also cancels any in-flight pointer transition. */
   html[data-motion-input="keyboard"] :is(dialog,.relationship-details,.save-status,.select-dropdown,.motion-details-reveal),
   html[data-motion-input="keyboard"] dialog::backdrop { transition:none; }
+}
+
+/* New content and cloud feedback share the existing motion policy. Only the
+   hidden-to-visible boundary animates; text/path updates stay immediate. */
+@supports (transition-behavior:allow-discrete) {
+  html[data-motion-input="pointer"] :is(.cloud-sync-alert,.cloud-auth-toast,.relationship-summary) {
+    --feedback-rest:none;
+    --feedback-offset:translateY(-6px);
+    --motion-duration:140ms;
+    opacity:0; transform:var(--feedback-offset);
+    transition:opacity var(--motion-duration) var(--ease-out),
+      transform var(--motion-duration) var(--ease-out),
+      display var(--motion-duration) allow-discrete;
+  }
+  html[data-motion-input="pointer"] .cloud-auth-toast {
+    --feedback-rest:translateX(-50%);
+    --feedback-offset:translate(-50%,-6px);
+  }
+  html[data-motion-input="pointer"] :is(.cloud-sync-alert,.cloud-auth-toast,.relationship-summary):not([hidden]) {
+    --motion-duration:180ms; opacity:1; transform:var(--feedback-rest);
+  }
+  html[data-motion-input="pointer"] .motion-relation-reveal {
+    opacity:1; transform:none;
+    transition:opacity 180ms var(--ease-out),transform 180ms var(--ease-out);
+  }
+  html[data-motion-input="pointer"] .tree__canvas svg [data-people] {
+    transition:opacity 120ms var(--ease-out);
+  }
+  :is(.cloud-sync-alert,.relationship-summary)[hidden] { pointer-events:none; }
+  @starting-style {
+    html[data-motion-input="pointer"] :is(.cloud-sync-alert,.cloud-auth-toast,.relationship-summary):not([hidden]) {
+      opacity:0; transform:var(--feedback-offset);
+    }
+    html[data-motion-input="pointer"] .motion-relation-reveal { opacity:0; transform:translateY(-4px); }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    html[data-motion-input="pointer"] :is(.cloud-sync-alert,.cloud-auth-toast,.relationship-summary) {
+      --feedback-offset:var(--feedback-rest);
+      transition-property:opacity,display; transition-duration:80ms;
+    }
+    html[data-motion-input="pointer"] .motion-relation-reveal {
+      transition:opacity 80ms var(--ease-out);
+    }
+    html[data-motion-input="pointer"] .tree__canvas svg [data-people] { transition-duration:80ms; }
+    @starting-style {
+      html[data-motion-input="pointer"] .motion-relation-reveal { transform:none; }
+    }
+  }
+  html[data-motion-input="keyboard"] :is(.cloud-sync-alert,.cloud-auth-toast,.relationship-summary,.motion-relation-reveal),
+  html[data-motion-input="keyboard"] .tree__canvas svg [data-people] { transition:none; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .cloud-sync-button[data-sync-state="syncing"]::after { animation:none; opacity:1; transform:none; }
 }

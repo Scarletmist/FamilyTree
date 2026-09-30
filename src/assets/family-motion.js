@@ -16,17 +16,26 @@
   const reveals = new WeakMap();
   window.FamilyMotion = {
     canAnimate: () => root.dataset.motionInput === 'pointer' && CSS.supports('transition-behavior', 'allow-discrete'),
-    reveal(element) {
-      clearTimeout(reveals.get(element));
-      element.classList.remove('motion-details-reveal');
+    shouldScrollSmooth: () => root.dataset.motionInput === 'pointer' && !matchMedia('(prefers-reduced-motion: reduce)').matches,
+    reveal(element, className = 'motion-details-reveal') {
+      reveals.get(element)?.();
       if (!window.FamilyMotion.canAnimate()) return;
       // The newly unhidden content gets @starting-style; its layout and focus
       // are already final. No animation timer controls application state.
-      element.classList.add('motion-details-reveal');
-      reveals.set(element, setTimeout(() => {
-        element.classList.remove('motion-details-reveal');
+      element.classList.add(className);
+      const cleanup = () => {
+        if (reveals.get(element) !== cleanup) return;
+        cancelAnimationFrame(frame);
+        element.classList.remove(className);
         reveals.delete(element);
-      }, 180));
+      };
+      const frame = requestAnimationFrame(() => {
+        // Read the real transitions after styles are applied. Completion also
+        // handles reduced motion, interruption and keyboard cancellation.
+        const transitions = element.getAnimations().filter(animation => animation.effect?.target === element);
+        Promise.allSettled(transitions.map(animation => animation.finished)).then(cleanup);
+      });
+      reveals.set(element, cleanup);
     }
   };
 })();

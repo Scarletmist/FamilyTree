@@ -579,7 +579,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
         onQuery: id => relationshipSearch.startWithMember(id),
         onLocate: id => {
           const node = nodes.get(id);
-          node?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+          node?.scrollIntoView({ block: 'center', inline: 'center', behavior: window.FamilyMotion?.shouldScrollSmooth() ? 'smooth' : 'instant' });
           node?.focus({ preventScroll: true });
         },
         onClose: () => {

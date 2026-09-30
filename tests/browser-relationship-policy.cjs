@@ -15,7 +15,7 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
   const api = createFamilyServer({dataFile}); await new Promise(r=>api.listen(0,'127.0.0.1',r));
   const staticServer = http.createServer(async(req,res)=>{
     try {const file=path.join(output,new URL(req.url,'http://localhost').pathname.replace(/^\//,'')||'index.html');
-      res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.json')?'application/json':'text/html');res.end(await fs.readFile(file));
+      res.setHeader('Content-Type',/\.m?js$/.test(file)?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':'text/html');res.end(await fs.readFile(file));
     }catch{res.statusCode=404;res.end();}
   }); await new Promise(r=>staticServer.listen(0,'127.0.0.1',r));
   const browser = process.env.POLICY_WEBKIT ? await webkit.launch({headless:true}) : await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL||'msedge',headless:true});
@@ -27,13 +27,13 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
         const seed=fixture();
         // Fixture IDs match the application identifier format.
         seed.people.forEach((p,i)=>p.id=['A','B','D','T'][i]);
-        await page.evaluate(async data=>{const current=await FamilyRepository.read();await FamilyRepository.request('/api/family/import',{method:'POST',body:JSON.stringify({data,version:current.version})});},seed);
-        await page.reload(); await page.waitForFunction(()=>FAMILY.people.length===4);
+        await page.evaluate(async data=>{const current=await FamilyRepository.read();await FamilyRepository.importFamily({data,version:current.version});},seed);
+        await page.reload(); await page.waitForFunction(()=>FamilyApp.graph().people.length===4);
       }
       async function choose(selector,value) {
         await page.locator(selector).selectOption(value,{force:true});
       }
-      const ids = await page.evaluate(()=>Object.fromEntries(FAMILY.people.map(p=>[p.name,p.id])));
+      const ids = await page.evaluate(()=>Object.fromEntries(FamilyApp.graph().people.map(p=>[p.name,p.id])));
       const a=ids['阿明'],b=ids['阿華'],duplicate=ids['重複資料'];
       await page.evaluate(id=>editFamilyMember(id),b);
       await page.click('#add-relation'); await choose('.relation-target',a); await choose('.relation-type','sibling'); await choose('.relation-cousin-seniority','older');
@@ -49,9 +49,9 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       assert.match(await page.locator('#member-error').textContent(),/矛盾/);
       assert.equal(await page.locator('.relation-row').getAttribute('data-expanded'),'true');
       assert.equal(await page.evaluate(()=>document.activeElement.closest('.relation-row')!==null),true);
-      assert.equal(await page.evaluate(id=>FAMILY.people.find(p=>p.id===id).siblingOrder,b),3);
+      assert.equal(await page.evaluate(id=>FamilyApp.graph().people.find(p=>p.id===id).siblingOrder,b),3);
       // Server/storage validation must also reject a caller bypassing the form.
-      const rejected = await page.evaluate(async id=>{const snapshot=FamilyEditor.snapshot();const p=snapshot.data.people.find(p=>p.id===id);const response=await FamilyRepository.request('/api/members/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:snapshot.version,member:{...p,siblingOrder:1,relationships:FamilyModel.relationshipsFor(snapshot.data,id)}})});return response.status;},b);
+      const rejected = await page.evaluate(async id=>{const snapshot=FamilyEditor.snapshot();const p=snapshot.data.people.find(p=>p.id===id);try{await FamilyRepository.updateMember(id,{version:snapshot.version,member:{...p,siblingOrder:1,relationships:FamilyModel.relationshipsFor(snapshot.data,id)}});return 200;}catch(error){return error.status;}},b);
       assert.equal(rejected,400);
       await page.fill('#member-order','3'); await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
       // Contextual relative creation supplies the correct inverse direction.
@@ -77,8 +77,8 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       assert.equal(await merge.getByRole('button',{name:'確認合併'}).isDisabled(),true);
       await merge.getByRole('button',{name:'預覽合併'}).click(); assert.match(await merge.locator('.family-differences').textContent(),/移除成員：重複資料/);
       await merge.getByRole('button',{name:'確認合併'}).click(); await page.waitForFunction(()=>!document.querySelector('.family-management-dialog'));
-      assert.equal(await page.evaluate(id=>FAMILY.people.some(p=>p.id===id),duplicate),false);
-      await page.getByRole('button',{name:'復原：合併成員',exact:true}).click(); await page.waitForFunction(id=>FAMILY.people.some(p=>p.id===id),duplicate);
+      assert.equal(await page.evaluate(id=>FamilyApp.graph().people.some(p=>p.id===id),duplicate),false);
+      await page.getByRole('button',{name:'復原：合併成員',exact:true}).click(); await page.waitForFunction(id=>FamilyApp.graph().people.some(p=>p.id===id),duplicate);
       await page.evaluate(()=>document.getElementById('member-list-dialog').close());
       // Import diff gives names and changed fields, without writing on preview.
       const imported=await page.evaluate(()=>structuredClone(FamilyEditor.snapshot().data)); imported.people[0].location='臺北';
@@ -134,7 +134,7 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
         await page.evaluate(()=>{window.__syncResult=FamilyGoogleDriveSync.syncNow({interactive:true});});
         await page.waitForFunction(()=>document.getElementById('cloud-conflict-dialog').open);
         await page.click('#cloud-conflict-use-remote'); await page.evaluate(()=>window.__syncResult);
-        await page.waitForFunction(()=>FAMILY.people[0].location==='雲端新地址');
+        await page.waitForFunction(()=>FamilyApp.graph().people[0].location==='雲端新地址');
         assert.equal(writes,0); console.log('PASS mock cloud: diff preview, stale remote guard, confirmed download');
       }
       assert.deepEqual(errors,[]); console.log('PASS '+mode+': relative ranks, validation, provenance, add relative, groups, merge, undo, import diff, popovers');

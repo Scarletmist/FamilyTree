@@ -17,7 +17,7 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
       const pathname = new URL(req.url, 'http://localhost').pathname;
       if (!pathname.startsWith('/repo/')) throw new Error('Outside project');
       const file = path.join(dir, pathname.slice(6) || 'index.html');
-      res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.json') ? 'application/json' : 'text/html');
+      res.setHeader('Content-Type', /\.m?js$/.test(file) ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.json') ? 'application/json' : 'text/html');
       res.end(await fs.readFile(file));
     } catch { res.statusCode = 404; res.end('Not found'); }
   });
@@ -29,10 +29,10 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     const page = await context.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     const url = 'http://127.0.0.1:' + server.address().port + '/repo/';
-    await page.goto(url); await page.waitForFunction(() => window.FAMILY);
+    await page.goto(url); await page.waitForFunction(() => window.FamilyApp?.graph?.());
     assert.equal(await page.locator('.person').count(), 0);
     await page.click('#add-member'); await page.fill('#member-name', '第一位'); await page.fill('#member-notes', '第一行\n<script>只是文字</script>'); await page.click('#save-member');
-    await page.waitForFunction(() => window.FAMILY.people.length === 1);
+    await page.waitForFunction(() => window.FamilyApp?.graph?.().people.length === 1);
     assert.equal(await page.locator('.person').getAttribute('title'), null);
     await page.locator('.person').hover();
     await page.waitForFunction(() => document.getElementById('member-tooltip')?.classList.contains('is-visible'));
@@ -42,15 +42,15 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert(tooltipBox.x >= 0 && tooltipBox.y >= 0 && tooltipBox.x + tooltipBox.width <= 1440 && tooltipBox.y + tooltipBox.height <= 960);
     assert.match(await page.locator('.member-notes__text').textContent(), /<script>只是文字/);
     await page.locator('[data-group=notes] summary').click();
-    await page.evaluate(() => window.renderFamilyTree());
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('familyappchange',{detail:{graph:FamilyApp.graph()}})));
     assert.equal(await page.locator('[data-group=notes]').evaluate(n => n.open), false);
-    await page.reload(); await page.waitForFunction(() => window.FAMILY?.people.length === 1);
-    await page.evaluate(() => window.editFamilyMember(FAMILY.people[0].id));
+    await page.reload(); await page.waitForFunction(() => window.FamilyApp?.graph?.()?.people.length === 1);
+    await page.evaluate(() => window.editFamilyMember(FamilyApp.graph().people[0].id));
     assert.match(await page.inputValue('#member-notes'), /第一行/);
     await page.fill('#member-notes', '更新備註'); await page.click('#save-member');
-    await page.waitForFunction(() => FAMILY.people[0].notes === '更新備註');
+    await page.waitForFunction(() => FamilyApp.graph().people[0].notes === '更新備註');
     await page.click('#edit-family-name'); await page.fill('#family-name-input', '靜態族譜'); await page.click('#save-family-name');
-    await page.waitForFunction(() => FAMILY.familyName === '靜態族譜');
+    await page.waitForFunction(() => FamilyApp.snapshot().data.familyName === '靜態族譜');
     // A cloud sync whose JSON is semantically unchanged must not invalidate an open form.
     await page.click('#add-member'); await page.fill('#member-name', '同步期間新增');
     const noOpCloud = await page.evaluate(async () => {
@@ -67,8 +67,8 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.equal(noOpCloud.afterVersion, noOpCloud.beforeVersion);
     assert.equal(noOpCloud.cloudChanges, 0);
     assert.doesNotMatch(await page.locator('#save-status').textContent(), /更新資料/);
-    await page.click('#save-member'); await page.waitForFunction(() => FAMILY.people.some(person => person.name === '同步期間新增'));
-    await page.evaluate(() => window.editFamilyMember(FAMILY.people.find(person => person.name === '第一位').id));
+    await page.click('#save-member'); await page.waitForFunction(() => FamilyApp.graph().people.some(person => person.name === '同步期間新增'));
+    await page.evaluate(() => window.editFamilyMember(FamilyApp.graph().people.find(person => person.name === '第一位').id));
     await page.fill('#member-notes', '同步期間編輯');
     const editVersion = await page.evaluate(async () => {
       const before = await FamilyRepository.read();
@@ -76,14 +76,14 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
       return { before: before.version, after: (await FamilyRepository.read()).version };
     });
     assert.equal(editVersion.after, editVersion.before);
-    await page.click('#save-member'); await page.waitForFunction(() => FAMILY.people.find(person => person.name === '第一位')?.notes === '同步期間編輯');
+    await page.click('#save-member'); await page.waitForFunction(() => FamilyApp.graph().people.find(person => person.name === '第一位')?.notes === '同步期間編輯');
     const fixture = { schemaVersion: 2, people: [p('G'), p('S', [{ type: 'parent', personId: 'G', kind: '親生' }]), p('F', [{ type: 'fellowDisciple', personId: 'S' }], '同門備註')] };
     fixture.people[1].gender = 'M'; fixture.people[1].discipleOrder = 1; fixture.people[2].gender = 'F';
     await page.locator('#import-file').setInputFiles({ name: 'test.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) });
-    await page.click('#confirm-import'); await page.waitForFunction(() => FAMILY.people.length === 3);
-    assert.equal(await page.evaluate(() => FAMILY.people.find(p => p.id === 'F').gen), 2);
+    await page.click('#confirm-import'); await page.waitForFunction(() => FamilyApp.graph().people.length === 3);
+    assert.equal(await page.evaluate(() => FamilyApp.graph().people.find(p => p.id === 'F').gen), 2);
     assert.equal(await page.locator('[data-kind="師兄弟姊妹"]').count() > 0, true);
-    await page.evaluate(() => window.selectFamilyMember('F'));
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('familytreeselect',{detail:{id:'F'}})));
     assert.match(await page.locator('[data-group=fellowDisciples]').textContent(), /師兄弟姊妹/);
     await page.screenshot({ path: path.join(dir, 'notes-desktop.png') });
     await page.evaluate(() => window.editFamilyMember('F'));
@@ -92,30 +92,32 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     await page.fill('#member-disciple-order', '4');
     assert.match(await page.locator('.relation-preview').textContent(), /S是F的師兄/);
     await page.click('#save-member');
-    await page.waitForFunction(() => FAMILY.people.find(p => p.id === 'F').discipleOrder === 4);
+    await page.waitForFunction(() => FamilyApp.graph().people.find(p => p.id === 'F').discipleOrder === 4);
     fixture.people[2].discipleOrder = 4;
     assert.match(await page.locator('[data-group=fellowDisciples]').textContent(), /師兄/);
     await page.evaluate(() => window.editFamilyMember('S'));
     assert.equal(await page.inputValue('#member-disciple-order'), '1');
     assert.match(await page.locator('.relation-preview').last().textContent(), /F是S的師妹/);
     await page.click('#cancel-member');
-    const downloadPromise = page.waitForEvent('download'); await page.click('#export-json');
+    await page.click('#desktop-more-open');
+    const downloadPromise = page.waitForEvent('download'); await page.click('[data-action="export"]');
     const exported = JSON.parse(await fs.readFile(await (await downloadPromise).path(), 'utf8'));
     assert.deepEqual(exported, fixture);
     // A stale tab must not overwrite another tab's persisted changes.
-    const other = await page.context().newPage(); await other.goto(url); await other.waitForFunction(() => window.FAMILY);
-    const stale = await page.evaluate(async () => (await (await FamilyRepository.request('/api/family')).json()).version);
-    await other.evaluate(async () => { const saved = await (await FamilyRepository.request('/api/family')).json(); await FamilyRepository.request('/api/family/name', { method: 'PUT', body: JSON.stringify({ version: saved.version, familyName: '新名稱' }) }); });
-    assert.equal(await page.evaluate(async version => (await FamilyRepository.request('/api/family/name', { method: 'PUT', body: JSON.stringify({ version, familyName: '舊分頁' }) })).status, stale), 409);
+    const other = await page.context().newPage(); await other.goto(url); await other.waitForFunction(() => window.FamilyApp?.graph?.());
+    const stale = await page.evaluate(async () => (await FamilyRepository.read()).version);
+    await other.evaluate(async () => { const saved = await FamilyRepository.read(); await FamilyRepository.updateFamilyName({ version: saved.version, familyName: '新名稱' }); });
+    assert.equal(await page.evaluate(async version => {try {await FamilyRepository.updateFamilyName({ version, familyName: '舊分頁' });return 200;}catch(error){return error.status;}}, stale), 409);
     // Start with only A/B, then fill their fathers in through the real forms.
     const cousinData = { schemaVersion: 2, people: [{ ...p('A'), gender: 'M' }, { ...p('B'), gender: 'F' }] };
-    await page.reload(); await page.waitForFunction(() => window.FAMILY);
+    await page.reload(); await page.waitForFunction(() => window.FamilyApp?.graph?.());
     await page.locator('#import-file').setInputFiles({ name: 'cousins.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(cousinData)) });
-    await page.click('#confirm-import'); await page.waitForFunction(() => FAMILY.people.length === 2);
+    await page.click('#confirm-import'); await page.waitForFunction(() => FamilyApp.graph().people.length === 2);
     async function choose(selector, label) {
       await page.locator(selector).locator('..').locator('.select-trigger').click();
       await page.locator('.select-dropdown:popover-open input').fill(label);
-      await page.locator('.select-dropdown:popover-open').getByRole('option', { name: label, exact: true }).click();
+      const name = selector.startsWith('#relationship-') ? new RegExp('^'+label+' · 第 \\d+ 代$') : label;
+      await page.locator('.select-dropdown:popover-open').getByRole('option', { name, exact: true }).click();
     }
     async function relation(target, type) {
       await page.click('#add-relation');
@@ -138,7 +140,7 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     await page.click('#relationship-search [type=submit]');
     assert.match(await page.locator('#relationship-summary h2').textContent(), /A 為 B 的堂兄/);
     assert.deepEqual((await page.locator('.person__name').allTextContents()).sort(), ['A', 'B', 'C', 'D']);
-    const savedCousin = await page.evaluate(() => FamilyModel.relationshipsFor(FAMILY, 'B').find(r => r.type === 'tangCousin'));
+    const savedCousin = await page.evaluate(() => FamilyModel.relationshipsFor(FamilyApp.graph(), 'B').find(r => r.type === 'tangCousin'));
     assert.equal(savedCousin.seniority, 'older');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => window.editFamilyMember('B'));

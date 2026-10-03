@@ -91,6 +91,22 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     assert.equal(await page.locator('.member-map-cluster').textContent(),'3');
     assert.match(await canvas.locator('.pigeon-attribution').textContent(),/Google Maps.*OpenStreetMap contributors/);
     assert.equal(await canvas.getByRole('button',{name:'Google 衛星圖',exact:true}).getAttribute('aria-pressed'),'true');
+    const grouping=canvas.getByRole('button',{name:'合併鄰近地點',exact:true});
+    assert.equal(await grouping.getAttribute('aria-pressed'),'true','nearby clustering defaults to enabled');
+    await grouping.click();
+    assert.equal(await grouping.getAttribute('aria-pressed'),'false');
+    assert.equal(await canvas.locator('.member-map-cluster').count(),0);
+    assert.equal(await canvas.locator('.member-map-marker').count(),2,'different coordinates are displayed separately');
+    assert.equal(await canvas.getByRole('button',{name:'新竹天公壇：A、B',exact:true}).textContent(),'2','identical coordinates still share a counted marker');
+    assert.equal(await canvas.getByRole('button',{name:'新竹關帝廟：C',exact:true}).textContent(),'●');
+    assert(await page.evaluate(node=>node===document.querySelector('#member-map-canvas [role="group"][tabindex="0"]').firstElementChild,mapNode),'changing clustering preserves the map instance');
+    assert.deepEqual(await canvas.locator('.pigeon-tiles').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('style'))),mapBefore,'changing clustering preserves pan and zoom');
+    await canvas.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
+    await canvas.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
+    assert.equal(await grouping.getAttribute('aria-pressed'),'false','basemap switching preserves the grouping choice');
+    assert.equal(await page.evaluate(()=>FamilyApp.snapshot().version),dataVersion,'grouping does not edit family data');
+    await grouping.click();
+    assert.equal(await canvas.locator('.member-map-cluster').textContent(),'3','reenabling clustering merges nearby places');
     await mapNode.dispose();
     await page.screenshot({path:path.join(dir,'map-cluster.png'),animations:'disabled'});
     await page.click('.member-map-cluster');await page.clock.runFor(100);
@@ -112,7 +128,7 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     await page.clock.runFor(100);
     const mobile=await page.locator('#member-map-dialog').boundingBox();
     assert(mobile.x>=0&&mobile.y>=0&&mobile.x+mobile.width<=391&&mobile.y+mobile.height<=845);
-    for(const button of await canvas.locator('.member-map-basemaps button').all()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
+    for(const button of await canvas.locator('.member-map-basemaps button, .member-map-clustering button').all()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
     await page.screenshot({path:path.join(dir,'map-mobile.png'),animations:'disabled'});
     await page.setViewportSize({width:844,height:390});
     await page.clock.runFor(100);

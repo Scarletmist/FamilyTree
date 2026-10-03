@@ -31,6 +31,7 @@ function MarkerLayer({ groups, clustering, mapState, latLngToPixel, onSelect, on
 }
 
 function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], initialZoom = 7, picking = false, onCenterChange, clustering = true }) {
+  const [clusterNearby, setClusterNearby] = useState(true);
   const basemapId = useSyncExternalStore(subscribeBasemap, getBasemap);
   const basemap = BASEMAPS[basemapId];
   const [tileError, setTileError] = useState(false);
@@ -79,7 +80,7 @@ function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], in
       if (focusRef.current === focusKey) updateView(() => ({ center, zoom }));
     }}>
     <CenterReporter onCenterChange={onCenterChange} />
-    <MarkerLayer groups={groups} clustering={clustering} onSelect={onSelect}
+    <MarkerLayer groups={groups} clustering={clustering && clusterNearby} onSelect={onSelect}
       onExpand={(marker, currentZoom) => updateView(() => ({ center:[marker.lat, marker.lon], zoom:Math.min(MAX_ZOOM, currentZoom + 2) }))} />
     <div className="member-map-zoom" role="group" aria-label="地圖縮放">
       <button type="button" aria-label="放大地圖" onClick={() => updateView(view => ({ ...view, zoom:Math.min(MAX_ZOOM, view.zoom + 1) }))}>＋</button>
@@ -92,7 +93,11 @@ function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], in
     <button type="button" aria-label={BASEMAPS.satellite.label} title={BASEMAPS.satellite.label} aria-pressed={basemapId === 'satellite'} onClick={() => selectBasemap('satellite')}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m9 9 6 6 4-4-6-6-4 4Z M5 3l4 4-2 2-4-4 2-2Z M17 15l4 4-2 2-4-4 2-2Z M12 12l-3 3 M3 13a8 8 0 0 1 8 8 M3 17a4 4 0 0 1 4 4" /></svg>
     </button>
-  </div>{tileError && <p className="member-map-tile-error" role="status">{basemap.label}部分底圖載入失敗，請切換底圖或稍後重開。</p>}
+  </div>{clustering && <div className="member-map-clustering">
+    <button type="button" aria-label="合併鄰近地點" title={clusterNearby ? '取消鄰近地點群組' : '開啟鄰近地點群組'} aria-pressed={clusterNearby} onClick={() => setClusterNearby(value => !value)}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="3" /><circle cx="5" cy="18" r="3" /><circle cx="19" cy="18" r="3" /><path d="m10.5 7.6-4 7.8 M13.5 7.6l4 7.8 M8 18h8" /></svg>
+    </button>
+  </div>}{tileError && <p className="member-map-tile-error" role="status">{basemap.label}部分底圖載入失敗，請切換底圖或稍後重開。</p>}
   {picking && <svg className="location-correction-crosshair" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
     <path d="M24 3v12 M24 33v12 M3 24h12 M33 24h12 M24 16a8 8 0 1 0 0 16 8 8 0 0 0 0-16" fill="none" stroke="white" strokeWidth="6" />
     <path d="M24 3v12 M24 33v12 M3 24h12 M33 24h12 M24 16a8 8 0 1 0 0 16 8 8 0 0 0 0-16" fill="none" stroke="#b92332" strokeWidth="2.5" />

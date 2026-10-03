@@ -67,6 +67,7 @@ const choices = [
     assert(Math.abs(chosenMarker.x + chosenMarker.width / 2 - (preview.x + preview.width / 2)) < 3,
       'selecting a candidate centers its marker in the map: ' + JSON.stringify({ preview, chosenMarker }));
     const correction=page.locator('#location-correction-canvas');
+    assert.equal(await correction.locator('.member-map-clustering').count(),0,'candidate maps always show their individual choices');
     await correction.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
     await page.waitForSelector('#location-correction-canvas img[data-map-source="satellite"]');
     assert.equal(await page.locator('#member-map-canvas').getByRole('button',{name:'Google 衛星圖',exact:true}).getAttribute('aria-pressed'),'true','both map dialogs share the local basemap preference');
@@ -190,10 +191,53 @@ const choices = [
     assert.equal(await page.evaluate(() => FamilyApp.snapshot().data.people[0].geocode), undefined);
     await page.click('#close-member-map'); await page.click('#save-status .save-status__action');
     await page.waitForFunction(() => FamilyApp.snapshot().data.people[0].locationOverride);
-    // The member detail panel offers the same correction flow.
+    // Clickable detail locations show resolved positions (including overrides) or open setup.
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('familytreeselect', { detail:{ id:'A' } })));
-    await page.click('.relationship-details__profile [data-correct-person="A"]');
-    assert(await page.locator('#location-correction-dialog').evaluate(el => el.open)); await page.click('#cancel-location-correction');
+    assert.equal(await page.locator('.relationship-details__profile .correct-location').count(),0);
+    const detailLocation=page.locator('.relationship-details__location');
+    assert.equal(await detailLocation.textContent(),'關帝廟');
+    await detailLocation.focus();await page.keyboard.press('Enter');
+    await page.waitForSelector('#member-map-dialog .member-map-marker');await page.clock.runFor(100);
+    assert.equal(await page.locator('#location-correction-dialog').evaluate(el=>el.open),false);
+    async function checkMemberMapCenter(name){
+      const bounds=await page.locator('#member-map-canvas').boundingBox();
+      // Check the unrotated marker anchor; the pin itself rotates 45 degrees for its shape.
+      const marker=await page.locator('#member-map-canvas').getByRole('button',{name,exact:true}).evaluate(el=>el.parentElement.getBoundingClientRect().toJSON());
+      assert(Math.abs(marker.x+marker.width/2-bounds.x-bounds.width/2)<3,'member longitude is centered');
+      assert(Math.abs(marker.y+marker.height-bounds.y-bounds.height/2)<3,'member latitude is centered: '+JSON.stringify({marker,bounds}));
+    }
+    await checkMemberMapCenter('關帝廟：改名');
+    await page.click('#close-member-map');
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('familytreeselect', { detail:{ id:'B' } })));
+    await detailLocation.click();await page.waitForSelector('#member-map-dialog .member-map-marker');await page.clock.runFor(100);
+    await checkMemberMapCenter('關帝廟：B、C');await page.click('#close-member-map');
+    await page.evaluate(async()=>{
+      await FamilyApp.locationCommand({type:'resetLocation',id:'C'});
+      window.dispatchEvent(new CustomEvent('familytreeselect',{detail:{id:'C'}}));
+    });
+    const beforeSetup=requests.length;
+    await detailLocation.click();
+    assert(await page.locator('#location-correction-dialog').evaluate(el=>el.open));
+    assert.equal(await page.locator('#member-map-dialog').evaluate(el=>el.open),false);
+    assert.equal(await page.inputValue('#location-search-query'),'關帝廟');
+    assert.equal(requests.length,beforeSetup,'opening location setup does not submit a search');
+    await page.click('#cancel-location-correction');
+    assert(await detailLocation.evaluate(el=>el===document.activeElement),'cancel restores focus to the location text');
+    await page.screenshot({path:path.join(dir,'detail-location-desktop.png'),animations:'disabled'});
+    await page.setViewportSize({width:390,height:844});await page.clock.runFor(100);
+    const target=await detailLocation.boundingBox();assert(target.height>=44&&target.width>0);
+    await page.screenshot({path:path.join(dir,'detail-location-mobile.png'),animations:'disabled'});
+    await page.setViewportSize({width:1280,height:900});await page.clock.runFor(100);
+    await detailLocation.click();await page.waitForSelector('#location-correction-canvas [role="group"][tabindex="0"]');
+    await page.uncheck('#location-apply-related');await page.click('#location-mode-map');await page.click('#save-location-correction');
+    await page.waitForFunction(()=>!document.querySelector('#location-correction-dialog').open&&FamilyLocation.effective(FamilyApp.snapshot().data.people.find(p=>p.id==='C')));
+    assert(await detailLocation.evaluate(el=>el===document.activeElement),'saving restores focus after the detail location button is redrawn');
+    assert.deepEqual(await page.evaluate(()=>FamilyApp.snapshot().data.people[0].locationOverride),exported.people[0].locationOverride,'individual setup retains another member position');
+    await detailLocation.click();await page.waitForSelector('#member-map-dialog .member-map-marker');await page.clock.runFor(100);
+    await checkMemberMapCenter('關帝廟：C');await page.click('#close-member-map');
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('familytreeselect', { detail:{ id:'D' } })));
+    assert.equal(await detailLocation.count(),0,'private locations remain plain text');
+    assert.match(await page.locator('.relationship-details__profile').textContent(),/所在地：關帝廟/);
     await page.evaluate(() => window.editFamilyMember('A')); await page.fill('#member-location', '新竹天公壇'); await page.click('#save-member');
     await page.waitForFunction(() => FamilyApp.snapshot().data.people[0].location === '新竹天公壇');
     assert.equal(await page.evaluate(() => FamilyApp.snapshot().data.people[0].locationOverride), undefined);

@@ -157,6 +157,7 @@ dialog.addEventListener('cancel', event => { if (saving) event.preventDefault();
 dialog.addEventListener('close', () => {
   ++session; cancelSearch(); runtime?.destroy(); runtime = null; canvas.replaceChildren();
   if (opener?.isConnected) opener.focus();
+  else if (opener?.dataset.locationPerson) [...document.querySelectorAll('[data-location-person]')].find(node => node.dataset.locationPerson === person.id)?.focus();
   else document.querySelector(`[data-correct-person="${person.id}"]`)?.focus();
   window.dispatchEvent(new Event('familylocationcorrectionclose'));
 });

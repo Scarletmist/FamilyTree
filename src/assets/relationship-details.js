@@ -239,7 +239,7 @@
         { className: active.classList.contains('relationship-details__tab') ? 'relationship-details__tab' :
           active.classList.contains('details-back') ? 'details-back' :
           active.classList.contains('edit-member') ? 'edit-member' :
-          active.classList.contains('correct-location') ? 'correct-location' :
+          active.classList.contains('relationship-details__location') ? 'relationship-details__location' :
           active.classList.contains('query-relationship') ? 'query-relationship' :
           active.classList.contains('add-relative') ? 'add-relative' :
           active.classList.contains('details-locate') ? 'details-locate' :
@@ -324,13 +324,25 @@
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
-      if (person.location) profile.appendChild(element('p', '', '所在地：' + person.location));
+      if (person.location) {
+        const row = element('p', '', '所在地：');
+        if (globalThis.FamilyLocation?.eligible(person)) {
+          const location = element('button', 'relationship-details__location', person.location);
+          location.type = 'button'; location.dataset.locationPerson = person.id;
+          const label = (globalThis.FamilyLocation.effective(person) ? '在地圖查看' : '設定') + person.name + '的所在地';
+          location.setAttribute('aria-label', label); location.title = label;
+          location.addEventListener('click', () => {
+            const current = globalThis.FamilyApp?.snapshot()?.data.people.find(p => p.id === person.id) || person;
+            if (!globalThis.FamilyLocation?.eligible(current)) return;
+            if (globalThis.FamilyLocation.effective(current)) globalThis.FamilyMemberMap?.open(person.id);
+            else globalThis.FamilyLocationCorrection?.open(person.id);
+          });
+          row.appendChild(location);
+        } else row.appendChild(element('span', '', person.location));
+        profile.appendChild(row);
+      }
       if (globalThis.FamilyLocation?.eligible(person)) {
         if (globalThis.FamilyLocation.overrideCurrent(person)) profile.appendChild(element('p', 'location-manual-badge', '已手動修正地點'));
-        const correct = iconButton('correct-location', '修正' + person.name + '的地點', 'M12 21s-7-5.2-7-11a7 7 0 0 1 14 0 M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6 M14 18l5-5 2 2-5 5-3 1 1-3Z');
-        correct.dataset.correctPerson = person.id;
-        correct.addEventListener('click', () => globalThis.FamilyLocationCorrection?.open(person.id));
-        profile.appendChild(correct);
       }
       if (person.position) profile.appendChild(element('p', '', '職位：' + person.position));
       if (person.discipleOrder != null && person.discipleOrder !== '') profile.appendChild(element('p', '', '師門次序：' + person.discipleOrder));

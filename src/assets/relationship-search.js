@@ -9,10 +9,10 @@
     let engine, config, graph, active = false, pathIndex = 0;
     const el = (tag, text) => { const node = document.createElement(tag); node.textContent = text; return node; };
     const mobile = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
-    const sheetLayout = matchMedia('(max-width:1199px)');
     const landscape = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)');
     const home = document.createComment('relationship search'); form.before(home);
     const bar = el('div'); bar.className = 'mobile-search-bar'; home.after(bar);
+    document.querySelector('.workspace').before(summary);
     const button = (text, id) => { const node = el('button', text); node.type = 'button'; if (id) node.id = id; return node; };
     const iconButton = (label, id, className = 'details-icon', path = 'M18 6 6 18 M6 6l12 12') => {
       const node = button('', id); node.className = className; node.setAttribute('aria-label', label); node.title = label;
@@ -22,11 +22,12 @@
       svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
       const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path'); shape.setAttribute('d', path); svg.appendChild(shape); node.appendChild(svg); return node;
     };
-    const open = button('查詢兩人關係 ›', 'mobile-search-open'), end = iconButton('結束比較，顯示全部', 'mobile-search-end');
+    const open = button('', 'mobile-search-open'), end = iconButton('結束查詢，顯示全部', 'mobile-search-end');
+    const openLabel = el('span', '查關係'); open.append(openLabel);
     end.hidden = true; bar.append(open, end);
 
     const dialog = el('dialog'); dialog.className = 'relationship-sheet'; dialog.setAttribute('aria-labelledby', 'relationship-sheet-title');
-    const header = el('header'), heading = el('h2', '查詢兩人關係'); heading.id = 'relationship-sheet-title';
+    const header = el('header'), heading = el('h2', '誰是誰的誰？'); heading.id = 'relationship-sheet-title';
     const close = iconButton('關閉查詢', 'relationship-sheet-close'); header.append(heading, close); dialog.append(header); document.body.append(dialog);
 
     const resultDialog = el('dialog');
@@ -42,9 +43,11 @@
 
     const hint = el('p', '請先選擇要查詢的成員與稱呼基準。'); hint.className = 'relationship-direction'; submit.before(hint);
     a.closest('label').classList.add('relationship-field-a'); b.closest('label').classList.add('relationship-field-b');
-    a.closest('label').prepend(el('span', '想知道哪位成員？')); b.closest('label').prepend(el('span', '以哪位成員為稱呼基準？'));
+    a.closest('label').prepend(el('span', '想查詢的成員')); b.closest('label').prepend(el('span', '稱呼基準'));
+    a.setAttribute('aria-label','想查詢的成員'); b.setAttribute('aria-label','稱呼基準');
+    submit.textContent = '查關係';
     [a, b].forEach(select => select.closest('label').firstElementChild.classList.add('relationship-field-caption'));
-    const nameToggle = document.getElementById('toggle-canvas-names'), toggleHome = nameToggle.parentElement;
+    const nameToggle = document.getElementById('toggle-canvas-names');
     let draft = null;
 
     function openSheet() { closeResultDetails(); draft = { a: a.value, b: b.value, active, pathIndex }; dialog.showModal(); }
@@ -62,22 +65,16 @@
 
     open.addEventListener('click', openSheet); close.addEventListener('click', () => closeSheet());
     dialog.addEventListener('cancel', event => { event.preventDefault(); closeSheet(); });
-    dialog.addEventListener('click', event => { if ((mobile.matches || sheetLayout.matches) && event.target === dialog) closeSheet(); });
+    dialog.addEventListener('click', event => { if (event.target === dialog) closeSheet(); });
     end.addEventListener('click', () => document.getElementById('relationship-reset').click());
     resultClose.addEventListener('click', closeResultDetails);
     resultDialog.addEventListener('cancel', event => { event.preventDefault(); closeResultDetails(); });
     resultDialog.addEventListener('click', event => { if (event.target === resultDialog && !landscape.matches) closeResultDetails(); });
 
     function layout() {
-      if (mobile.matches || sheetLayout.matches) { dialog.append(form); bar.append(nameToggle); }
-      else {
-        if (dialog.open) closeSheet();
-        closeResultDetails();
-        home.after(form); toggleHome.append(nameToggle);
-      }
+      dialog.append(form); bar.append(nameToggle);
     }
     mobile.addEventListener('change', () => { layout(); onChange({ preserveSelection: true, preserveViewport: true }); });
-    sheetLayout.addEventListener('change', () => { layout(); onChange({ preserveSelection: true, preserveViewport: true }); });
     landscape.addEventListener('change', () => { closeResultDetails(); onChange({ preserveSelection: true, preserveViewport: true }); });
     layout();
 
@@ -169,7 +166,7 @@
       if (!a.value || !b.value) active = false;
       summary.hidden = !active; summary.replaceChildren();
       document.getElementById('family-filter').disabled = active;
-      open.textContent = active ? names.get(a.value) + ' → ' + names.get(b.value) + '　修改' : '查詢兩人關係 ›';
+      openLabel.textContent = active ? '更換成員' : '查關係';
       end.hidden = !active;
       bar.dataset.active = active ? 'true' : 'false';
       if (!active) {
@@ -185,22 +182,16 @@
       const nameA = byId.get(a.value).name, nameB = byId.get(b.value).name;
       const titleText = path ? nameA + ' 為 ' + nameB + ' 的' + path.title : nameA + ' 與 ' + nameB + ' 尚無已記錄的連接關係';
 
-      if (mobile.matches) {
+      {
         summary.classList.add('relationship-summary--compact');
         const compactTitle = el('h2', titleText);
         const actions = el('div'); actions.className = 'relationship-summary__actions';
         const details = button('路徑'); details.className = 'plain-button relationship-result-details'; details.setAttribute('aria-label', '查看完整關係路徑'); details.addEventListener('click', openResultDetails);
-        const modify = button('修改', 'relationship-result-edit'); modify.className = 'plain-button mobile-result-edit'; modify.addEventListener('click', openSheet);
+        const modify = button('更換成員', 'relationship-result-edit'); modify.className = 'plain-button mobile-result-edit'; modify.addEventListener('click', openSheet);
         const finish = iconButton('結束比較，顯示全部', undefined, 'plain-button relationship-result-end'); finish.addEventListener('click', () => document.getElementById('relationship-reset').click());
         actions.append(details, modify, finish); summary.append(compactTitle, actions);
         resultTitle.textContent = nameA + ' 與 ' + nameB + ' 的關係詳情';
         appendFullDetails(resultBody, result, path, byId, nameA, nameB);
-      } else {
-        summary.classList.remove('relationship-summary--compact');
-        summary.append(el('h2', titleText));
-        const details = el('div'); details.className = 'relationship-result-desktop-details';
-        appendFullDetails(details, result, path, byId, nameA, nameB);
-        summary.append(...details.childNodes);
       }
 
       return { active: true, graph: engine.project(fullGraph, path, [a.value, b.value]), scope: [a.value, b.value, pathIndex].join('|'), aId: a.value, bId: b.value };
@@ -214,12 +205,7 @@
       closeResultDetails();
       // Dispatching change also refreshes the custom searchable-select trigger text.
       b.dispatchEvent(new Event('change', { bubbles: true }));
-      if (mobile.matches || sheetLayout.matches) {
-        if (!dialog.open) openSheet();
-      } else {
-        const trigger = a.closest('.searchable-select')?.querySelector('.select-trigger');
-        (trigger || a).focus({ preventScroll: false });
-      }
+      if (!dialog.open) openSheet();
       return true;
     }
     load();

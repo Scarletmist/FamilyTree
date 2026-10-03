@@ -86,6 +86,12 @@ let FAMILY = FamilyApp?.graph?.() || null;
     nameToggle.setAttribute('aria-pressed', String(hideCanvasNames));
     const label = hideCanvasNames ? '顯示族譜姓名' : '隱藏族譜姓名';
     nameToggle.setAttribute('aria-label', label); nameToggle.title = label;
+    const icon = nameToggle.querySelector('svg');
+    icon.dataset.icon = hideCanvasNames ? 'eye-off' : 'eye';
+    icon.innerHTML = hideCanvasNames
+      ? '<path d="m3 3 18 18M10.6 5.1A11 11 0 0 1 12 5c6 0 10 7 10 7a17.5 17.5 0 0 1-3.2 3.9M6.5 6.5C3.7 8.5 2 12 2 12s4 7 10 7a11 11 0 0 0 5.5-1.5M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'
+      : '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>';
+    nameToggle.querySelector('.canvas-name-label').textContent = hideCanvasNames ? '顯示姓名' : '隱藏姓名';
   }
   syncNameToggle();
   nameToggle.addEventListener('click', () => {
@@ -213,7 +219,8 @@ let FAMILY = FamilyApp?.graph?.() || null;
           if (result?.outcome === 'error') document.getElementById('cloud-sync')?.click();
         } else document.getElementById('cloud-sync')?.click();
       });
-      const add = element('button', 'plain-button', '新增第一位成員'); add.type = 'button';
+      const add = element('button', 'plain-button member-add-button'); add.type = 'button';
+      add.append(document.querySelector('#add-member .member-add-icon').cloneNode(true), element('span', '', '新增第一位成員'));
       add.addEventListener('click', () => document.getElementById('add-member')?.click());
       const importButton = element('button', 'plain-button', '匯入族譜'); importButton.type = 'button';
       importButton.addEventListener('click', () => document.getElementById('import-json')?.click());
@@ -277,19 +284,6 @@ let FAMILY = FamilyApp?.graph?.() || null;
     // Include room for endpoint symbols, crossing bridges and relation labels.
     const baseCanvasPaddingTop = Math.max(80, upperLanes(firstGeneration) + 40);
     let canvasPaddingTop = baseCanvasPaddingTop;
-    if (queryView.active) {
-      const resultSummary = document.getElementById('relationship-summary');
-      const mobileResultLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)').matches;
-      if (mobileResultLayout) {
-        // Mobile uses a compact floating result bar. Reserve only its fixed top zone
-        // in landscape; portrait's normal routing gutter already clears the bar.
-        const landscapeResultLayout = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)').matches;
-        if (landscapeResultLayout) {
-          const resultTop = parseFloat(getComputedStyle(resultSummary).top) || 0;
-          canvasPaddingTop = Math.max(canvasPaddingTop, resultTop + 62);
-        }
-      } else canvasPaddingTop += resultSummary.offsetHeight;
-    }
     canvas.style.paddingTop = canvasPaddingTop + 'px';
     canvas.appendChild(rows);
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
@@ -576,6 +570,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
         pathDecorations.get(record.el)?.setAttribute('d', d);
       });
       relationshipDetails.render(panel, FAMILY, visibleId, {
+        onReturnList: () => window.openFamilyMemberList?.({ restore:true }),
         onEdit: id => window.editFamilyMember(id),
         onSelect: id => selectFamilyMember(id, { preserveDetailsState: true }),
         onQuery: id => relationshipSearch.startWithMember(id),
@@ -666,6 +661,13 @@ let FAMILY = FamilyApp?.graph?.() || null;
   bindMobileOverlayAvoidance();
   window.addEventListener('familytreeselect', event => {
     const { id = null, options = {} } = event.detail || {};
+    // A map/list selection may target someone outside the current query or family.
+    // Reveal that member before asking the current diagram to render their details.
+    if (id && options.expandDetails && ![...document.querySelectorAll('.person[data-person-id]')].some(node => node.dataset.personId === id)) {
+      document.getElementById('family-filter').value = '';
+      if (queryScope !== null) document.getElementById('relationship-reset').click();
+      else render();
+    }
     selectFamilyMember(id, options);
   });
   window.addEventListener('familytreeclearview', () => clearCanvasViewState());

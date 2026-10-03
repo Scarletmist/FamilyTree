@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>族譜 · Apple Design Layout Template</title>
+  <link rel="stylesheet" href="template.css">
+</head>
+<body>
+  <div class="preview-bar">
+    <div class="preview-brand"><span class="preview-mark">F</span><div><strong>族譜工作空間</strong><span>Layout template · 2026.10</span></div></div>
+    <nav class="scene-tabs" aria-label="預覽畫面">
+      <button data-scene="tree" aria-current="page">族譜</button><button data-scene="members">成員清單</button><button data-scene="form">編輯表單</button><button data-scene="query">查關係</button><button data-scene="conflict">同步差異</button>
+    </nav>
+    <div class="device-switch" role="group" aria-label="預覽尺寸"><button data-device="desktop" aria-pressed="true">桌面</button><button data-device="tablet" aria-pressed="false">平板</button><button data-device="phone" aria-pressed="false">手機</button></div>
+  </div>
+  <main class="preview-area">
+    <div class="device-frame" id="device-frame"><iframe id="preview" title="可操作的族譜版面預覽" src="workspace.html"></iframe></div>
+  </main>
+  <footer class="preview-footer"><span><i></i> 可操作示例 · 不連接現有族譜或 Google Drive</span><span>點人物查看詳情 · 按 Esc 返回 · 切換畫面比較層級</span></footer>
+  <script>
+    const frame=document.getElementById('device-frame'), preview=document.getElementById('preview');
+    document.querySelectorAll('[data-device]').forEach(button=>button.addEventListener('click',()=>{frame.dataset.device=button.dataset.device;document.querySelectorAll('[data-device]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));}));
+    document.querySelectorAll('[data-scene]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-scene]').forEach(b=>{if(b===button)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});preview.contentWindow.postMessage({type:'preview-scene',scene:button.dataset.scene},location.protocol==='file:'?'*':location.origin);}));
+  </script>
+</body>
+</html>

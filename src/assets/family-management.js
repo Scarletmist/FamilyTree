@@ -74,7 +74,7 @@
       for (const p of data.people) {
         const row = el('div', undefined, 'rank-member'), label = el('label');
         const check = el('input'); check.type = 'checkbox'; check.checked = !!group?.members.some(m => m.personId === p.id);
-        label.append(check, document.createTextNode(p.name + (p.location ? '（' + p.location + '）' : '')));
+        label.append(check, el('span', p.name + (p.location ? '（' + p.location + '）' : ''), 'rank-member__name'));
         const order = el('input'); order.type = 'number'; order.min = '1'; order.max = '999'; order.step = '1'; order.placeholder = '排行未知';
         order.setAttribute('aria-label', p.name + '的群組排行'); order.value = group?.members.find(m => m.personId === p.id)?.order ?? ''; order.disabled = !check.checked;
         check.addEventListener('change', () => { order.disabled = !check.checked; });
@@ -149,10 +149,12 @@
     undo.textContent = label ? '復原：' + label : '目前沒有可復原的修改';
   }
   window.addEventListener('familyintermediatechange', refreshUndo); refreshUndo();
+  window.FamilyManagement = { openGroups, openMerge };
   const memberListSticky = document.querySelector('#member-list-dialog .member-list-sticky');
   // Management actions are secondary. Keep them in the member-list scroll content
   // instead of the sticky search/filter header so short mobile viewports retain
   // enough room for actual member rows.
+  toolbar.hidden = true;
   memberListSticky.after(toolbar);
   const duplicate = el('p', '', 'form-note'); duplicate.id = 'member-duplicate-hint'; duplicate.role = 'status'; duplicate.hidden = true;
   const name = document.getElementById('member-name'); name.parentElement.append(duplicate);

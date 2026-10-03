@@ -1,183 +1,121 @@
 (function () {
   'use strict';
-
   let initialized = false;
   function initialize() {
     if (initialized) return;
-
-  const portrait = matchMedia('(max-width:700px) and (orientation:portrait)');
-  const landscape = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)');
-  const controls = document.querySelector('.tree-controls');
-  const mobileSearchOpen = document.getElementById('mobile-search-open');
-  const mobileSearchEnd = document.getElementById('mobile-search-end');
-  const editFamilyName = document.getElementById('edit-family-name');
-  const canvasNames = document.getElementById('toggle-canvas-names');
-  const cloudSync = document.getElementById('cloud-sync');
-  const importJson = document.getElementById('import-json');
-  const exportJson = document.getElementById('export-json');
-  const legend = document.getElementById('relationship-legend');
-  if (!controls || !mobileSearchOpen || !editFamilyName || !canvasNames || !cloudSync || !importJson || !exportJson || !legend) {
-    // The relationship search entry is created by the ES-module coordinator. In
-    // dynamically injected/test environments it may arrive just after this classic
-    // script, so retry on the next frame instead of permanently skipping the toolbar.
-    requestAnimationFrame(initialize);
-    return;
-  }
-  initialized = true;
-
-  const svg = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
-  const createToolbarButton = (id, label, icon, className) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.id = id;
-    button.className = `plain-button ${className}`;
-    button.setAttribute('aria-label', label);
-    button.title = label;
-    button.innerHTML = icon;
-    return button;
-  };
-  const moreIcon = svg('<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>');
-
-  const landscapeMoreButton = createToolbarButton('landscape-more-open', '更多功能', moreIcon, 'landscape-toolbar-control');
-  const desktopMoreButton = createToolbarButton('desktop-more-open', '更多功能', moreIcon, 'desktop-toolbar-control');
-  const desktopMoreText = document.createElement('span'); desktopMoreText.textContent = '更多'; desktopMoreButton.appendChild(desktopMoreText);
-  const portraitMoreButton = createToolbarButton('portrait-more-open', '更多功能', moreIcon, 'mobile-icon-control portrait-toolbar-control');
-  const portraitMoreText = document.createElement('span'); portraitMoreText.className = 'portrait-more-text'; portraitMoreText.textContent = '更多'; portraitMoreText.setAttribute('aria-hidden', 'true'); portraitMoreButton.appendChild(portraitMoreText);
-
-  controls.append(landscapeMoreButton, portraitMoreButton, desktopMoreButton);
-  // Move the existing filter, rather than cloning it: IDs and change listeners
-  // remain unique, and compact/mobile layouts keep their original toolbar.
-  const compactLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
-  const filter = document.getElementById('family-filter');
-  const filterControl = filter.closest('.searchable-select') || filter;
-  const filterLabel = document.querySelector('.family-filter-label');
-  const scopeSlot = document.querySelector('.workspace-toolbar__scope');
-  const filterHome = document.createComment('family scope home');
-  filterControl.before(filterHome);
-  function placeScope() {
-    if (!scopeSlot) return;
-    if (compactLayout.matches) { filterHome.before(filterLabel, filterControl); }
-    else scopeSlot.append(filterLabel, filterControl);
-  }
-  placeScope();
-
-  const dialog = document.createElement('dialog');
-  dialog.id = 'landscape-more-sheet';
-  dialog.className = 'landscape-more-sheet';
-  dialog.setAttribute('aria-labelledby', 'landscape-more-title');
-  dialog.innerHTML = `
-    <div class="landscape-more-sheet__header">
-      <h2 id="landscape-more-title">更多功能</h2>
-      <button type="button" id="landscape-more-close" class="details-icon" aria-label="關閉更多功能" title="關閉更多功能">${svg('<path d="M18 6 6 18M6 6l12 12"/>')}</button>
-    </div>
-    <div class="landscape-more-sheet__body">
-      <div class="landscape-more-actions">
-        <button type="button" class="landscape-more-action" data-action="map">${svg('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3ZM9 3v15M15 6v15"/>')}<span>成員地圖</span></button>
-        <button type="button" class="landscape-more-action" data-action="relationship">${svg('<circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/><path d="M10.5 10.5 13.5 13.5M14.5 7.5h5m-2.5-2.5v5"/>')}<span data-relationship-label>比較關係</span></button>
-        <button type="button" class="landscape-more-action" data-action="family-name">${svg('<path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z"/>')}<span>編輯家族名稱</span></button>
-        <button type="button" class="landscape-more-action" data-action="canvas-names">${svg('<path d="M2 2h6v6H2zM16 2h6v6h-6zM9 9h6v6H9zM2 16h6v6H2zM16 16h6v6h-6z"/>')}<span data-label>隱藏畫布姓名</span></button>
-        <button type="button" class="landscape-more-action" data-action="cloud">${svg('<path d="M7.5 18.5h9.2a4.3 4.3 0 0 0 .7-8.5A6 6 0 0 0 6 8.6a4.8 4.8 0 0 0 1.5 9.9Z"/><path d="M12 10v6m-2-2 2 2 2-2"/>')}<span data-cloud-label>Google Drive 同步</span></button>
-        <button type="button" class="landscape-more-action" data-action="legend">${svg('<path d="M4 6h16M4 12h10M4 18h16"/>')}<span>關係圖例</span></button>
-        <button type="button" class="landscape-more-action" data-action="import">${svg('<path d="M12 15V4m-4 4 4-4 4 4M5 18v2h14v-2"/>')}<span>匯入族譜</span></button>
-        <button type="button" class="landscape-more-action" data-action="export">${svg('<path d="M12 3v11m-4-4 4 4 4-4M5 18v2h14v-2"/>')}<span>匯出族譜</span></button>
-        <div class="landscape-more-legend" data-legend hidden></div>
-      </div>
-    </div>`;
-  document.body.appendChild(dialog);
-
-  const action = name => dialog.querySelector(`[data-action="${name}"]`);
-  action('map').addEventListener('click', () => { closeMore(); window.FamilyMemberMap?.open(); });
-  const relationshipAction = action('relationship');
-  const nameAction = action('family-name');
-  const canvasAction = action('canvas-names');
-  const cloudAction = action('cloud');
-  const legendAction = action('legend');
-  const importAction = action('import');
-  const exportAction = action('export');
-  const legendPanel = dialog.querySelector('[data-legend]');
-
-  function closeMore() {
-    if (dialog.open) dialog.close();
-  }
-  function refreshLegend() {
-    legendPanel.replaceChildren(...[...legend.children].map(node => node.cloneNode(true)));
-    legendPanel.classList.add('legend');
-  }
-  function syncState() {
-    nameAction.disabled = editFamilyName.disabled;
-    importAction.disabled = importJson.disabled;
-    exportAction.disabled = exportJson.disabled;
-    const namesHidden = canvasNames.getAttribute('aria-pressed') === 'true';
-    canvasAction.setAttribute('aria-pressed', String(namesHidden));
-    canvasAction.querySelector('[data-label]').textContent = namesHidden ? '顯示畫布姓名' : '隱藏畫布姓名';
-    const cloudState = cloudSync.dataset.syncState || 'disconnected';
-    cloudAction.dataset.syncState = cloudState;
-    cloudAction.setAttribute('aria-label', cloudSync.getAttribute('aria-label') || 'Google Drive 同步');
-    cloudAction.querySelector('[data-cloud-label]').textContent = cloudState === 'synced' ? 'Google Drive 已同步' : cloudState === 'syncing' ? 'Google Drive 同步中…' : cloudState === 'pending' ? 'Google Drive 有未同步變更' : cloudState === 'conflict' ? 'Google Drive 同步衝突' : cloudState === 'error' ? 'Google Drive 同步錯誤' : 'Google Drive 同步';
-    const relationshipActive = mobileSearchEnd && !mobileSearchEnd.hidden;
-    const desktop = !compactLayout.matches;
-    // Desktop exposes these actions in the workspace toolbar. Portrait also
-    // exposes relationship search in its persistent search bar or result actions.
-    relationshipAction.hidden = desktop || portrait.matches;
-    // The canvas-name toggle also lives in the portrait search bar. Keep it out of More
-    // while that bar is visible, but restore it during an active comparison when the bar
-    // is intentionally hidden so the feature remains reachable.
-    canvasAction.hidden = desktop || (portrait.matches && !relationshipActive);
-    legendAction.hidden = desktop;
-    if (desktop) {
-      legendPanel.hidden = true;
-      legendAction.setAttribute('aria-pressed', 'false');
+    const controls = document.querySelector('.tree-controls');
+    const searchOpen = document.getElementById('mobile-search-open');
+    if (!controls || !searchOpen) { requestAnimationFrame(initialize); return; }
+    initialized = true;
+    const get = id => document.getElementById(id);
+    const compact = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
+    const svg = path => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+    const icons = {
+      more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+      map:'<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3ZM9 3v15M15 6v15"/>',
+      query:'<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="m8 8 8 8m-3-8h5v5"/>',
+      eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+      'eye-off':'<path d="m3 3 18 18M10.6 5.1A11 11 0 0 1 12 5c6 0 10 7 10 7a17.5 17.5 0 0 1-3.2 3.9M6.5 6.5C3.7 8.5 2 12 2 12s4 7 10 7a11 11 0 0 0 5.5-1.5M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+      list:'<path d="M9 5h12M9 12h12M9 19h12M3 5h1M3 12h1M3 19h1"/>',
+      merge:'<path d="M5 3v4c0 5 7 5 7 9v5M19 3v4c0 5-7 5-7 9m-4 1 4 4 4-4"/>',
+      undo:'<path d="M4 5v6h6M4 11a8 8 0 1 1 2 9"/>',
+      cloud:'<path d="M7 18h11a4 4 0 0 0 0-8 6 6 0 0 0-11-2 5 5 0 0 0 0 10Z"/>',
+      import:'<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
+      export:'<path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/>',
+      edit:'<path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-4-4L5 15z"/>',
+      legend:'<path d="M9 6h12M9 12h8M9 18h12M3 6h1M3 12h1M3 18h1"/>'
+    };
+    const openers = ['desktop','portrait','landscape'].map(mode => {
+      const button = document.createElement('button'); button.type = 'button'; button.id = mode + '-more-open';
+      button.className = `plain-button ${mode}-toolbar-control`;
+      button.setAttribute('aria-label','更多功能'); button.setAttribute('aria-haspopup','dialog');
+      button.setAttribute('aria-expanded','false'); button.setAttribute('aria-controls','landscape-more-sheet');
+      button.innerHTML = svg(icons.more); controls.append(button); return button;
+    });
+    const scope = get('family-filter');
+    document.querySelector('.workspace-toolbar__scope').append(document.querySelector('.family-filter-label'), scope.closest('.searchable-select') || scope);
+    // Move the actual map entry, preserving its module listener and unique ID.
+    document.querySelector('.workspace-toolbar').append(get('show-member-map'));
+    const dialog = document.createElement('dialog'); dialog.id = 'landscape-more-sheet'; dialog.className = 'landscape-more-sheet';
+    dialog.setAttribute('aria-labelledby','landscape-more-title');
+    dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;
+    const sections = [
+      ['檢視',[['relationship','查關係','query'],['map','成員地圖','map'],['canvas-names','隱藏姓名','eye'],['legend','關係圖例','legend']]],
+      ['成員管理',[['groups','排行群組','list'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','list'],['undo','復原','undo']]],
+      ['備份與同步',[['cloud','Google Drive 同步','cloud'],['import','匯入族譜','import'],['export','匯出族譜','export']]],
+      ['族譜設定',[['family-name','編輯家族名稱','edit']]]
+    ];
+    for (const [title, items] of sections) {
+      const section = document.createElement('section'); section.className = 'workspace-menu-group';
+      const heading = document.createElement('h3'); heading.textContent = title; section.append(heading);
+      for (const [name,label,icon] of items) {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'landscape-more-action'; button.dataset.action = name;
+        button.innerHTML = svg(icons[icon]); const text = document.createElement('span'); text.dataset.label = ''; text.textContent = label;
+        button.append(text); section.append(button);
+      }
+      dialog.querySelector('.landscape-more-sheet__body').append(section);
     }
-    relationshipAction.setAttribute('aria-pressed', String(relationshipActive));
-    relationshipAction.setAttribute('aria-label', relationshipActive ? '修改比較關係' : '比較關係');
-    relationshipAction.querySelector('[data-relationship-label]').textContent = relationshipActive ? '修改比較關係' : '比較關係';
-  }
-
-  const openMore = () => {
-    refreshLegend();
+    const legendPanel = document.createElement('div'); legendPanel.className = 'landscape-more-legend legend'; legendPanel.hidden = true;
+    dialog.querySelector('[data-action=legend]').after(legendPanel); document.body.append(dialog);
+    const action = name => dialog.querySelector(`[data-action="${name}"]`);
+    searchOpen.prepend(action('relationship').querySelector('svg').cloneNode(true));
+    let opener;
+    function syncState() {
+      action('family-name').disabled = get('edit-family-name').disabled;
+      action('import').disabled = get('import-json').disabled; action('export').disabled = get('export-json').disabled;
+      action('cloud').hidden = get('cloud-sync').hidden;
+      action('groups').disabled = action('merge').disabled = !window.FamilyEditor?.snapshot();
+      const undo = window.FamilyEditor?.snapshot()?.undoLabel;
+      action('undo').disabled = !undo; action('undo').querySelector('[data-label]').textContent = undo ? '復原：' + undo : '復原（目前沒有修改）';
+      const ignored = window.getIgnoredIntermediateCount?.() || 0; action('ignored').hidden = !ignored;
+      action('ignored').querySelector('[data-label]').textContent = `已忽略待補項目（${ignored}）`;
+      const hidden = get('toggle-canvas-names').getAttribute('aria-pressed') === 'true';
+      action('canvas-names').querySelector('svg').outerHTML = svg(icons[hidden ? 'eye-off' : 'eye']);
+      action('canvas-names').querySelector('[data-label]').textContent = hidden ? '顯示姓名' : '隱藏姓名';
+      action('canvas-names').setAttribute('aria-pressed',String(hidden));
+      const state = get('cloud-sync').dataset.syncState;
+      action('cloud').querySelector('[data-label]').textContent = state === 'synced' ? 'Google Drive 已同步' : state === 'pending' ? '雲端尚未同步' : state === 'conflict' ? '有版本差異' : state === 'syncing' ? '雲端同步中…' : 'Google Drive 同步';
+    }
+    function closeMore({ focus = true } = {}) {
+      if (!dialog.open) return; dialog.close(); openers.forEach(button => button.setAttribute('aria-expanded','false'));
+      if (focus) opener?.focus({preventScroll:true});
+    }
+    function position() {
+      if (!dialog.open || compact.matches) return;
+      const box = opener.getBoundingClientRect();
+      dialog.style.left = Math.max(8,Math.min(box.right - 292,innerWidth - 300)) + 'px';
+      dialog.style.top = box.bottom + 6 + 'px'; dialog.style.maxHeight = Math.max(100,innerHeight - box.bottom - 14) + 'px';
+    }
+    for (const button of openers) button.addEventListener('click', () => {
+      if (dialog.open) { closeMore(); return; }
+      opener = button; syncState(); legendPanel.hidden = true;
+      if (compact.matches) dialog.showModal(); else dialog.show();
+      button.setAttribute('aria-expanded','true'); position(); action('relationship').focus({preventScroll:true});
+    });
+    get('landscape-more-close').addEventListener('click', () => closeMore());
+    dialog.addEventListener('cancel', event => { event.preventDefault(); closeMore(); });
+    document.addEventListener('pointerdown', event => { if (dialog.open && !dialog.contains(event.target) && !openers.some(button => button.contains(event.target))) closeMore({focus:false}); });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && dialog.open && ![...document.querySelectorAll('dialog:modal')].some(modal => modal !== dialog)) { event.preventDefault(); closeMore(); }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'z' && !event.target.closest('input,textarea,select,[contenteditable],dialog') && !document.querySelector('dialog:modal')) {
+        if (window.FamilyEditor?.snapshot()?.undoLabel) { event.preventDefault(); window.FamilyEditor.undo(); }
+      }
+    });
+    const run = (name, callback) => action(name).addEventListener('click', () => { closeMore(); callback(); });
+    run('map', () => get('show-member-map').click()); run('relationship', () => searchOpen.click());
+    run('family-name', () => get('edit-family-name').click()); run('groups', () => window.FamilyManagement?.openGroups());
+    run('merge', () => window.FamilyManagement?.openMerge()); run('ignored', () => window.openIgnoredIntermediatePlans?.());
+    run('undo', () => window.FamilyEditor?.undo()); run('cloud', () => get('cloud-sync').click());
+    run('import', () => get('import-json').click()); run('export', () => get('export-json').click());
+    action('canvas-names').addEventListener('click', () => { get('toggle-canvas-names').click(); syncState(); });
+    action('legend').addEventListener('click', () => {
+      legendPanel.replaceChildren(...[...get('relationship-legend').children].map(node => node.cloneNode(true))); legendPanel.hidden = !legendPanel.hidden;
+    });
+    compact.addEventListener('change', () => closeMore({focus:false})); window.addEventListener('resize',position);
+    window.addEventListener('familyintermediatechange',syncState); window.addEventListener('cloudsyncuichange',syncState);
+    const observer = new MutationObserver(syncState);
+    for (const id of ['edit-family-name','import-json','export-json','cloud-sync','toggle-canvas-names']) observer.observe(get(id), {attributes:true,attributeFilter:['disabled','hidden','aria-pressed','data-sync-state']});
     syncState();
-    dialog.showModal();
-  };
-  landscapeMoreButton.addEventListener('click', openMore);
-  portraitMoreButton.addEventListener('click', openMore);
-  desktopMoreButton.addEventListener('click', openMore);
-  dialog.querySelector('#landscape-more-close').addEventListener('click', closeMore);
-  dialog.addEventListener('cancel', event => { event.preventDefault(); closeMore(); });
-  dialog.addEventListener('click', event => { if (event.target === dialog) closeMore(); });
-
-  relationshipAction.addEventListener('click', () => { closeMore(); mobileSearchOpen.click(); });
-  nameAction.addEventListener('click', () => { closeMore(); editFamilyName.click(); });
-  canvasAction.addEventListener('click', () => { canvasNames.click(); syncState(); });
-  cloudAction.addEventListener('click', () => { closeMore(); cloudSync.click(); });
-  importAction.addEventListener('click', () => { closeMore(); importJson.click(); });
-  exportAction.addEventListener('click', () => { closeMore(); exportJson.click(); });
-  legendAction.addEventListener('click', () => {
-    const opening = legendPanel.hidden;
-    if (opening) refreshLegend();
-    legendPanel.hidden = !opening;
-    legendAction.setAttribute('aria-pressed', String(opening));
-  });
-
-  const observer = new MutationObserver(syncState);
-  observer.observe(editFamilyName, { attributes:true, attributeFilter:['disabled'] });
-  observer.observe(importJson, { attributes:true, attributeFilter:['disabled'] });
-  observer.observe(exportJson, { attributes:true, attributeFilter:['disabled'] });
-  observer.observe(canvasNames, { attributes:true, attributeFilter:['aria-pressed','aria-label'] });
-  observer.observe(cloudSync, { attributes:true, attributeFilter:['data-sync-state','aria-label'] });
-  if (mobileSearchEnd) observer.observe(mobileSearchEnd, { attributes:true, attributeFilter:['hidden'] });
-  new MutationObserver(() => { if (!legendPanel.hidden) refreshLegend(); }).observe(legend, { childList:true, subtree:true });
-
-  function layoutChanged() {
-    closeMore();
-    placeScope();
-    syncState();
   }
-  portrait.addEventListener('change', layoutChanged);
-  landscape.addEventListener('change', layoutChanged);
-  compactLayout.addEventListener('change', layoutChanged);
-  syncState();
-  }
-  // The search controls are created by the module entry after classic scripts.
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, { once: true });
-  else initialize();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',initialize,{once:true}); else initialize();
 })();

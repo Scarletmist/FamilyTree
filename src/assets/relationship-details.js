@@ -225,7 +225,7 @@
       if (changed && reveal && !panel.hidden) globalThis.FamilyMotion?.reveal(collapsed ? tab : content);
       if (focus) (collapsed ? tab : button)?.focus({ preventScroll: true });
     }
-    function render(panel, graph, personId, { onEdit, onSelect, onQuery, onLocate, onClose } = {}) {
+    function render(panel, graph, personId, { onEdit, onSelect, onQuery, onLocate, onClose, onReturnList } = {}) {
       if (!personId) {
         navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null;
       } else if (personId !== currentPersonId) {
@@ -267,12 +267,15 @@
       const header = element('div', 'relationship-details__header');
       const actions = element('div', 'relationship-details__actions');
       actions.setAttribute('aria-label', '成員操作');
-      const back = iconButton('details-back', '返回上一位成員', 'M15 18l-6-6 6-6');
-      back.disabled = !navigationHistory.length;
-      if (!navigationHistory.length) back.className += ' details-back--placeholder';
+      const previousPerson = graph.people.find(p => p.id === navigationHistory.at(-1));
+      const backLabel = previousPerson ? '返回' + previousPerson.name : '返回成員清單';
+      const back = iconButton('details-back', backLabel, 'M15 18l-6-6 6-6');
+      back.append(element('span','details-back-label',backLabel));
+      back.disabled = !navigationHistory.length && !onReturnList;
+      if (back.disabled) back.className += ' details-back--placeholder';
       back.addEventListener('click', () => {
         const target = navigationHistory.pop();
-        if (!target) return;
+        if (!target) { onReturnList?.(); return; }
         pendingNavigationTarget = target;
         onSelect?.(target);
       });
@@ -289,7 +292,8 @@
         query = element('span', 'details-icon details-action details-query-placeholder');
         query.setAttribute('aria-hidden', 'true');
       }
-      const addRelative = iconButton('add-relative details-action', '新增' + person.name + '的親屬', 'M12 5v14M5 12h14');
+      const addRelative = iconButton('add-relative details-action', '新增' + person.name + '的親屬', 'M12 7a3 3 0 1 0-6 0 3 3 0 0 0 6 0M3.5 19c.6-4 2.5-6 5.5-6s4.9 2 5.5 6M18 13v6M15 16h6');
+      addRelative.children[0].setAttribute('data-icon', 'person-plus');
       addRelative.appendChild(element('span', 'details-action__label', '新增親屬'));
       addRelative.addEventListener('click', () => globalThis.openRelativePicker?.(person.id));
       const locate = iconButton('details-locate details-action', '將' + person.name + '定位到族譜中央', 'M12 2v3M12 19v3M2 12h3M19 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z');
@@ -298,7 +302,6 @@
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
       const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (orientation:landscape)').matches;
       const portraitMobile = globalThis.matchMedia?.('(max-width:700px)').matches;
-      const compactMobile = portraitMobile || landscapeMobile;
       if (portraitMobile && !landscapeMobile) {
         collapse.setAttribute('aria-label', '收合關係詳情至底部'); collapse.title = '收合關係詳情至底部';
       }
@@ -306,20 +309,28 @@
       collapse.addEventListener('click', () => setCollapsed(panel, true, { focus: true }));
       const close = iconButton('details-close', '關閉關係詳情', 'M18 6 6 18 M6 6l12 12');
       close.addEventListener('click', () => { navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null; onClose?.(); });
-      const title = element('h2', '', person.name + '的關係');
+      const title = element('h2', '', person.name);
       title.id = 'relationship-details-title';
       title.title = person.name + '的關係';
-      header.append(back, title, collapse, close);
-      if (compactMobile) {
+      const navigation = element('div','relationship-details__navigation'); navigation.append(back,collapse,close);
+      const avatar = element('span','profile-avatar',person.name.slice(-1)); avatar.setAttribute('aria-hidden','true');
+      const identity = element('div','relationship-details__identity');
+      const eyebrow = element('small','profile-eyebrow','成員詳情');
+      const generation = element('p','profile-generation',person.gen ? '第 ' + (person.gen + (globalThis.FamilyDisplayProjection?.generationOffset(graph) || 0)) + ' 代' : '未設定關係');
+      identity.append(eyebrow,title,generation); header.append(avatar,identity);
+      top.append(navigation);
+      {
         const more = element('details', 'relationship-details__more');
-        const moreSummary = element('summary', 'plain-button relationship-details__more-summary', '更多');
+        const moreSummary = element('summary', 'plain-button relationship-details__more-summary');
         moreSummary.setAttribute('aria-label', '更多成員操作');
+        const moreIcon = iconButton('', '更多成員操作', 'M5 12h.01M12 12h.01M19 12h.01').children[0];
+        moreIcon.setAttribute('stroke-width', '3');
+        moreSummary.appendChild(moreIcon);
         const moreBody = element('div', 'relationship-details__more-body');
-        if (hasRecordedRelationships) moreBody.appendChild(query);
         moreBody.appendChild(locate);
         more.append(moreSummary, moreBody);
-        actions.append(edit, addRelative, more);
-      } else actions.append(edit, query, addRelative, locate);
+        actions.append(edit, query, addRelative, more);
+      }
       top.append(header, actions);
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
@@ -358,6 +369,11 @@
         body.append(notes);
       }
       const groups = buildGroups(graph, person.id);
+      const evidence = element('details','relationship-evidence'); evidence.dataset.group = 'evidence';
+      evidence.open = openStates.get(person.id)?.get('evidence') ?? false;
+      const evidenceSummary = element('summary','','關係依據');
+      const evidenceIcon = iconButton('', '', 'm6 9 6 6 6-6').children[0];
+      evidenceSummary.append(evidenceIcon); evidence.append(evidenceSummary);
       if (!groups.length) {
         body.appendChild(element('p', 'relationship-details__empty', '尚未記錄關係。'));
       } else {
@@ -387,7 +403,9 @@
             main.appendChild(personButton);
             if (entry.role) main.appendChild(element('span', 'relationship-entry__role', entry.role));
             item.appendChild(main);
-            item.appendChild(element('p', 'relationship-entry__context', entry.recorded ? '直接設定' : '由既有關係推導'));
+            if (entry.contexts.some(context => context.includes('待確認'))) item.append(element('span','relationship-entry__badge pending','待確認'));
+            const evidenceItem = element('div','relationship-evidence__item');
+            evidenceItem.append(element('strong','',entry.name + ' · ' + (entry.role || group.title)),element('p','',entry.recorded ? '直接設定' : '由既有關係推導'));
             for (const message of entry.missing || []) {
               const fix = element('button', 'plain-button relationship-missing', message + '・補填'); fix.type = 'button';
               fix.addEventListener('click', () => globalThis.completeFamilyRelationship?.(person.id, entry.personId, group.id, message));
@@ -395,20 +413,22 @@
             }
             if (!entry.recorded) {
               const source = element('button', 'plain-button', '編輯關係依據'); source.type = 'button';
-              source.addEventListener('click', () => onEdit?.(person.id)); item.appendChild(source);
+              source.addEventListener('click', () => onEdit?.(person.id)); evidenceItem.appendChild(source);
             }
             if (entry.badges.length) {
               const badges = element('div', 'relationship-entry__badges');
               entry.badges.forEach(badge => badges.appendChild(element('span', 'relationship-entry__badge', badge)));
               item.appendChild(badges);
             }
-            entry.contexts.forEach(context => item.appendChild(element('p', 'relationship-entry__context', context)));
+            entry.contexts.forEach(context => evidenceItem.appendChild(element('p', '', context)));
+            evidence.append(evidenceItem);
             items.appendChild(item);
           });
           details.appendChild(items);
           list.appendChild(details);
         });
         body.appendChild(list);
+        body.appendChild(evidence);
       }
       content.appendChild(body);
       const tab = element('button', 'relationship-details__tab');

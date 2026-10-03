@@ -10,10 +10,6 @@
       "siblingOrder": null,
       "relationships": [
         {
-          "type": "spouse",
-          "personId": "p1"
-        },
-        {
           "type": "child",
           "personId": "p3",
           "kind": "親生"
@@ -47,7 +43,49 @@
       "location": "",
       "position": "",
       "siblingOrder": null,
-      "relationships": []
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p2"
+        },
+        {
+          "type": "spouse",
+          "personId": "p8",
+          "status": "pending"
+        },
+        {
+          "type": "child",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p4",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p5",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p6",
+          "kind": "過繼"
+        },
+        {
+          "type": "child",
+          "personId": "p21",
+          "kind": "養子女"
+        },
+        {
+          "type": "child",
+          "personId": "p22",
+          "kind": "義子女"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": ""
     },
     {
       "id": "p8",
@@ -57,10 +95,6 @@
       "position": "",
       "siblingOrder": null,
       "relationships": [
-        {
-          "type": "spouse",
-          "personId": "p1"
-        },
         {
           "type": "child",
           "personId": "p5",
@@ -77,17 +111,7 @@
       "location": "",
       "position": "",
       "siblingOrder": 1,
-      "relationships": [
-        {
-          "type": "spouse",
-          "personId": "p9"
-        },
-        {
-          "type": "parent",
-          "personId": "p1",
-          "kind": "親生"
-        }
-      ]
+      "relationships": []
     },
     {
       "id": "p9",
@@ -96,7 +120,38 @@
       "location": "",
       "position": "",
       "siblingOrder": null,
-      "relationships": []
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p3"
+        },
+        {
+          "type": "child",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p12",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p7",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p23",
+          "kind": "契子女"
+        },
+        {
+          "type": "student",
+          "personId": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": ""
     },
     {
       "id": "p4",
@@ -109,11 +164,6 @@
         {
           "type": "spouse",
           "personId": "p10"
-        },
-        {
-          "type": "parent",
-          "personId": "p1",
-          "kind": "親生"
         }
       ]
     },
@@ -133,13 +183,7 @@
       "location": "",
       "position": "",
       "siblingOrder": 1,
-      "relationships": [
-        {
-          "type": "parent",
-          "personId": "p1",
-          "kind": "親生"
-        }
-      ]
+      "relationships": []
     },
     {
       "id": "p6",
@@ -148,13 +192,7 @@
       "location": "",
       "position": "",
       "siblingOrder": 3,
-      "relationships": [
-        {
-          "type": "parent",
-          "personId": "p1",
-          "kind": "過繼"
-        }
-      ]
+      "relationships": []
     },
     {
       "id": "p21",
@@ -163,13 +201,7 @@
       "location": "",
       "position": "",
       "siblingOrder": 4,
-      "relationships": [
-        {
-          "type": "parent",
-          "personId": "p1",
-          "kind": "養子女"
-        }
-      ]
+      "relationships": []
     },
     {
       "id": "p22",
@@ -178,13 +210,7 @@
       "location": "",
       "position": "",
       "siblingOrder": null,
-      "relationships": [
-        {
-          "type": "parent",
-          "personId": "p1",
-          "kind": "義子女"
-        }
-      ]
+      "relationships": []
     },
     {
       "id": "p11",
@@ -201,11 +227,6 @@
         {
           "type": "parent",
           "personId": "p3",
-          "kind": "親生"
-        },
-        {
-          "type": "parent",
-          "personId": "p9",
           "kind": "親生"
         }
       ]
@@ -231,11 +252,6 @@
           "type": "parent",
           "personId": "p3",
           "kind": "親生"
-        },
-        {
-          "type": "parent",
-          "personId": "p9",
-          "kind": "親生"
         }
       ]
     },
@@ -250,11 +266,6 @@
         {
           "type": "parent",
           "personId": "p3",
-          "kind": "親生"
-        },
-        {
-          "type": "parent",
-          "personId": "p9",
           "kind": "親生"
         }
       ]
@@ -290,11 +301,6 @@
         {
           "type": "parent",
           "personId": "p3",
-          "kind": "契子女"
-        },
-        {
-          "type": "parent",
-          "personId": "p9",
           "kind": "契子女"
         }
       ]

@@ -148,15 +148,15 @@
     disconnect.hidden = !state.connected;
     if (!clientId) {
       action.disabled = true;
-      action.textContent = '尚未設定 Google OAuth Client ID';
-      setUi('unconfigured', 'Google Drive 同步尚未設定', '請在 GitHub Actions 建置時提供 GOOGLE_OAUTH_CLIENT_ID。');
+      action.textContent = '目前未啟用雲端同步';
+      setUi('unconfigured', '這個網站目前未啟用雲端同步', '可繼續在此裝置使用，並匯出族譜備份。');
       return;
     }
     action.disabled = false;
     action.textContent = accessToken ? '立即同步' : state.connected ? '重新授權並同步' : '連結 Google Drive';
     if (accessToken && Date.now() < tokenExpiresAt && !state.dirty) setUi('synced', 'Google Drive 已同步', state.lastSyncedAt ? '上次同步：' + formatTime(state.lastSyncedAt) : '已連結 Google Drive appDataFolder。');
     else if (state.connected) setUi(state.dirty ? 'pending' : 'connected', state.dirty ? '此裝置有尚未同步的變更；下次操作時會嘗試恢復同步' : 'Google Drive 已連結；下次操作時會自動嘗試恢復同步', state.lastSyncedAt ? '上次同步：' + formatTime(state.lastSyncedAt) : '族譜仍安全保存在 IndexedDB。');
-    else setUi('disconnected', '連結 Google Drive 以跨裝置同步', '族譜目前只儲存在此瀏覽器的 IndexedDB。');
+    else setUi('disconnected', '連結 Google Drive 以跨裝置同步', '族譜已儲存在此裝置。');
   }
   function loadGoogleIdentity() {
     if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -294,9 +294,11 @@
   });
   function waitForConflictChoice(local, remote, remoteData) {
     if (!conflictDialog) return Promise.resolve('cloud');
-    document.getElementById('cloud-conflict-local-summary').textContent = `此裝置：${local.data.people.length} 位成員`;
-    document.getElementById('cloud-conflict-remote-summary').textContent = `Google Drive：更新時間 ${formatTime(remote.modifiedTime) || '未知'}`;
+    const relationCount = data => data.people.reduce((count, person) => count + (person.relationships?.length || 0), 0);
+    document.getElementById('cloud-conflict-local-summary').textContent = `${local.data.people.length} 位成員\n${relationCount(local.data)} 筆關係記錄\n更新時間：未提供`;
+    document.getElementById('cloud-conflict-remote-summary').textContent = `${remoteData.people.length} 位成員\n${relationCount(remoteData)} 筆關係記錄\n更新時間：${formatTime(remote.modifiedTime) || '未提供'}`;
     window.renderFamilyDifferences?.(document.getElementById('cloud-conflict-remote-summary').parentElement.parentElement, local.data, remoteData);
+    chooseConflictVersion(null);
     conflictDialog.showModal();
     return new Promise(resolve => { conflictResolver = resolve; });
   }
@@ -307,8 +309,18 @@
     conflictDialog.close();
     resolve(choice);
   }
-  document.getElementById('cloud-conflict-use-local')?.addEventListener('click', () => resolveConflict('local'));
-  document.getElementById('cloud-conflict-use-remote')?.addEventListener('click', () => resolveConflict('cloud'));
+  let conflictChoice = null;
+  function chooseConflictVersion(choice) {
+    conflictChoice = choice;
+    document.getElementById('cloud-conflict-use-local').setAttribute('aria-pressed', String(choice === 'local'));
+    document.getElementById('cloud-conflict-use-remote').setAttribute('aria-pressed', String(choice === 'cloud'));
+    const commit = document.getElementById('cloud-conflict-commit');
+    commit.disabled = !choice;
+    commit.textContent = choice === 'local' ? '保留此裝置，取代雲端' : choice === 'cloud' ? '使用雲端，取代此裝置' : '選擇要保留的版本';
+  }
+  document.getElementById('cloud-conflict-use-local')?.addEventListener('click', () => chooseConflictVersion('local'));
+  document.getElementById('cloud-conflict-use-remote')?.addEventListener('click', () => chooseConflictVersion('cloud'));
+  document.getElementById('cloud-conflict-commit')?.addEventListener('click', () => { if (conflictChoice) resolveConflict(conflictChoice); });
   document.getElementById('cloud-conflict-cancel')?.addEventListener('click', () => resolveConflict('cancel'));
   document.getElementById('close-cloud-conflict-dialog')?.addEventListener('click', () => resolveConflict('cancel'));
   conflictDialog?.addEventListener('cancel', event => { event.preventDefault(); resolveConflict('cancel'); });

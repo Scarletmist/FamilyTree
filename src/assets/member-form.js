@@ -200,7 +200,9 @@
     const storage = FamilyRepository.isStatic ? 'IndexedDB' : restored ? null : backup.save(payload);
     backupStatus.textContent = FamilyRepository.isStatic ? '已儲存至此瀏覽器（IndexedDB）；可連結 Google Drive 跨裝置同步，JSON 匯出仍可作為離線備份。' : restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
     const familyName = graph.familyName;
-    familyTitle.textContent = familyName + '族譜圖';
+    familyTitle.textContent = familyName;
+    document.getElementById('family-emblem').textContent = familyName.slice(0, 1);
+    document.getElementById('local-save-state').textContent = restored ? '備份檢視' : FamilyRepository.isStatic ? '已儲存在此裝置' : '已儲存';
     document.title = '族譜圖 — ' + familyName;
     familyNameButton.disabled = restored;
     addButton.disabled = restored;
@@ -371,8 +373,10 @@
     editingId = id; currentPlanId = plan?.id || null;
     form.reset(); relations.replaceChildren(); error.textContent = ''; showStatus(''); requestId = crypto.randomUUID();
     document.getElementById('intermediate-context')?.remove();
-    document.getElementById('member-dialog-title').textContent = editingId ? '編輯成員與關係' : '新增成員';
-    document.getElementById('refresh-family').textContent = editingId ? '重新載入成員' : '更新資料';
+    document.getElementById('member-dialog-title').textContent = editingId ? '編輯' + snapshot.data.people.find(p => p.id === editingId)?.name : '新增成員';
+    document.getElementById('refresh-family').textContent = '檢視最新資料';
+    form.querySelectorAll('[aria-invalid]').forEach(control => control.removeAttribute('aria-invalid'));
+    form.querySelectorAll('.field-error').forEach(hint => { hint.textContent = ''; });
     if (editingId) populateMember();
     if (plan) {
       document.getElementById('member-dialog-title').textContent = plan.title;
@@ -549,17 +553,97 @@
   document.getElementById('member-disciple-order').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   document.getElementById('member-name').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   ['gender','siblingOrder'].forEach(name => form.elements.namedItem(name).addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview())));
-  document.getElementById('refresh-family').addEventListener('click', async () => {
-    error.textContent = '';
+  const refreshDialog = document.getElementById('member-refresh-dialog');
+  let pendingRefresh = null;
+  const formMenu = document.getElementById('member-form-menu');
+  const formMore = document.getElementById('member-form-more');
+  formMenu.addEventListener('toggle', () => formMore.setAttribute('aria-expanded', String(formMenu.matches(':popover-open'))));
+  formMore.addEventListener('click', () => {
+    const rect = formMore.getBoundingClientRect();
+    formMenu.style.left = Math.max(8, Math.min(rect.right - 280, innerWidth - 288)) + 'px';
+    formMenu.style.top = Math.min(rect.bottom + 6, innerHeight - 130) + 'px';
+  });
+  function finishRefresh() {
+    refreshDialog.close(); pendingRefresh = null;
+    document.getElementById('member-name').focus({ preventScroll:true });
+  }
+  document.getElementById('member-refresh-keep').addEventListener('click', finishRefresh);
+  refreshDialog.addEventListener('cancel', event => { event.preventDefault(); finishRefresh(); });
+  document.getElementById('member-refresh-replace').addEventListener('click', () => {
+    if (!pendingRefresh) return;
     try {
-      await load();
-      if (editingId) { populateMember(); resetMemberBaseline(); clearMemberDraft(); error.textContent = '已載入此成員的最新資料，請重新套用修改。'; }
-      else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); showStatus('已更新資料，表單內容已保留。', 'info'); }
+      accept(pendingRefresh);
+      if (editingId) populateMember();
+      else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); }
+      resetMemberBaseline(); clearMemberDraft(); finishRefresh();
+      showStatus('已載入最新資料。', 'info');
+    } catch (e) { document.getElementById('member-refresh-error').textContent = e.message; }
+  });
+  document.getElementById('refresh-family').addEventListener('click', async () => {
+    if (saving) return;
+    formMenu.hidePopover(); error.textContent = ''; persistMemberDraft();
+    const previous = snapshot;
+    try {
+      const latest = await FamilyApp.load();
+      if (memberFormDirty() && editingId) {
+        pendingRefresh = latest;
+        document.getElementById('member-refresh-error').textContent = '';
+        window.renderFamilyDifferences?.(document.getElementById('member-refresh-differences'), previous.data, latest.data);
+        refreshDialog.showModal(); document.getElementById('member-refresh-keep').focus();
+      } else {
+        accept(latest);
+        if (editingId) { populateMember(); resetMemberBaseline(); clearMemberDraft(); }
+        else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); }
+        showStatus('已更新資料，表單內容已保留。', 'info');
+      }
+    } catch (e) { error.textContent = e.message; }
+  });
+  function validateName() {
+    const input = document.getElementById('member-name');
+    const message = input.value.trim() ? '' : '請填寫姓名。';
+    document.getElementById('member-name-error').textContent = message;
+    input.setAttribute('aria-invalid', String(Boolean(message)));
+    return !message;
+  }
+  const inlineErrors = new WeakMap();
+  let nextInlineError = 0;
+  function showFieldError(control, message) {
+    let hint = inlineErrors.get(control);
+    if (!hint) {
+      hint = document.createElement('span'); hint.className = 'field-error';
+      hint.id = 'member-field-error-' + ++nextInlineError; hint.setAttribute('aria-live', 'polite');
+      (control.closest('.searchable-select') || control).after(hint);
+      inlineErrors.set(control, hint);
+      control.setAttribute('aria-describedby', [control.getAttribute('aria-describedby'), hint.id].filter(Boolean).join(' '));
+      for (const event of ['input', 'change']) control.addEventListener(event, () => showFieldError(control, ''));
     }
-    catch (e) { error.textContent = e.message; }
+    hint.textContent = message;
+    control.setAttribute('aria-invalid', String(Boolean(message)));
+    const trigger = control.closest('.searchable-select')?.querySelector('.select-trigger');
+    if (trigger) { trigger.setAttribute('aria-invalid', String(Boolean(message))); trigger.setAttribute('aria-describedby', hint.id); }
+  }
+  function nativeFieldError(control) {
+    if (control.id === 'member-name') { validateName(); return; }
+    const message = control.validity.valid ? '' : control.type === 'number' ? '請填寫 1–999 的整數，或留空。' : control.matches('select') ? '請選擇此欄位的選項。' : control.validationMessage;
+    showFieldError(control, message);
+  }
+  form.addEventListener('invalid', event => {
+    event.target.closest('.relation-row')?.expandEditor();
+    for (let parent = event.target.parentElement; parent && parent !== form; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
+    nativeFieldError(event.target);
+  }, true);
+  form.addEventListener('focusout', event => {
+    if (event.target.matches('input[type=number],select[required]')) nativeFieldError(event.target);
+  });
+  document.getElementById('member-name').addEventListener('blur', validateName);
+  document.getElementById('member-name').addEventListener('input', () => {
+    document.getElementById('member-name-error').textContent = '';
+    document.getElementById('member-name').removeAttribute('aria-invalid');
   });
   form.addEventListener('submit', async event => {
-    event.preventDefault(); if (saving || !form.reportValidity()) return;
+    event.preventDefault(); if (saving) return;
+    if (!validateName()) { document.getElementById('member-name').focus(); return; }
+    if (!form.reportValidity()) return;
     error.textContent = '';
     const values = new FormData(form);
     const member = {
@@ -597,11 +681,15 @@
       error.textContent = e.message || '連線中斷，請重試。';
       setSaving(false);
       const row = [...relations.children].find(row => e.personIds?.includes(row.querySelector('.relation-target').value));
-      if (row) { row.expandEditor(); row.scrollIntoView({block:'center'}); row.querySelector('.relation-cousin-seniority:not(:disabled), .relation-type')?.focus(); }
+      if (row) {
+        row.expandEditor(); row.scrollIntoView({block:'center'});
+        const control = row.querySelector('.relation-cousin-seniority:not(:disabled), .relation-type');
+        if (control) { showFieldError(control, error.textContent); control.focus(); }
+      }
       else {
         const field = e.field || (e.message.includes('姓名') ? 'name' : e.message.includes('師門次序') ? 'discipleOrder' : e.message.includes('手足次序') ? 'siblingOrder' : null);
         const control = field && form.elements.namedItem(field);
-        if (control) { control.scrollIntoView({block:'center'}); control.focus(); }
+        if (control) { showFieldError(control, error.textContent); control.scrollIntoView({block:'center'}); control.focus(); }
         else { error.tabIndex = -1; error.scrollIntoView({block:'center'}); error.focus(); }
       }
     }
@@ -684,7 +772,7 @@
     if (event.detail?.source !== 'cloud' || !event.detail.payload) return;
     const editing = dialog.open || nameDialog.open || importDialog.open;
     if (editing) {
-      showStatus('Google Drive 已下載較新的族譜；目前表單仍保留原輸入。請按「更新資料」後再儲存，避免覆蓋雲端版本。', 'warning');
+      showStatus('Google Drive 已下載較新的族譜；表單仍保留原輸入。請「檢視最新資料」後確認變更。', 'warning');
       return;
     }
     accept(event.detail.payload);

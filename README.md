@@ -1,5 +1,20 @@
 # 族譜網站
 
+## 成員所在地地圖
+
+成員表單的所在地可填公開地名，例如「新竹天公壇」「新竹關帝廟」。新增／儲存後會自動排入 Nominatim 定位佇列；既有、匯入或雲端下載的成員尚無有效座標時，也會在背景逐筆補齊。透過桌面「地圖」或手機「更多 → 成員地圖」查看；同座標成員共用標記，點選地點可聚焦，點選姓名回到成員詳情。地圖使用 MIT 授權的 Pigeon Maps 0.22.1，地圖資料由 OpenStreetMap 提供，不需要 API Key。
+
+- 查詢單一執行、一般間隔 15 秒；網路錯誤、HTTP 錯誤、逾時或無效回應會在失敗後等 5 秒重試。查無地點／多筆同名且無法辨識時保存該狀態，不會每 5 秒重查；可補充所在地或在地圖清單按「重新查詢」。不做輸入中的即時搜尋。
+- 結果以選填的 `people[].geocode` 保存，包含原查詢、`provider: "nominatim"`、`status`、查詢時間；成功結果另有 `lat`／`lon`、顯示名稱、OSM 物件類型與 ID。沿用 schemaVersion 2、IndexedDB、JSON 匯入／匯出及整份 Google Drive 同步。另以 IndexedDB 快取相同地名（包括查無結果），減少重新載入、匯入及多位成員的重複請求。
+- `people[].mapHidden: true` 代表私人住址／不在地圖顯示，會在發送查詢前排除。疑似完整門牌地址也保守排除；文字判斷不能涵蓋所有私人住址，請使用此選項。查詢只送所在地，不傳姓名、關係或其他族譜資料。
+- 修改所在地或隱私設定會清除不適用的座標。結果寫入時在同一資料 transaction 內重新比對目前所在地與隱私設定，避免舊請求覆蓋新資料；背景寫入不佔用復原歷史，維持尚未儲存表單內容與有效版本。
+- 根物件選填的 `locationLookupDeviceId` 指定這份族譜的背景定位裝置。第一台有待定位成員的裝置自動接手；其他裝置可在地圖按「由此裝置接手定位」。同 origin 分頁以 Web Locks 協調；不支援 Web Locks 的瀏覽器仍可編輯與查看地圖，但不自動查詢。分頁隱藏、離線或編輯表單開啟時暫停；**關閉網站後不會在背景執行**。
+- 定位由系統自動處理，不提供使用者調整查詢服務或開關的介面。查詢服務固定為 `https://nominatim.openstreetmap.org/search`；圖磚為 `https://tile.openstreetmap.org/{z}/{x}/{y}.png`，只有開啟地圖才載入，關閉時卸載。不預抓離線圖磚。
+
+公共 Nominatim 適用少量使用，要求來源識別、快取與 ODbL 標示；全網站總流量限制為每秒 1 次，規律背景查詢限制為每分鐘 4 次。裝置接手機制需靠既有 JSON 同步傳播，純靜態部署無法在不同使用者或離線裝置之間提供伺服器級全域限流；使用者增加時請改用自行管理或允許此負載的 Nominatim 服務。[查詢政策](https://operations.osmfoundation.org/policies/nominatim/)／[圖磚政策](https://operations.osmfoundation.org/policies/tiles/)。公開地圖需保留 OpenStreetMap contributors 的來源連結。
+
+地圖執行套件已固定版本、連同 MIT 授權文字存入 `src/assets/vendor/`，一般 `node dev/build.cjs` 不需安裝套件。更新套件才需在 `dev/map-runtime/` 執行 `pnpm install --frozen-lockfile` 與 `node build.cjs`；原始包裝元件保留在 `map-runtime.jsx`。瀏覽器測試：`node tests/browser-locations.cjs`（或 `npm run test:locations:browser`），使用模擬查詢與圖磚，不會向公共服務發送測試請求。手機鍵盤、瀏覽器工具列與實際觸控仍需 iOS／Android 實機驗證。
+
 ## 關係與操作擴充
 
 - 手足、契手足可先記錄相對長幼，數字排行未知時留空即可。後續填入有效排行會顯示二兄、三妹等具體稱謂；排行和既有長幼衝突、反向記錄矛盾或長幼形成循環時禁止儲存，表單會展開並定位到相關關係。契手足不使用原生家庭排行。

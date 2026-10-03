@@ -72,6 +72,7 @@
     </div>
     <div class="landscape-more-sheet__body">
       <div class="landscape-more-actions">
+        <button type="button" class="landscape-more-action" data-action="map">${svg('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3ZM9 3v15M15 6v15"/>')}<span>成員地圖</span></button>
         <button type="button" class="landscape-more-action" data-action="relationship">${svg('<circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/><path d="M10.5 10.5 13.5 13.5M14.5 7.5h5m-2.5-2.5v5"/>')}<span data-relationship-label>比較關係</span></button>
         <button type="button" class="landscape-more-action" data-action="family-name">${svg('<path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z"/>')}<span>編輯家族名稱</span></button>
         <button type="button" class="landscape-more-action" data-action="canvas-names">${svg('<path d="M2 2h6v6H2zM16 2h6v6h-6zM9 9h6v6H9zM2 16h6v6H2zM16 16h6v6h-6z"/>')}<span data-label>隱藏畫布姓名</span></button>
@@ -85,6 +86,7 @@
   document.body.appendChild(dialog);
 
   const action = name => dialog.querySelector(`[data-action="${name}"]`);
+  action('map').addEventListener('click', () => { closeMore(); window.FamilyMemberMap?.open(); });
   const relationshipAction = action('relationship');
   const nameAction = action('family-name');
   const canvasAction = action('canvas-names');

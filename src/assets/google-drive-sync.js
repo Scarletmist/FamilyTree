@@ -403,7 +403,7 @@
   });
 
   window.addEventListener('familyrepositorychange', event => {
-    if (event.detail?.source === 'local') scheduleAutoSync();
+    if (['local', 'geocode'].includes(event.detail?.source)) scheduleAutoSync();
   });
   window.addEventListener('familyreposyncstate', event => {
     syncConnected = Boolean(event.detail?.connected);

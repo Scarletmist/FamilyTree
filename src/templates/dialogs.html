@@ -74,9 +74,11 @@
           <summary><span>選填資料</span><small>所在地、職位、排行與備註</small></summary>
           <div class="member-optional-fields__body">
             <div class="field-grid">
-              <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：臺中市" /></label>
+              <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：新竹天公壇、臺中市" aria-describedby="member-location-help" /></label>
               <label>職位<input id="member-position" name="position" maxlength="120" placeholder="例如：教師、工程師" /></label>
             </div>
+            <label class="map-privacy-field"><input type="checkbox" id="member-map-hidden" name="mapHidden" />私人住址／不在地圖顯示</label>
+            <p id="member-location-help" class="form-note">公開地名會在儲存後自動定位。私人住址請勾選不顯示；疑似完整住址也會停止查詢。只查詢所在地，不傳送姓名或關係。</p>
             <details class="member-ranking-fields">
               <summary>排行與師門（選填）</summary>
               <div class="member-ranking-fields__body">

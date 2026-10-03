@@ -23,10 +23,14 @@
     };
     if (input?.discipleOrder !== undefined) person.discipleOrder = input.discipleOrder;
     if (input?.notes !== undefined) person.notes = input.notes;
+    if (input?.mapHidden !== undefined) person.mapHidden = input.mapHidden;
+    if (input?.geocode !== undefined) person.geocode = input.geocode;
     Model.validateMember(person);
     person.name = person.name.trim();
     person.location = person.location.trim();
     person.position = person.position.trim();
+    const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
+    if (!Location.eligible(person) || !Location.current(person)) delete person.geocode;
     return person;
   }
 
@@ -96,6 +100,29 @@
   function apply(data, command) {
     if (!data || !command || typeof command.type !== 'string') throw commandError('不支援的族譜操作。', 400, 'INVALID_COMMAND');
     switch (command.type) {
+      case 'claimLocationLookup': {
+        if (!/^[a-zA-Z0-9_-]{1,80}$/.test(command.deviceId || '')) throw commandError('背景定位裝置格式不正確。');
+        if (data.locationLookupDeviceId === command.deviceId || (data.locationLookupDeviceId && !command.takeOver)) return { data, unchanged: true, metadataOnly: true };
+        return { data: { ...data, locationLookupDeviceId: command.deviceId }, metadataOnly: true };
+      }
+      case 'updateLocations': {
+        const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
+        if (!Location.valid(command.result) || Location.normalize(command.query) !== Location.normalize(command.result.query)) throw commandError('定位結果不正確。');
+        let changed = false;
+        const people = data.people.map(person => {
+          if (!Location.eligible(person) || Location.normalize(person.location) !== Location.normalize(command.query) || Location.current(person)) return person;
+          changed = true;
+          return { ...person, geocode: { ...command.result, query: person.location.trim() } };
+        });
+        return { data: changed ? { ...data, people } : data, unchanged: !changed, metadataOnly: true };
+      }
+      case 'resetLocation': {
+        const person = data.people.find(p => p.id === command.id);
+        if (!person) throw commandError('成員已不存在。');
+        const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
+        const people = data.people.map(p => { if (Location.normalize(p.location) !== Location.normalize(person.location)) return p; const next = { ...p }; delete next.geocode; return next; });
+        return { data: { ...data, people }, metadataOnly: true };
+      }
       case 'addMember': return addMember(data, command);
       case 'updateMember': return updateMember(data, command);
       case 'updateFamilyName': return updateFamilyName(data, command);

@@ -143,12 +143,12 @@
             data: change.data,
             version: crypto.randomUUID(),
             savedAt: Date.now(),
-            undoLabel: change.label
+            undoLabel: change.metadataOnly ? (history[0]?.label || null) : change.label
           };
           const nextHistory = [{ data: current.data, version: current.version, savedAt: Date.now(), label: change.label }, ...history].slice(0, HISTORY_LIMIT);
           const nextSync = { ...sync, dirty: true };
           store.put({ key: 'current', value: saved });
-          store.put({ key: 'history', value: nextHistory });
+          if (!change.metadataOnly) store.put({ key: 'history', value: nextHistory });
           store.put({ key: 'sync', value: nextSync });
           if (change.backupBeforeImport) store.put({ key: 'before-import', value: { ...current, savedAt: Date.now() } });
           result = {
@@ -172,7 +172,7 @@
       if (error?.status) throw error;
       throw repositoryError('瀏覽器 IndexedDB 儲存空間不足或不允許儲存，本次變更尚未儲存。', 400, 'STORE_WRITE_FAILED');
     }
-    if (outcome) emitChange(outcome, 'local');
+    if (outcome) emitChange(outcome, ['updateLocations','claimLocationLookup','resetLocation'].includes(command.type) ? 'geocode' : 'local');
     return outcome;
   }
 
@@ -289,6 +289,13 @@
   async function exportData() {
     return isStatic ? (await readStatic()).data : devJson('/api/family/export', { cache: 'no-store' });
   }
+
+  async function locationCommand(command) {
+    return isStatic ? executeStatic(command) : devJson('/api/family/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command) });
+  }
+  async function getLocationCache(key) { return isStatic ? recordGet('location-cache:' + key) : null; }
+  async function setLocationCache(key, result) { if (isStatic) await recordPutMany([['location-cache:' + key, result]]); }
+  async function clearLocationCache(key) { if (isStatic) await recordPutMany([['location-cache:' + key, null]]); }
 
   async function getSyncState() {
     if (!isStatic) return emptySyncState();
@@ -416,6 +423,10 @@
     importFamily,
     undo,
     exportData,
+    locationCommand,
+    getLocationCache,
+    setLocationCache,
+    clearLocationCache,
     getSyncState,
     setSyncState,
     replaceFromCloud,

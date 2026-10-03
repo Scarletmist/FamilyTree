@@ -452,7 +452,13 @@
         }
       ],
       "discipleOrder": null,
-      "notes": ""
+      "notes": "",
+      "geocode": {
+        "provider": "nominatim",
+        "query": "測試",
+        "checkedAt": 1790999963494,
+        "status": "ambiguous"
+      }
     },
     {
       "id": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
@@ -690,5 +696,6 @@
       "discipleOrder": null,
       "notes": ""
     }
-  ]
+  ],
+  "locationLookupDeviceId": "f654425f-a698-4cf9-8005-0cffb0d03651"
 }

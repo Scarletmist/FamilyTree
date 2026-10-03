@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="google-oauth-client-id" content="" />
   <title>族譜圖 — 陳氏家族</title>
   <link rel="stylesheet" href="assets/family-tree.css" />
@@ -26,6 +27,10 @@
         <button type="button" id="add-member" class="primary-button mobile-icon-control" aria-label="新增成員" title="新增成員" disabled>
           <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3.5 19c.6-4 2.5-6 5.5-6s4.9 2 5.5 6"/><path d="M18 13v6M15 16h6"/></svg></span>
           <span class="tree-control-text">新增成員</span><span class="tree-control-short" aria-hidden="true">新增</span>
+        </button>
+        <button type="button" id="show-member-map" class="plain-button member-map-entry" aria-label="成員地圖" title="成員地圖">
+          <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3ZM9 3v15M15 6v15"/></svg></span>
+          <span class="tree-control-text">地圖</span>
         </button>
         <button type="button" id="import-json" class="plain-button mobile-icon-control" aria-label="匯入族譜" title="匯入族譜" disabled>
           <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M5 18v2h14v-2"/></svg></span>
@@ -110,6 +115,7 @@
   </div>
   <!-- @include templates/dialogs.html -->
   <script src="assets/family-motion.js"></script>
+  <script src="assets/family-location.js"></script>
   <script src="assets/family-model.js"></script>
   <script src="assets/family-display-projection.js"></script>
   <script src="assets/family-commands.js"></script>
@@ -128,6 +134,8 @@
   <script src="assets/family-sync-engine.js"></script>
   <script src="assets/google-drive-sync.js"></script>
   <script src="assets/member-tools.js"></script>
+  <script src="assets/member-locations.js"></script>
+  <script type="module" src="assets/member-map.mjs"></script>
   <script src="assets/mobile-gesture-policy.js"></script>
   <script src="assets/mobile-landscape-toolbar.js"></script>
   <script type="module" src="assets/family-tree.js"></script>

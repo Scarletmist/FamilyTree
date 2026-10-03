@@ -116,7 +116,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
       if (!expected.has(req.headers.host)) return reply(res, 403, { error: '不允許此主機來源。' });
       const url = new URL(req.url, `http://${req.headers.host}`);
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Referrer-Policy', 'same-origin');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
       if (req.method === 'GET' && url.pathname === '/api/family') return reply(res, 200, await read());
       if (req.method === 'GET' && url.pathname === '/index.html') {
         res.writeHead(301, { Location: '/' }); return res.end();
@@ -132,7 +132,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
       const isIntermediateIgnore = req.method === 'PUT' && url.pathname === '/api/family/intermediate-ignore';
       const isUndo = req.method === 'POST' && url.pathname === '/api/family/undo';
       const isManage = req.method === 'POST' && url.pathname === '/api/family/manage';
-      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo || isManage) {
+      const isLocation = req.method === 'POST' && url.pathname === '/api/family/locations';
+      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo || isManage || isLocation) {
         if (req.headers.origin !== `http://${req.headers.host}` || req.headers['content-type']?.split(';')[0] !== 'application/json') return reply(res, 403, { error: '只允許從本網站提交表單。' });
         const chunks = []; let bytes = 0;
         for await (const chunk of req) {
@@ -142,7 +143,18 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
         }
         let body;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return reply(res, 400, { error: 'JSON 格式不正確。' }); }
-        const operation = writes.then(() => isManage ? manageFamily(body) : isUndo ? undoFamily(body) : isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : isIntermediateIgnore ? updateIntermediateIgnore(body) : editMatch ? edit(editMatch[1], body) : add(body));
+        const operation = writes.then(async () => {
+          if (isLocation) {
+            if (!['updateLocations','claimLocationLookup','resetLocation'].includes(body.type)) return [400, { error: '不支援的定位操作。' }];
+            const current = await read();
+            const { change, error, status } = applyCommand(current.data, body);
+            if (error) return [status, { error: error.message }];
+            if (change.unchanged) return [200, current];
+            const saved = change.metadataOnly ? await persist(change.data) : await persistChange(current, change.data, change.label);
+            return [200, { ...saved, undoLabel: history[0]?.label || null }];
+          }
+          return isManage ? manageFamily(body) : isUndo ? undoFamily(body) : isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : isIntermediateIgnore ? updateIntermediateIgnore(body) : editMatch ? edit(editMatch[1], body) : add(body);
+        });
         writes = operation.catch(() => {});
         const [status, payload] = await operation;
         return reply(res, status, payload);

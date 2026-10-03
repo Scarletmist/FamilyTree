@@ -88,7 +88,7 @@
   function syncProgressiveFields({ draft = null } = {}) {
     const mobile = matchMedia(COMPACT_LAYOUT_QUERY).matches;
     const fields = draft?.state?.fields || null;
-    const hasOptionalDraft = fields && [fields.location, fields.position, fields.notes, fields.siblingOrder, fields.discipleOrder].some(Boolean);
+    const hasOptionalDraft = fields && [fields.location, fields.position, fields.notes, fields.siblingOrder, fields.discipleOrder, fields.mapHidden].some(Boolean);
     optionalFields.open = !mobile || Boolean(editingId) || Boolean(hasOptionalDraft);
     const hasRanks = fields
       ? Boolean(fields.siblingOrder || fields.discipleOrder)
@@ -100,7 +100,8 @@
     return {
       fields: {
         name: field('name'), location: field('location'), position: field('position'), notes: field('notes'),
-        gender: field('gender'), siblingOrder: field('siblingOrder'), discipleOrder: field('discipleOrder')
+        gender: field('gender'), siblingOrder: field('siblingOrder'), discipleOrder: field('discipleOrder'),
+        mapHidden: form.elements.namedItem('mapHidden').checked
       },
       intermediateChoice: document.getElementById('intermediate-choice')?.value || '',
       relationships: [...relations.children].map(row => ({
@@ -148,7 +149,7 @@
     const state = draft.state;
     Object.entries(state.fields || {}).forEach(([name, value]) => {
       const control = form.elements.namedItem(name);
-      if (control) control.value = value ?? '';
+      if (control) { if (control.type === 'checkbox') control.checked = Boolean(value); else control.value = value ?? ''; }
     });
     const choice = document.getElementById('intermediate-choice');
     if (choice && state.intermediateChoice && [...choice.options].some(option => option.value === state.intermediateChoice)) choice.value = state.intermediateChoice;
@@ -225,7 +226,10 @@
     return true;
   }
   function showUndoStatus(message, payload) {
-    showStatus(message, 'success', 6000, { label: '復原', onClick: () => undoLastChange(payload.version) });
+    showStatus(message, 'success', 6000, { label: '復原', onClick: () => {
+      const coordinatesOnly = snapshot?.undoLabel === payload.undoLabel && FamilyModel.sameJsonData(FamilyLocation.content(snapshot.data), FamilyLocation.content(payload.data));
+      return undoLastChange(coordinatesOnly ? snapshot.version : payload.version);
+    } });
   }
   function addRelation(initial = null, { expanded = initial == null } = {}) {
     const row = document.createElement('div'); row.className = 'relation-row';
@@ -358,6 +362,7 @@
     const person = snapshot.data.people.find(p => p.id === editingId);
     if (!person) throw new Error('此成員已不存在，請關閉表單後更新資料。');
     for (const key of ['name', 'location', 'position', 'notes', 'gender', 'siblingOrder', 'discipleOrder']) form.elements.namedItem(key).value = person[key] ?? '';
+    form.elements.namedItem('mapHidden').checked = Boolean(person.mapHidden);
     relations.replaceChildren();
     FamilyModel.relationshipsFor(snapshot.data, editingId).forEach(addRelation);
   }
@@ -572,6 +577,8 @@
         return r;
       })
     };
+    if (values.has('mapHidden')) member.mapHidden = true;
+    else if (editingId && snapshot.data.people.find(p => p.id === editingId)?.mapHidden !== undefined) member.mapHidden = false;
     setSaving(true);
     try {
       const candidate = { ...member, id: editingId || 'p-' + requestId };
@@ -659,6 +666,16 @@
     finally { button.disabled = false; }
   });
   window.addEventListener('familyrepositorychange', event => {
+    if (event.detail?.source === 'geocode' && event.detail.payload) {
+      const payload = event.detail.payload;
+      // Only rebase form versions when all user-editable data is unchanged.
+      if (!snapshot || FamilyModel.sameJsonData(FamilyLocation.content(snapshot.data), FamilyLocation.content(payload.data))) {
+        if (importVersion === snapshot?.version) importVersion = payload.version;
+        if (nameVersion === snapshot?.version) nameVersion = payload.version;
+        accept(payload);
+      }
+      return;
+    }
     if (event.detail?.source !== 'cloud' || !event.detail.payload) return;
     const editing = dialog.open || nameDialog.open || importDialog.open;
     if (editing) {

@@ -37,7 +37,12 @@
       adopt(result, 'undo');
       return result;
     },
-    exportData: () => repository.exportData()
+    exportData: () => repository.exportData(),
+    async locationCommand(command) {
+      const result = await repository.locationCommand(command);
+      // Its repository event updates open forms; keep the source distinct from user edits.
+      return adopt(result, 'geocode');
+    }
   };
   window.FamilyApp = api;
 })();

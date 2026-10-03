@@ -1605,7 +1605,8 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
 .member-map-list { padding:12px; overflow:auto; overscroll-behavior:contain; }
 .member-map-place { padding:10px 0; border-bottom:1px solid #e0e4e0; }
 .member-map-place > button:first-child { display:block; width:100%; text-align:left; font-weight:600; white-space:normal; }
-.member-map-person { display:inline-block; background:#f3f6f3; border:1px solid #dae2da; border-radius:8px; padding:8px 12px; margin:6px 6px 0 0; color:inherit; min-height:44px; }
+.member-map-person { position:relative; display:inline-block; background:#f3f6f3; border:1px solid #dae2da; border-radius:8px; padding:8px 12px; margin:6px 6px 0 0; color:inherit; min-height:44px; }
+.member-map-person[data-location-manual="true"]::after { content:''; position:absolute; width:7px; height:7px; right:5px; top:5px; border-radius:50%; background:#3d7a4d; box-shadow:0 0 0 2px white; }
 .member-map-unlocated { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px 0; font-size:14px; }
 .member-map-unlocated > span { flex-basis:100%; }
 .member-map-marker { width:44px; height:44px; border:2px solid white; background:#2f6755; color:white; box-shadow:0 2px 6px #0004; border-radius:50% 50% 50% 0; transform:rotate(-45deg); font-size:16px; font-weight:700; touch-action:manipulation; cursor:pointer; }

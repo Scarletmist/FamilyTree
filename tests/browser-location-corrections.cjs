@@ -85,12 +85,26 @@ const choices = [
     assert.equal(data.people[3].locationOverride,undefined,'private member is excluded from the group correction');
     await page.waitForFunction(() => document.querySelectorAll('#member-map-dialog .member-map-marker').length === 1);
     assert.equal(await page.locator('#member-map-dialog .member-map-marker').textContent(),'3');
-    assert.equal(await page.locator('#member-map-dialog .location-manual-badge').count(), 3);
+    const manualButtons=page.locator('#member-map-dialog .member-map-person[data-location-manual="true"]');
+    assert.equal(await manualButtons.count(),3);
+    assert.equal(await page.locator('#member-map-dialog .location-manual-badge').count(),0,'manual state does not take up a separate text badge');
+    for(const button of await manualButtons.all()){
+      assert.match(await button.getAttribute('title'),/已手動修正地點/);
+      assert.match(await button.getAttribute('aria-label'),/已手動修正地點/);
+      const dot=await button.evaluate(el=>{const style=getComputedStyle(el,'::after');return{content:style.content,width:style.width,height:style.height,borderRadius:style.borderRadius,position:style.position};});
+      assert.deepEqual(dot,{content:'""',width:'7px',height:'7px',borderRadius:'50%',position:'absolute'});
+      assert.equal(await button.textContent(),(await button.getAttribute('title')).split(' · ')[0]);
+    }
+    await page.screenshot({path:path.join(dir,'manual-dots-desktop.png'),animations:'disabled'});
+    await page.setViewportSize({width:390,height:844});await page.clock.runFor(100);
+    await page.screenshot({path:path.join(dir,'manual-dots-mobile.png'),animations:'disabled'});
+    await page.setViewportSize({width:1280,height:900});await page.clock.runFor(100);
     // A user correction participates in existing undo; automatic metadata does not overwrite it.
     await page.click('#close-member-map'); await page.click('#save-status .save-status__action');
     await page.waitForFunction(() => !FamilyApp.snapshot().data.people[0].locationOverride);
     assert.equal(await page.evaluate(()=>FamilyApp.snapshot().data.people.filter(p=>p.locationOverride).length),0,'one undo restores every member in the shared correction');
     await page.click('#show-member-map'); await page.click('#member-map-dialog [data-correct-person="A"]');
+    assert.equal(await manualButtons.count(),0,'undo removes manual state dots');
     await page.uncheck('#location-apply-related');
     await page.fill('#location-search-query', '新竹市關帝廟'); await page.click('#location-search-submit');
     await page.waitForSelector('[data-candidate="1"]'); assert.equal(requests.length, 2, 'candidate results use persistent cache');

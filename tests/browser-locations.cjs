@@ -118,6 +118,21 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     assert.equal(await page.locator('.member-map-cluster').textContent(),'3');
     await page.click('.member-map-cluster');await page.clock.runFor(100);
     await page.waitForFunction(()=>document.querySelectorAll('.member-map-marker').length===2);
+    const temple=canvas.getByRole('button',{name:'新竹天公壇：A、B',exact:true});
+    const otherTemple=canvas.getByRole('button',{name:'新竹關帝廟：C',exact:true});
+    async function separation(){
+      const a=await temple.boundingBox(), b=await otherTemple.boundingBox();
+      return Math.hypot(a.x-b.x,a.y-b.y);
+    }
+    const at15=await separation();
+    await canvas.getByRole('button',{name:'放大地圖',exact:true}).click();await page.clock.runFor(100);
+    await canvas.getByRole('button',{name:'放大地圖',exact:true}).click();
+    // Focus before the last debounced bounds callback; use the map's actual zoom.
+    await temple.click();await page.clock.runFor(100);
+    assert(Math.abs(await separation()/at15-4)<0.01,'clicking a marker keeps a zoom level higher than its default focus zoom');
+    for(let i=0;i<3;i++){await canvas.getByRole('button',{name:'縮小地圖',exact:true}).click();await page.clock.runFor(100);}
+    await otherTemple.click();await page.clock.runFor(100);
+    assert(Math.abs(await separation()/at15-1)<0.01,'clicking below the default focus zoom still zooms to level 15');
     const correct=page.locator('#member-map-dialog [data-correct-person="A"]');
     assert.equal(await correct.locator('svg').count(),1);assert.equal(await correct.textContent(),'');
     assert.equal(await correct.getAttribute('aria-label'),'修正A的地點');

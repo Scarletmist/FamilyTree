@@ -57,9 +57,13 @@ function draw() {
     for (const person of group.people) {
       const row = el('div', '', 'member-map-member');
       const button = el('button', person.name, 'member-map-person'); button.type = 'button';
+      if (Location.overrideCurrent(person)) {
+        button.dataset.locationManual = 'true';
+        button.title = `${person.name} · 已手動修正地點`;
+        button.setAttribute('aria-label', button.title);
+      }
       button.addEventListener('click', () => { dialog.close(); window.dispatchEvent(new CustomEvent('familytreeselect', { detail: { id: person.id } })); });
       row.append(button);
-      if (Location.overrideCurrent(person)) row.append(el('span', '已手動修正', 'location-manual-badge'));
       const correct = mapIconButton('correct', `修正${person.name}的地點`); correct.dataset.correctPerson = person.id;
       correct.addEventListener('click', () => openCorrection(person.id)); row.append(correct);
       section.append(row);

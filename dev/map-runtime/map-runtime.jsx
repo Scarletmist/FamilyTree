@@ -6,8 +6,9 @@ import { BASEMAPS, getBasemap, subscribeBasemap, selectBasemap } from './basemap
 
 const MAX_ZOOM = 19;
 
-function CenterReporter({ mapState, pixelToLatLng, onCenterChange }) {
+function CenterReporter({ mapState, pixelToLatLng, onCenterChange, zoomRef }) {
   const center = pixelToLatLng([mapState.width / 2, mapState.height / 2]);
+  useLayoutEffect(() => { zoomRef.current = mapState.zoom; }, [mapState.zoom, zoomRef]);
   useLayoutEffect(() => { onCenterChange?.(center); }, [center[0], center[1], onCenterChange]);
   return null;
 }
@@ -31,6 +32,7 @@ function MarkerLayer({ groups, clustering, mapState, latLngToPixel, onSelect, on
 }
 
 function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], initialZoom = 7, picking = false, onCenterChange, clustering = true }) {
+  const liveZoom = useRef(initialZoom);
   const [clusterNearby, setClusterNearby] = useState(true);
   const basemapId = useSyncExternalStore(subscribeBasemap, getBasemap);
   const basemap = BASEMAPS[basemapId];
@@ -43,9 +45,9 @@ function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], in
       onError={() => { if (getBasemap() === basemapId && tile.active) setTileError(true); tileLoaded(); }}
       style={{ position:'absolute', left:tile.left, top:tile.top, willChange:'transform', transformOrigin:'top left', opacity:1 }} />;
   }, [basemapId]);
-  function focusedView() {
+  function focusedView(minimumZoom = 15) {
     const focused = groups.find(group => group.key === focusKey);
-    if (focused) return { center:[focused.lat, focused.lon], zoom:15 };
+    if (focused) return { center:[focused.lat, focused.lon], zoom:Math.max(15, minimumZoom) };
     if (groups.length) {
       const latitudes = groups.map(g => g.lat), longitudes = groups.map(g => g.lon);
       const span = Math.max(Math.max(...latitudes) - Math.min(...latitudes), Math.max(...longitudes) - Math.min(...longitudes));
@@ -55,7 +57,7 @@ function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], in
     return { center:initialCenter, zoom:initialZoom };
   }
   const [view, setView] = useState(() => ({ ...focusedView(), key:focusKey }));
-  const currentView = view.key === focusKey ? view : { ...focusedView(), key:focusKey };
+  const currentView = view.key === focusKey ? view : { ...focusedView(liveZoom.current), key:focusKey };
   // Remember a new focus immediately, before debounced bounds callbacks. Changing
   // correction modes may remove its marker without changing the map's view.
   useLayoutEffect(() => {
@@ -79,7 +81,7 @@ function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], in
       // A replaced map may still deliver a delayed callback; it must not undo the new focus.
       if (focusRef.current === focusKey) updateView(() => ({ center, zoom }));
     }}>
-    <CenterReporter onCenterChange={onCenterChange} />
+    <CenterReporter onCenterChange={onCenterChange} zoomRef={liveZoom} />
     <MarkerLayer groups={groups} clustering={clustering && clusterNearby} onSelect={onSelect}
       onExpand={(marker, currentZoom) => updateView(() => ({ center:[marker.lat, marker.lon], zoom:Math.min(MAX_ZOOM, currentZoom + 2) }))} />
     <div className="member-map-zoom" role="group" aria-label="地圖縮放">

@@ -21,29 +21,52 @@
       && ['node','way','relation'].includes(record.osmType) && /^\d+$/.test(String(record.osmId));
   }
   function current(person) { return valid(person.geocode) && normalize(person.geocode.query) === normalize(person.location); }
+  function validOverride(record) {
+    if (!record || !['map', 'nominatim'].includes(record.source)
+      || typeof record.location !== 'string' || !record.location.trim() || record.location.length > 120
+      || !Number.isFinite(record.updatedAt) || record.updatedAt < 0
+      || !Number.isFinite(record.lat) || Math.abs(record.lat) > 90 || !Number.isFinite(record.lon) || Math.abs(record.lon) > 180
+      || typeof record.displayName !== 'string' || !record.displayName.trim() || record.displayName.length > 2000) return false;
+    if (record.source === 'map') return record.osmType === undefined && record.osmId === undefined;
+    return typeof record.query === 'string' && Boolean(record.query.trim()) && record.query.length <= 120
+      && ['node', 'way', 'relation'].includes(record.osmType) && /^\d+$/.test(String(record.osmId));
+  }
+  function overrideCurrent(person) { return validOverride(person.locationOverride) && normalize(person.locationOverride.location) === normalize(person.location); }
+  function effective(person) {
+    if (!eligible(person)) return null;
+    if (overrideCurrent(person)) return person.locationOverride;
+    return current(person) && person.geocode.status === 'resolved' ? person.geocode : null;
+  }
   function content(data) {
     const result = { ...data, people: data.people.map(p => { const copy = { ...p }; delete copy.geocode; return copy; }) };
     delete result.locationLookupDeviceId;
     return result;
   }
-  function resolve(query, results, checkedAt = Date.now()) {
+  function candidates(query, results, checkedAt = Date.now()) {
     if (!Array.isArray(results)) throw new Error('所在地服務回傳無效資料。');
-    const base = { provider: 'nominatim', query, checkedAt };
-    if (!results.length) return { ...base, status: 'not_found' };
-    const usable = results.filter(r => r.lat !== '' && r.lon !== '' && r.lat != null && r.lon != null
+    const usable = results.filter(r => r && r.lat !== '' && r.lon !== '' && r.lat != null && r.lon != null
       && Number.isFinite(Number(r.lat)) && Math.abs(Number(r.lat)) <= 90 && Number.isFinite(Number(r.lon)) && Math.abs(Number(r.lon)) <= 180
-      && ['node','way','relation'].includes(r.osm_type) && /^\d+$/.test(String(r.osm_id)) && typeof r.display_name === 'string');
-    if (!usable.length) throw new Error('所在地服務未回傳有效座標。');
+      && ['node','way','relation'].includes(r.osm_type) && /^\d+$/.test(String(r.osm_id)) && typeof r.display_name === 'string' && r.display_name.trim());
+    if (results.length && !usable.length) throw new Error('所在地服務未回傳有效座標。');
+    return usable.map(r => ({ provider: 'nominatim', query, checkedAt, status: 'resolved',
+      name: String(r.name || '').slice(0, 2000), lat: Number(r.lat), lon: Number(r.lon),
+      displayName: r.display_name.slice(0, 2000), osmType: r.osm_type, osmId: String(r.osm_id) }));
+  }
+  function resolve(query, results, checkedAt = Date.now()) {
+    const usable = candidates(query, results, checkedAt);
+    const base = { provider: 'nominatim', query, checkedAt };
+    if (!usable.length) return { ...base, status: 'not_found' };
     const exact = usable.filter(r => normalize(r.name) === normalize(query));
     const selected = usable.length === 1 ? usable[0] : exact.length === 1 ? exact[0] : null;
     if (!selected) return { ...base, status: 'ambiguous' };
-    return { ...base, status: 'resolved', lat: Number(selected.lat), lon: Number(selected.lon), displayName: selected.display_name.slice(0, 2000), osmType: selected.osm_type, osmId: String(selected.osm_id) };
+    const { name, ...record } = selected;
+    return record;
   }
   function createQueue({ people, lookup, save, cached = async () => null, cache = async () => {}, available = () => true,
     now = Date.now, schedule = setTimeout, cancel = clearTimeout, status = () => {}, lock = task => task(), backgroundMs = 15000 }) {
     let timer = null, busy = false, stopped = false, nextAt = 0, retry = null;
     const priority = new Set();
-    const pending = () => people().filter(p => eligible(p) && !current(p));
+    const pending = () => people().filter(p => eligible(p) && !overrideCurrent(p) && !current(p));
     function wake(delay = 0) {
       if (stopped || busy) return;
       if (timer !== null) cancel(timer);
@@ -60,7 +83,7 @@
       try {
         const worked = await lock(async () => {
           if (!available() || !pending().some(p => normalize(p.location) === key)) return false;
-          const fromPeople = people().find(p => eligible(p) && current(p) && normalize(p.location) === key)?.geocode;
+          const fromPeople = people().find(p => eligible(p) && !overrideCurrent(p) && current(p) && normalize(p.location) === key)?.geocode;
           const hit = fromPeople || await cached(key);
           status('querying', query);
           const result = valid(hit) && normalize(hit.query) === key ? { ...hit, query } : resolve(query, await lookup(query), now());
@@ -82,5 +105,5 @@
     }
     return { wake, resume() { stopped = false; wake(); }, prioritize(ids) { ids.forEach(id => priority.add(id)); wake(); }, stop() { stopped = true; if (timer !== null) cancel(timer); }, pending };
   }
-  return { normalize, privateAddress, eligible, valid, current, content, resolve, createQueue };
+  return { normalize, privateAddress, eligible, valid, current, validOverride, overrideCurrent, effective, content, candidates, resolve, createQueue };
 });

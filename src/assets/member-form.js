@@ -665,6 +665,11 @@
     } catch (e) { showStatus('無法匯出：' + e.message, 'error'); }
     finally { button.disabled = false; }
   });
+  window.addEventListener('familylocationedit', event => {
+    const payload = event.detail.payload;
+    accept(payload);
+    showUndoStatus('已' + payload.undoLabel + '。', payload);
+  });
   window.addEventListener('familyrepositorychange', event => {
     if (event.detail?.source === 'geocode' && event.detail.payload) {
       const payload = event.detail.payload;

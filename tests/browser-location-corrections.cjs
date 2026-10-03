@@ -1,0 +1,161 @@
+// Exercises personal corrections using mocked Nominatim/tile responses, with no live service traffic.
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const http = require('node:http');
+const path = require('node:path');
+const os = require('node:os');
+const { build } = require('../dev/build.cjs');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const person = (id, extra = {}) => ({ id, name:id, location:'關帝廟', gender:'U', position:'', siblingOrder:null, relationships:[], ...extra });
+const automatic = { provider:'nominatim', query:'關帝廟', checkedAt:1, status:'resolved', lat:25.05, lon:121.5, displayName:'另一座關帝廟, 臺北市', osmType:'way', osmId:'100' };
+const choices = [
+  { name:'關帝廟', display_name:'關帝廟, 臺北市', lat:'25.05', lon:'121.5', osm_type:'way', osm_id:100 },
+  { name:'新竹關帝廟', display_name:'新竹關帝廟, 東區, 新竹市', lat:'24.8028082', lon:'120.9665544', osm_type:'way', osm_id:200 }
+];
+(async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'family-location-corrections-'));
+  await build(dir);
+  const server = http.createServer(async (req, res) => {
+    try {
+      const pathname = new URL(req.url, 'http://localhost').pathname;
+      if (!pathname.startsWith('/repo/')) throw new Error('outside');
+      const file = path.join(dir, pathname.slice(6) || 'index.html');
+      res.setHeader('Content-Type', /\.m?js$/.test(file) ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+      res.end(await fs.readFile(file));
+    } catch { res.statusCode = 404; res.end('missing'); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  let browser;
+  try {
+    browser = await chromium.launch({ headless:true, channel:process.env.PLAYWRIGHT_CHANNEL || 'msedge' });
+    const context = await browser.newContext({ viewport:{ width:1280, height:900 } });
+    const requests = [], errors = [];
+    let fail = true;
+    await context.route('https://nominatim.openstreetmap.org/**', async route => {
+      requests.push(new URL(route.request().url()).searchParams.get('q'));
+      if (fail) { fail = false; await route.fulfill({ status:503, body:'unavailable' }); }
+      else await route.fulfill({ contentType:'application/json', body:JSON.stringify(requests.at(-1) === '查無地點' ? [] : choices) });
+    });
+    await context.route('https://tile.openstreetmap.org/**', route => route.fulfill({ contentType:'image/png', body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jK1sAAAAASUVORK5CYII=', 'base64') }));
+    const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message)); await page.clock.install();
+    const url = `http://127.0.0.1:${server.address().port}/repo/`;
+    await page.goto(url); await page.waitForFunction(() => window.FamilyLocationCorrection && FamilyApp.snapshot());
+    const fixture = { schemaVersion:2, locationLookupDeviceId:'other-device', people:[
+      person('A', { geocode:automatic }), person('B', { geocode:automatic }),
+      person('C', { geocode:{ provider:'nominatim', query:'關帝廟', checkedAt:1, status:'not_found' } }), person('D', { mapHidden:true })
+    ] };
+    await page.locator('#import-file').setInputFiles({ name:'places.json', mimeType:'application/json', buffer:Buffer.from(JSON.stringify(fixture)) });
+    await page.click('#confirm-import'); await page.click('#show-member-map');
+    assert.equal(await page.locator('#member-map-dialog [data-correct-person="D"]').count(), 0);
+    await page.click('#member-map-dialog [data-correct-person="A"]');
+    assert.match(await page.locator('#location-correction-current').textContent(), /臺北市/);
+    await page.fill('#location-search-query', '新竹市關帝廟');
+    await page.clock.runFor(100); assert.deepEqual(requests, [], 'typing never triggers autocomplete requests');
+    await page.click('#location-search-submit'); await page.clock.runFor(100);
+    await page.waitForFunction(() => document.querySelector('#location-search-status').textContent.includes('5 秒後'));
+    await page.clock.runFor(4999); assert.equal(requests.length, 1);
+    await page.clock.runFor(100); await page.waitForSelector('[data-candidate="1"]');
+    assert.deepEqual(requests, ['新竹市關帝廟', '新竹市關帝廟']);
+    await page.click('[data-candidate="1"]');
+    await page.clock.runFor(500);
+    assert.match(await page.locator('#location-selection-status').textContent(), /東區, 新竹市/);
+    const preview = await page.locator('#location-correction-canvas').boundingBox();
+    const chosenMarker = await page.locator('#location-correction-canvas').getByRole('button', { name:/^新竹關帝廟：/ }).boundingBox();
+    assert(Math.abs(chosenMarker.x + chosenMarker.width / 2 - (preview.x + preview.width / 2)) < 3,
+      'selecting a candidate centers its marker in the map: ' + JSON.stringify({ preview, chosenMarker }));
+    await page.screenshot({ path:path.join(dir, 'correction-candidates.png'), animations:'disabled' });
+    await page.click('#save-location-correction'); await page.waitForFunction(() => !document.querySelector('#location-correction-dialog').open);
+    let data = await page.evaluate(() => FamilyApp.snapshot().data);
+    assert.equal(data.people[0].location, '關帝廟');
+    assert.equal(data.people[0].locationOverride.source, 'nominatim');
+    assert.equal(data.people[0].locationOverride.query, '新竹市關帝廟');
+    assert.equal(data.people[0].locationOverride.lat, 24.8028082);
+    assert.equal(data.people[1].locationOverride, undefined); assert.equal(data.people[1].geocode.lat, 25.05);
+    assert.equal(await page.locator('.member-map-marker').count(), 2);
+    assert.equal(await page.locator('#member-map-dialog .location-manual-badge').count(), 1);
+    // A user correction participates in existing undo; automatic metadata does not overwrite it.
+    await page.click('#close-member-map'); await page.click('#save-status .save-status__action');
+    await page.waitForFunction(() => !FamilyApp.snapshot().data.people[0].locationOverride);
+    await page.click('#show-member-map'); await page.click('#member-map-dialog [data-correct-person="A"]');
+    await page.fill('#location-search-query', '新竹市關帝廟'); await page.click('#location-search-submit');
+    await page.waitForSelector('[data-candidate="1"]'); assert.equal(requests.length, 2, 'candidate results use persistent cache');
+    await page.click('[data-candidate="1"]'); await page.click('#save-location-correction');
+    await page.waitForFunction(() => !document.querySelector('#location-correction-dialog').open);
+    await page.evaluate(async () => {
+      await FamilyApp.locationCommand({ type:'resetLocation', id:'A' });
+      await FamilyApp.locationCommand({ type:'updateLocations', query:'關帝廟', result:{ provider:'nominatim', query:'關帝廟', checkedAt:2, status:'resolved', lat:25.1, lon:121.6, displayName:'錯誤地點', osmType:'way', osmId:'300' } });
+    });
+    assert.equal(await page.evaluate(() => FamilyLocation.effective(FamilyApp.snapshot().data.people[0]).lat), 24.8028082);
+    await page.click('#member-map-dialog [data-correct-person="A"]'); await page.click('#location-mode-map');
+    await page.waitForSelector('.location-correction-crosshair');
+    const map = page.locator('#location-correction-canvas [role="group"][tabindex="0"]'); await map.focus(); await map.press('ArrowRight');
+    const dragBox = await page.locator('#location-correction-canvas').boundingBox();
+    await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
+    await page.mouse.down(); await page.mouse.move(dragBox.x + dragBox.width / 2 + 80, dragBox.y + dragBox.height / 2, { steps:5 }); await page.mouse.up();
+    await page.screenshot({ path:path.join(dir, 'correction-map-desktop.png'), animations:'disabled' });
+    await page.setViewportSize({ width:390, height:844 });
+    const mobile = await page.locator('#location-correction-dialog').boundingBox();
+    assert(mobile.x >= 0 && mobile.y >= 0 && mobile.x + mobile.width <= 391 && mobile.y + mobile.height <= 845);
+    assert(await page.locator('#location-correction-canvas').evaluate(el => el.getBoundingClientRect().height >= 140));
+    await page.screenshot({ path:path.join(dir, 'correction-map-mobile.png'), animations:'disabled' });
+    await page.setViewportSize({ width:844, height:390 });
+    await page.screenshot({ path:path.join(dir, 'correction-map-landscape.png'), animations:'disabled' });
+    const landscape = await page.locator('#location-correction-dialog').boundingBox();
+    assert(landscape.x >= 0 && landscape.y >= 0 && landscape.x + landscape.width <= 845 && landscape.y + landscape.height <= 391);
+    await page.click('#save-location-correction'); await page.waitForFunction(() => !document.querySelector('#location-correction-dialog').open);
+    data = await page.evaluate(() => FamilyApp.snapshot().data);
+    assert.equal(data.people[0].locationOverride.source, 'map'); assert.equal(data.people[0].locationOverride.osmId, undefined);
+    assert.notEqual(data.people[0].locationOverride.lon, 120.9665544); assert.equal(requests.length, 2, 'moving the crosshair uses no geocoder');
+    assert(Math.abs(data.people[0].locationOverride.lon - (120.9665544 + 180 / 2 ** 15 - 80 * 360 / (256 * 2 ** 15))) < 0.000001,
+      'the saved point follows the visible crosshair after a mouse drag, even before debounced bounds callbacks');
+    await page.click('#close-member-map'); await page.setViewportSize({ width:1280, height:900 });
+    await page.evaluate(() => window.editFamilyMember('A')); await page.fill('#member-name', '改名'); await page.click('#save-member');
+    await page.waitForFunction(() => FamilyApp.snapshot().data.people[0].name === '改名');
+    assert.equal(await page.evaluate(() => FamilyApp.snapshot().data.people[0].locationOverride.source), 'map');
+    const exported = await page.evaluate(() => FamilyApp.exportData());
+    await page.reload(); await page.waitForFunction(() => window.FamilyLocationCorrection && FamilyApp.snapshot()?.data.people[0].locationOverride);
+    assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data.people[0].locationOverride), exported.people[0].locationOverride);
+    await page.click('#show-member-map'); await page.click('#member-map-dialog [data-correct-person="A"]');
+    await page.click('#location-restore-auto'); await page.waitForFunction(() => !document.querySelector('#location-correction-dialog').open);
+    assert.equal(await page.evaluate(() => FamilyApp.snapshot().data.people[0].locationOverride), undefined);
+    assert.equal(await page.evaluate(() => FamilyApp.snapshot().data.people[0].geocode), undefined);
+    await page.click('#close-member-map'); await page.click('#save-status .save-status__action');
+    await page.waitForFunction(() => FamilyApp.snapshot().data.people[0].locationOverride);
+    // The member detail panel offers the same correction flow.
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('familytreeselect', { detail:{ id:'A' } })));
+    await page.click('.relationship-details__profile [data-correct-person="A"]');
+    assert(await page.locator('#location-correction-dialog').evaluate(el => el.open)); await page.click('#cancel-location-correction');
+    await page.evaluate(() => window.editFamilyMember('A')); await page.fill('#member-location', '新竹天公壇'); await page.click('#save-member');
+    await page.waitForFunction(() => FamilyApp.snapshot().data.people[0].location === '新竹天公壇');
+    assert.equal(await page.evaluate(() => FamilyApp.snapshot().data.people[0].locationOverride), undefined);
+    // Import on another browser/device keeps personal positions and cannot bypass privacy exclusion.
+    const secondContext = await browser.newContext();
+    await secondContext.route('https://nominatim.openstreetmap.org/**', route => { throw new Error('unexpected lookup on the second device'); });
+    await secondContext.route('https://tile.openstreetmap.org/**', route => route.abort());
+    const second = await secondContext.newPage(); second.on('pageerror', e => errors.push(e.message));
+    await second.goto(url); await second.waitForFunction(() => window.FamilyLocationCorrection && FamilyApp.snapshot());
+    await second.locator('#import-file').setInputFiles({ name:'transfer.json', mimeType:'application/json', buffer:Buffer.from(JSON.stringify(exported)) });
+    await second.click('#confirm-import'); await second.click('#show-member-map');
+    assert.deepEqual(await second.evaluate(() => FamilyLocation.effective(FamilyApp.snapshot().data.people[0])), exported.people[0].locationOverride);
+    await second.evaluate(() => FamilyLocationCorrection.open('D'));
+    assert.equal(await second.locator('#location-correction-dialog').evaluate(el => el.open), false);
+    await secondContext.close();
+    // Negative results offer manual placement; private input is never sent, and closing cancels a queued query.
+    await page.evaluate(() => FamilyLocationCorrection.open('C'));
+    await page.fill('#location-search-query', '查無地點'); await page.click('#location-search-submit');
+    await page.clock.runFor(15000);
+    await page.waitForFunction(() => document.querySelector('#location-search-status').textContent.includes('查無地點'));
+    assert.equal(await page.locator('.location-candidate').count(), 0); assert(await page.locator('#save-location-correction').isDisabled());
+    const count = requests.length;
+    await page.fill('#location-search-query', '私人住址'); await page.click('#location-search-submit');
+    await page.waitForFunction(() => document.querySelector('#location-correction-error').textContent.includes('私人住址'));
+    assert.equal(requests.length, count);
+    await page.evaluate(() => localStorage.setItem('family-tree:nominatim-next-request', String(Date.now() + 15000)));
+    await page.fill('#location-search-query', '取消的地點'); await page.click('#location-search-submit');
+    await page.waitForFunction(() => document.querySelector('#location-search-status').textContent.includes('等待查詢間隔'));
+    await page.click('#cancel-location-correction'); await page.clock.runFor(30000);
+    assert.equal(requests.length, count, 'closing cancels queued requests and retries');
+    assert.deepEqual(errors, []);
+    console.log('Correction browser checks passed (candidates, 5-second retry, cache, crosshair, personal scope, undo, persistence, import and mobile layouts). Screenshots: ' + dir);
+  } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

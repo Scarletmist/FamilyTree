@@ -458,6 +458,17 @@
         "query": "測試",
         "checkedAt": 1790999963494,
         "status": "ambiguous"
+      },
+      "locationOverride": {
+        "location": "測試",
+        "source": "nominatim",
+        "lat": 24.1430555,
+        "lon": 120.69537,
+        "displayName": "南天宮, 309, 自由路三段, 旱溪里, 東區, 臺中市, 40141, 臺灣",
+        "updatedAt": 1791006242739,
+        "query": "台中南天宮",
+        "osmType": "way",
+        "osmId": "398289502"
       }
     },
     {

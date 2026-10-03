@@ -8,12 +8,14 @@
 - 結果以選填的 `people[].geocode` 保存，包含原查詢、`provider: "nominatim"`、`status`、查詢時間；成功結果另有 `lat`／`lon`、顯示名稱、OSM 物件類型與 ID。沿用 schemaVersion 2、IndexedDB、JSON 匯入／匯出及整份 Google Drive 同步。另以 IndexedDB 快取相同地名（包括查無結果），減少重新載入、匯入及多位成員的重複請求。
 - `people[].mapHidden: true` 代表私人住址／不在地圖顯示，會在發送查詢前排除。疑似完整門牌地址也保守排除；文字判斷不能涵蓋所有私人住址，請使用此選項。查詢只送所在地，不傳姓名、關係或其他族譜資料。
 - 修改所在地或隱私設定會清除不適用的座標。結果寫入時在同一資料 transaction 內重新比對目前所在地與隱私設定，避免舊請求覆蓋新資料；背景寫入不佔用復原歷史，維持尚未儲存表單內容與有效版本。
+- 成員詳情與地圖清單的「修正地點」可補充地名、按「查詢」後選擇候選地點，或移動地圖以中央準星指定公開位置，再按「使用此位置」。搜尋只在按鈕提交時執行，候選結果也會快取；與背景查詢共用分頁鎖及查詢間隔，服務失敗後等 5 秒重試，關閉修正視窗或切換方式會取消查詢。
+- 修正保存於選填的 `people[].locationOverride`，包含原所在地、來源 `nominatim`／`map`、座標、顯示名稱與修正時間；候選選擇另記錄查詢文字與 OSM 物件，地圖指定不虛構 OSM 身分。原所在地文字不變，只影響指定成員，手動修正優先於 `geocode`，不寫入共用的自動定位快取。修正及「恢復自動定位」都支援復原、JSON 匯出／匯入與 Google Drive 同步；普通姓名／關係修改保留修正，所在地或隱私改變則清除不適用的修正。私人住址仍排除。同所在地但修正座標不同的成員，須先統一或取消修正才能合併。
 - 根物件選填的 `locationLookupDeviceId` 指定這份族譜的背景定位裝置。第一台有待定位成員的裝置自動接手；其他裝置可在地圖按「由此裝置接手定位」。同 origin 分頁以 Web Locks 協調；不支援 Web Locks 的瀏覽器仍可編輯與查看地圖，但不自動查詢。分頁隱藏、離線或編輯表單開啟時暫停；**關閉網站後不會在背景執行**。
-- 定位由系統自動處理，不提供使用者調整查詢服務或開關的介面。查詢服務固定為 `https://nominatim.openstreetmap.org/search`；圖磚為 `https://tile.openstreetmap.org/{z}/{x}/{y}.png`，只有開啟地圖才載入，關閉時卸載。不預抓離線圖磚。
+- 定位由系統自動處理，不提供使用者調整查詢服務或開關的介面。查詢服務預設為 `https://nominatim.openstreetmap.org/search`，維護者可修改部署的 `data/location-config.json` 切換到允許此負載的 HTTPS Nominatim search 服務，不必更改 JavaScript；每次實際查詢會讀取設定。圖磚為 `https://tile.openstreetmap.org/{z}/{x}/{y}.png`，只有開啟地圖才載入，關閉時卸載。不預抓離線圖磚。
 
 公共 Nominatim 適用少量使用，要求來源識別、快取與 ODbL 標示；全網站總流量限制為每秒 1 次，規律背景查詢限制為每分鐘 4 次。裝置接手機制需靠既有 JSON 同步傳播，純靜態部署無法在不同使用者或離線裝置之間提供伺服器級全域限流；使用者增加時請改用自行管理或允許此負載的 Nominatim 服務。[查詢政策](https://operations.osmfoundation.org/policies/nominatim/)／[圖磚政策](https://operations.osmfoundation.org/policies/tiles/)。公開地圖需保留 OpenStreetMap contributors 的來源連結。
 
-地圖執行套件已固定版本、連同 MIT 授權文字存入 `src/assets/vendor/`，一般 `node dev/build.cjs` 不需安裝套件。更新套件才需在 `dev/map-runtime/` 執行 `pnpm install --frozen-lockfile` 與 `node build.cjs`；原始包裝元件保留在 `map-runtime.jsx`。瀏覽器測試：`node tests/browser-locations.cjs`（或 `npm run test:locations:browser`），使用模擬查詢與圖磚，不會向公共服務發送測試請求。手機鍵盤、瀏覽器工具列與實際觸控仍需 iOS／Android 實機驗證。
+地圖執行套件已固定版本、連同 MIT 授權文字存入 `src/assets/vendor/`，一般 `node dev/build.cjs` 不需安裝套件。更新套件才需在 `dev/map-runtime/` 執行 `pnpm install --frozen-lockfile` 與 `node build.cjs`；原始包裝元件保留在 `map-runtime.jsx`。瀏覽器測試：`node tests/browser-locations.cjs` 與 `node tests/browser-location-corrections.cjs`（或 `npm run test:locations:browser`），使用模擬查詢與圖磚，不會向公共服務發送測試請求。手機鍵盤、瀏覽器工具列與實際觸控仍需 iOS／Android 實機驗證。
 
 ## 關係與操作擴充
 

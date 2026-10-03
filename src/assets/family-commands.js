@@ -25,12 +25,14 @@
     if (input?.notes !== undefined) person.notes = input.notes;
     if (input?.mapHidden !== undefined) person.mapHidden = input.mapHidden;
     if (input?.geocode !== undefined) person.geocode = input.geocode;
+    if (input?.locationOverride !== undefined) person.locationOverride = input.locationOverride;
     Model.validateMember(person);
     person.name = person.name.trim();
     person.location = person.location.trim();
     person.position = person.position.trim();
     const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
     if (!Location.eligible(person) || !Location.current(person)) delete person.geocode;
+    if (!Location.eligible(person) || !Location.overrideCurrent(person)) delete person.locationOverride;
     return person;
   }
 
@@ -110,7 +112,7 @@
         if (!Location.valid(command.result) || Location.normalize(command.query) !== Location.normalize(command.result.query)) throw commandError('定位結果不正確。');
         let changed = false;
         const people = data.people.map(person => {
-          if (!Location.eligible(person) || Location.normalize(person.location) !== Location.normalize(command.query) || Location.current(person)) return person;
+          if (!Location.eligible(person) || Location.overrideCurrent(person) || Location.normalize(person.location) !== Location.normalize(command.query) || Location.current(person)) return person;
           changed = true;
           return { ...person, geocode: { ...command.result, query: person.location.trim() } };
         });
@@ -120,8 +122,30 @@
         const person = data.people.find(p => p.id === command.id);
         if (!person) throw commandError('成員已不存在。');
         const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
-        const people = data.people.map(p => { if (Location.normalize(p.location) !== Location.normalize(person.location)) return p; const next = { ...p }; delete next.geocode; return next; });
+        const people = data.people.map(p => { if (Location.overrideCurrent(p) || Location.normalize(p.location) !== Location.normalize(person.location)) return p; const next = { ...p }; delete next.geocode; return next; });
         return { data: { ...data, people }, metadataOnly: true };
+      }
+      case 'setLocationOverride':
+      case 'clearLocationOverride': {
+        const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
+        const person = data.people.find(p => p.id === command.id);
+        if (!person) throw commandError('成員已不存在，請重新開啟地點修正。', 404);
+        if (!Location.eligible(person)) throw commandError('私人住址或未填所在地的成員不能指定地圖位置。');
+        if (typeof command.expectedLocation !== 'string' || Location.normalize(command.expectedLocation) !== Location.normalize(person.location)
+          || !Object.hasOwn(command, 'expectedOverride') || !Model.sameJsonData(command.expectedOverride, person.locationOverride || null)) {
+          throw commandError('所在地或修正位置已更新，請關閉後重新開啟地點修正。', 409, 'STALE_LOCATION');
+        }
+        const next = { ...person };
+        if (command.type === 'setLocationOverride') {
+          if (!Location.validOverride(command.override) || Location.normalize(command.override.location) !== Location.normalize(person.location)) throw commandError('修正位置格式不正確。');
+          next.locationOverride = { ...command.override, location: person.location.trim() };
+        } else {
+          if (!person.locationOverride) return { data, unchanged: true };
+          delete next.locationOverride;
+          delete next.geocode;
+        }
+        return { data: { ...data, people: data.people.map(p => p.id === person.id ? next : p) },
+          memberId: person.id, label: command.type === 'setLocationOverride' ? `修正「${person.name}」的地點` : `恢復「${person.name}」的自動定位` };
       }
       case 'addMember': return addMember(data, command);
       case 'updateMember': return updateMember(data, command);

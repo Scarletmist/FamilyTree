@@ -1,3 +1,4 @@
+import { openCorrection } from './location-correction.mjs';
 const Location = window.FamilyLocation;
 const dialog = document.createElement('dialog');
 dialog.id = 'member-map-dialog'; dialog.className = 'member-map-dialog';
@@ -15,8 +16,9 @@ function el(tag, text, className = '') { const node = document.createElement(tag
 function groupPeople(people) {
   const result = new Map();
   for (const person of people) {
-    if (!Location.eligible(person) || !Location.current(person) || person.geocode.status !== 'resolved') continue;
-    const g = person.geocode, key = `${g.lat},${g.lon}`;
+    const g = Location.effective(person);
+    if (!g) continue;
+    const key = `${g.lat},${g.lon}`;
     if (!result.has(key)) result.set(key, { key, lat: g.lat, lon: g.lon, label: person.location, people: [] });
     result.get(key).people.push(person);
   }
@@ -51,18 +53,29 @@ function draw() {
     const heading = el('button', group.label + (group.people.length > 1 ? `（${group.people.length} 人）` : ''), 'plain-button'); heading.type = 'button';
     heading.addEventListener('click', () => { focusKey = group.key; draw(); }); section.append(heading);
     for (const person of group.people) {
+      const row = el('div', '', 'member-map-member');
       const button = el('button', person.name, 'member-map-person'); button.type = 'button';
       button.addEventListener('click', () => { dialog.close(); window.dispatchEvent(new CustomEvent('familytreeselect', { detail: { id: person.id } })); });
-      section.append(button);
+      row.append(button);
+      if (Location.overrideCurrent(person)) row.append(el('span', '已手動修正', 'location-manual-badge'));
+      const correct = el('button', '修正地點', 'plain-button'); correct.type = 'button'; correct.dataset.correctPerson = person.id;
+      correct.setAttribute('aria-label', `修正${person.name}的地點`);
+      correct.addEventListener('click', () => openCorrection(person.id)); row.append(correct);
+      section.append(row);
     }
     list.append(section);
   }
-  const unlocated = people.filter(p => p.location.trim() && (!Location.current(p) || p.geocode.status !== 'resolved' || !Location.eligible(p)));
+  const unlocated = people.filter(p => p.location.trim() && !Location.effective(p));
   if (!groups.length) list.append(el('p', '尚無可顯示的位置。已填寫的公開所在地會在背景依序查詢。', 'form-note'));
   for (const person of unlocated) {
     const row = el('div', '', 'member-map-unlocated');
     const label = !Location.eligible(person) ? '隱私排除' : Location.current(person) ? ({ not_found: '查無地點', ambiguous: '同名地點，請補充所在地' })[person.geocode.status] : '待定位';
     row.append(el('span', `${person.name} · ${label}`));
+    if (Location.eligible(person)) {
+      const correct = el('button', '修正地點', 'plain-button'); correct.type = 'button'; correct.dataset.correctPerson = person.id;
+      correct.setAttribute('aria-label', `修正${person.name}的地點`);
+      correct.addEventListener('click', () => openCorrection(person.id)); row.append(correct);
+    }
     if (Location.eligible(person) && Location.current(person)) {
       const retry = el('button', '重新查詢', 'plain-button'); retry.type = 'button';
       retry.addEventListener('click', async () => { retry.disabled = true; try { await FamilyMemberLocations.retry(person.id); } catch (error) { errorMessage = error.message; refreshStatus(); } finally { retry.disabled = false; } });

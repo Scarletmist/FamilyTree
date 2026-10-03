@@ -106,3 +106,69 @@ test('device ownership is claimed once and changes only on explicit takeover',()
   assert.equal(Commands.apply(owner,{type:'claimLocationLookup',deviceId:'second'}).unchanged,true);
   assert.equal(Commands.apply(owner,{type:'claimLocationLookup',deviceId:'second',takeOver:true}).data.locationLookupDeviceId,'second');
 });
+
+const manual = (location = '新竹天公壇', lat = 24.8028) => ({ source:'map', location, lat, lon:120.9665, displayName:'地圖指定位置', updatedAt:20 });
+const correct = (data, id = 'A', override = manual()) => Commands.apply(data, { type:'setLocationOverride', id,
+  expectedLocation:data.people.find(p=>p.id===id).location, expectedOverride:data.people.find(p=>p.id===id).locationOverride || null, override });
+test('manual corrections are personal, undoable user data and protected from automatic writes/resets',async()=>{
+  const data={schemaVersion:2,people:[person('A'),person('B')]};
+  const correction=correct(data);
+  assert.equal(correction.metadataOnly,undefined); assert.match(correction.label,/修正/);
+  assert.deepEqual(correction.data.people[0].locationOverride,manual());
+  assert.equal(correction.data.people[1].locationOverride,undefined);
+  assert.deepEqual(Location.effective(correction.data.people[0]),manual());
+  assert(!Model.sameJsonData(Location.content(data),Location.content(correction.data)));
+  const located=Commands.apply(correction.data,{type:'updateLocations',query:'新竹天公壇',result:result()}).data;
+  assert.equal(located.people[0].geocode,undefined);assert.equal(located.people[1].geocode.lat,result().lat);
+  const reset=Commands.apply(located,{type:'resetLocation',id:'A'}).data;
+  assert.deepEqual(reset.people[0].locationOverride,manual());
+  const h=harness(correction.data.people);h.queue.wake();await h.advance(0);
+  assert.equal(h.calls.length,1);assert.equal(h.data().people[1].geocode.lat,result().lat);
+  assert.deepEqual(h.data().people[0].locationOverride,manual());h.queue.stop();
+});
+test('manual position validation and concurrent edit guards reject unsafe or stale updates',()=>{
+  const data={schemaVersion:2,people:[person('A')]};
+  for(const override of [manual('別處'),{...manual(),lat:NaN},{...manual(),lon:181},{...manual(),osmId:'123'},
+    {...manual(),source:'nominatim'}, {...manual(),updatedAt:-1}]) assert.throws(()=>correct(data,'A',override));
+  assert.throws(()=>correct({schemaVersion:2,people:[{...person('A'),mapHidden:true}]}));
+  assert.throws(()=>correct({schemaVersion:2,people:[person('A','新竹市中山路1號')]}));
+  assert.throws(()=>Commands.apply(data,{type:'setLocationOverride',id:'A',expectedLocation:'已變更',expectedOverride:null,override:manual()}),/已更新/);
+  assert.throws(()=>Commands.apply(correct(data).data,{type:'clearLocationOverride',id:'A',expectedLocation:'新竹天公壇',expectedOverride:null}),/已更新/);
+  assert.throws(()=>Model.build({schemaVersion:2,people:[{...person('A'),locationOverride:{...manual(),source:'google'}}]}));
+});
+test('ordinary edits retain overrides; location/privacy changes invalidate them; restoring auto affects one person',()=>{
+  const data=correct({schemaVersion:2,people:[{...person('A'),geocode:result()},person('B')]}).data;
+  const update=member=>Commands.apply(data,{type:'updateMember',id:'A',member}).data.people[0];
+  assert.deepEqual(update({...person('A'),name:'改名'}).locationOverride,manual());
+  assert.equal(update(person('A','新竹關帝廟')).locationOverride,undefined);
+  assert.equal(update({...person('A'),mapHidden:true}).locationOverride,undefined);
+  const restored=Commands.apply(data,{type:'clearLocationOverride',id:'A',expectedLocation:'新竹天公壇',expectedOverride:manual()});
+  assert.equal(restored.data.people[0].locationOverride,undefined); assert.equal(restored.data.people[0].geocode,undefined);
+  assert.deepEqual(restored.data.people[1],data.people[1]);assert.equal(restored.metadataOnly,undefined);
+  assert.equal(Location.effective({...data.people[0],mapHidden:true}),null);
+});
+test('merge preserves matching manual coordinates, respects privacy and requires resolving conflicting overrides',()=>{
+  const data={schemaVersion:2,people:[{...person('A'),locationOverride:manual()},person('B')]};
+  assert.deepEqual(Model.mergeMembers(data,'B','A').people[0].locationOverride,manual());
+  data.people[1].locationOverride=manual('新竹天公壇',25);
+  assert.throws(()=>Model.mergeMembers(data,'A','B'),/手動修正位置不同/);
+  assert.equal(Model.mergeMembers(data,'A','B',{location:'新竹關帝廟'}).people[0].locationOverride,undefined);
+  data.people[1].mapHidden=true;
+  assert.equal(Model.mergeMembers(data,'A','B').people[0].locationOverride,undefined);
+});
+test('candidate results retain full names and coordinates without inventing OSM identities for manual map points',()=>{
+  const items=Location.candidates('新竹市關帝廟',[...response('別處'),...response('新竹關帝廟')],30);
+  assert.equal(items.length,2);assert.equal(items[1].name,'新竹關帝廟');assert.equal(items[1].checkedAt,30);
+  const selected={...manual(),source:'nominatim',query:items[1].query,displayName:items[1].displayName,osmType:items[1].osmType,osmId:items[1].osmId};
+  assert(Location.validOverride(selected));assert(Location.validOverride(manual()));
+  assert.deepEqual(Location.candidates('查無結果',[]),[]);
+});
+
+test('a background request already in flight cannot replace a later manual correction',async()=>{
+  let finish;
+  const h=harness([person('A')],{lookup:()=>new Promise(resolve=>finish=resolve)});
+  h.queue.wake();await h.advance(0);
+  h.setData(correct(h.data()).data);finish(response());await h.advance(0);
+  assert.deepEqual(h.data().people[0].locationOverride,manual());assert.equal(h.data().people[0].geocode,undefined);
+  assert.equal(h.queue.pending().length,0);h.queue.stop();
+});

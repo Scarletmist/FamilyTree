@@ -239,6 +239,7 @@
         { className: active.classList.contains('relationship-details__tab') ? 'relationship-details__tab' :
           active.classList.contains('details-back') ? 'details-back' :
           active.classList.contains('edit-member') ? 'edit-member' :
+          active.classList.contains('correct-location') ? 'correct-location' :
           active.classList.contains('query-relationship') ? 'query-relationship' :
           active.classList.contains('add-relative') ? 'add-relative' :
           active.classList.contains('details-locate') ? 'details-locate' :
@@ -324,6 +325,14 @@
       const body = element('div', 'relationship-details__body');
       const profile = element('div', 'relationship-details__profile');
       if (person.location) profile.appendChild(element('p', '', '所在地：' + person.location));
+      if (globalThis.FamilyLocation?.eligible(person)) {
+        if (globalThis.FamilyLocation.overrideCurrent(person)) profile.appendChild(element('p', 'location-manual-badge', '已手動修正地點'));
+        const correct = element('button', 'plain-button correct-location', '修正地點'); correct.type = 'button';
+        correct.dataset.correctPerson = person.id;
+        correct.setAttribute('aria-label', '修正' + person.name + '的地點');
+        correct.addEventListener('click', () => globalThis.FamilyLocationCorrection?.open(person.id));
+        profile.appendChild(correct);
+      }
       if (person.position) profile.appendChild(element('p', '', '職位：' + person.position));
       if (person.discipleOrder != null && person.discipleOrder !== '') profile.appendChild(element('p', '', '師門次序：' + person.discipleOrder));
       for (const group of graph.rankGroups || []) {

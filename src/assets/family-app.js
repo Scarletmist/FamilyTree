@@ -38,6 +38,12 @@
       return result;
     },
     exportData: () => repository.exportData(),
+    async correctLocation(command) {
+      const result = await repository.locationCommand(command);
+      adopt(result, 'local');
+      window.dispatchEvent(new CustomEvent('familylocationedit', { detail: { payload: result } }));
+      return result;
+    },
     async locationCommand(command) {
       const result = await repository.locationCommand(command);
       // Its repository event updates open forms; keep the source distinct from user edits.

@@ -29,3 +29,32 @@ test('dev coordinate adapter persists latest member edits and retains user undo 
     const disk=JSON.parse(await fs.readFile(dataFile,'utf8'));assert.equal(disk.people[0].name,'原名');
   } finally { await new Promise(resolve=>server.close(resolve)); await fs.rm(dir,{recursive:true,force:true}); }
 });
+
+test('dev corrections preserve personal positions, reject stale saves and support restore/undo/export', async()=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'location-correction-server-'));
+  const member={id:'A',name:'成員',location:'關帝廟',position:'',gender:'U',siblingOrder:null,relationships:[]};
+  const dataFile=path.join(dir,'family.json');await fs.writeFile(dataFile,JSON.stringify({schemaVersion:2,people:[member,{...member,id:'B'}]}));
+  const server=createFamilyServer({dataFile});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const send=async(body,url='/api/family/locations')=>{
+    const response=await fetch(base+url,{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    return {status:response.status,data:await response.json()};
+  };
+  try {
+    const initial=await (await fetch(base+'/api/family')).json();
+    const override={source:'map',location:'關帝廟',lat:24.8028,lon:120.9665,displayName:'地圖指定位置',updatedAt:10};
+    const command={type:'setLocationOverride',id:'A',expectedVersion:initial.version,expectedLocation:'關帝廟',expectedOverride:null,override};
+    const saved=await send(command);assert.equal(saved.status,200);assert.match(saved.data.undoLabel,/修正/);
+    assert.equal(saved.data.data.people[1].locationOverride,undefined);
+    assert.equal((await send(command)).status,409,'a stale version cannot replace a correction');
+    const auto=Location.resolve('關帝廟',[{name:'關帝廟',display_name:'錯誤地點',lat:'25',lon:'121',osm_type:'way',osm_id:123}]);
+    const located=await send({type:'updateLocations',query:'關帝廟',result:auto});assert.equal(located.status,200);
+    assert.deepEqual(located.data.data.people[0].locationOverride,override);assert.equal(located.data.data.people[0].geocode,undefined);
+    assert.equal(located.data.data.people[1].geocode.lat,25);assert.equal(located.data.undoLabel,saved.data.undoLabel);
+    const exported=await (await fetch(base+'/api/family/export')).json();assert.deepEqual(exported.people[0].locationOverride,override);
+    const restore=await send({type:'clearLocationOverride',id:'A',expectedVersion:located.data.version,expectedLocation:'關帝廟',expectedOverride:override});
+    assert.equal(restore.status,200);assert.equal(restore.data.data.people[0].locationOverride,undefined);assert.match(restore.data.undoLabel,/恢復/);
+    const undoRestore=await send({version:restore.data.version},'/api/family/undo');assert.equal(undoRestore.status,200);assert.deepEqual(undoRestore.data.data.people[0].locationOverride,override);
+    const undoCorrection=await send({version:undoRestore.data.version},'/api/family/undo');assert.equal(undoCorrection.status,200);assert.equal(undoCorrection.data.data.people[0].locationOverride,undefined);
+  } finally {await new Promise(resolve=>server.close(resolve));await fs.rm(dir,{recursive:true,force:true});}
+});

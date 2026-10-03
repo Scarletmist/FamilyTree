@@ -145,8 +145,9 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return reply(res, 400, { error: 'JSON 格式不正確。' }); }
         const operation = writes.then(async () => {
           if (isLocation) {
-            if (!['updateLocations','claimLocationLookup','resetLocation'].includes(body.type)) return [400, { error: '不支援的定位操作。' }];
+            if (!['updateLocations','claimLocationLookup','resetLocation','setLocationOverride','clearLocationOverride'].includes(body.type)) return [400, { error: '不支援的定位操作。' }];
             const current = await read();
+            if (body.expectedVersion && body.expectedVersion !== current.version) return [409, { error: '資料已更新，請重新開啟地點修正。' }];
             const { change, error, status } = applyCommand(current.data, body);
             if (error) return [status, { error: error.message }];
             if (change.unchanged) return [200, current];

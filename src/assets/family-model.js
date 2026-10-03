@@ -80,6 +80,7 @@
     }) };
     const edited = next.people.find(p => p.id === member.id);
     if (!Location.eligible(edited) || !Location.current(edited)) delete edited.geocode;
+    if (!Location.eligible(edited) || !Location.overrideCurrent(edited)) delete edited.locationOverride;
     build(next);
     return next;
   }
@@ -177,6 +178,7 @@
     if (p.notes !== undefined && (typeof p.notes !== 'string' || p.notes.length > 5000)) fail('備註說明須為 5000 字以內的文字。');
     if (p.mapHidden !== undefined && typeof p.mapHidden !== 'boolean') fail('地圖隱私設定須為布林值。');
     if (p.geocode !== undefined && !Location.valid(p.geocode)) fail('所在地座標資料格式不正確。');
+    if (p.locationOverride !== undefined && !Location.validOverride(p.locationOverride)) fail('手動修正位置格式不正確。');
     if (!['M', 'F', 'U'].includes(p.gender)) fail('性別格式不正確。');
     if (p.siblingOrder !== null && (!knownOrder(p) || p.siblingOrder > 999)) fail('手足次序須為 1 至 999 的整數，未知請留空。');
     if (p.discipleOrder != null && (!knownDiscipleOrder(p) || p.discipleOrder > 999)) fail('師門次序須為 1 至 999 的整數，未知請留空。');
@@ -482,8 +484,8 @@
   }
   function dataDifferences(before, after) {
     const lines = [], left = new Map(before.people.map(p => [p.id, p])), right = new Map(after.people.map(p => [p.id, p]));
-    const labels = { name: '姓名', gender: '性別', location: '所在地', position: '職位', notes: '備註', siblingOrder: '手足排行', discipleOrder: '師門排行', mapHidden: '不在地圖顯示', geocode: '定位結果' };
-    const show = v => v === null || v === undefined || v === '' ? '未填寫' : typeof v === 'object' ? (v.status === 'resolved' ? `${v.lat}, ${v.lon}` : v.status === 'ambiguous' ? '同名地點' : '查無地點') : String(v);
+    const labels = { name: '姓名', gender: '性別', location: '所在地', position: '職位', notes: '備註', siblingOrder: '手足排行', discipleOrder: '師門排行', mapHidden: '不在地圖顯示', geocode: '定位結果', locationOverride: '手動修正位置' };
+    const show = v => v === null || v === undefined || v === '' ? '未填寫' : typeof v === 'object' ? (v.source || v.status === 'resolved' ? `${v.lat}, ${v.lon}` : v.status === 'ambiguous' ? '同名地點' : '查無地點') : String(v);
     for (const p of before.people) if (!right.has(p.id)) lines.push(`移除成員：${p.name}`);
     for (const p of after.people) {
       const old = left.get(p.id);
@@ -524,7 +526,7 @@
     const next = JSON.parse(JSON.stringify(data));
     next.people = next.people.filter(p => p.id !== removeId);
     const merged = next.people.find(p => p.id === keepId);
-    const editableFields = new Set(['id','relationships','name','gender','location','position','notes','siblingOrder','discipleOrder','geocode','mapHidden']);
+    const editableFields = new Set(['id','relationships','name','gender','location','position','notes','siblingOrder','discipleOrder','geocode','locationOverride','mapHidden']);
     for (const key of Object.keys(remove)) if (!editableFields.has(key)) {
       if (!Object.hasOwn(merged,key)) merged[key] = JSON.parse(JSON.stringify(remove[key]));
       else if (!sameJsonData(merged[key],remove[key])) fail('兩位成員的擴充資料「' + key + '」不同，請先統一後再合併。');
@@ -534,6 +536,11 @@
     const locationSource = [keep, remove].find(p => Location.current(p) && Location.normalize(p.location) === Location.normalize(merged.location));
     if (Location.eligible(merged) && locationSource) merged.geocode = { ...locationSource.geocode };
     else delete merged.geocode;
+    const overrides = [keep, remove].filter(p => Location.overrideCurrent(p) && Location.normalize(p.location) === Location.normalize(merged.location));
+    if (Location.eligible(merged) && overrides.length) {
+      if (overrides.length === 2 && (overrides[0].locationOverride.lat !== overrides[1].locationOverride.lat || overrides[0].locationOverride.lon !== overrides[1].locationOverride.lon)) fail('兩位成員的手動修正位置不同，請先統一位置或恢復自動定位後再合併。');
+      merged.locationOverride = { ...overrides[0].locationOverride, location: merged.location.trim() };
+    } else delete merged.locationOverride;
     merged.relationships.push(...remove.relationships);
     for (const p of next.people) {
       const seen = new Map();

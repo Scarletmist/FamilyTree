@@ -138,6 +138,21 @@
         const next = { ...person };
         if (command.type === 'setLocationOverride') {
           if (!Location.validOverride(command.override) || Location.normalize(command.override.location) !== Location.normalize(person.location)) throw commandError('修正位置格式不正確。');
+          if (command.applyToSameLocation !== undefined && typeof command.applyToSameLocation !== 'boolean') throw commandError('地點套用範圍格式不正確。');
+          if (command.applyToSameLocation) {
+            const related = data.people.filter(p => p.id !== person.id && Location.eligible(p) && Location.normalize(p.location) === Location.normalize(person.location));
+            const expected = command.expectedRelatedMembers;
+            if (!Array.isArray(expected) || expected.length !== related.length || new Set(expected.map(p => p?.id)).size !== expected.length
+              || related.some(p => !expected.some(e => e?.id === p.id && typeof e.expectedLocation === 'string'
+                && Location.normalize(e.expectedLocation) === Location.normalize(p.location) && Object.hasOwn(e, 'expectedOverride')
+                && Model.sameJsonData(e.expectedOverride, p.locationOverride || null)))) {
+              throw commandError('相同所在地的成員或修正位置已更新，請關閉後重新開啟地點修正。', 409, 'STALE_LOCATION');
+            }
+            const ids = new Set([person.id, ...related.map(p => p.id)]);
+            return { data: { ...data, people:data.people.map(p => ids.has(p.id)
+              ? { ...p, locationOverride:{ ...command.override, location:p.location.trim() } } : p) }, memberId:person.id,
+              label:`修正「${person.location.trim()}」的 ${ids.size} 位成員地點` };
+          }
           next.locationOverride = { ...command.override, location: person.location.trim() };
         } else {
           if (!person.locationOverride) return { data, unchanged: true };

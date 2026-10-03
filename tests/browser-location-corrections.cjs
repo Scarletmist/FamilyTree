@@ -48,6 +48,8 @@ const choices = [
     await page.click('#confirm-import'); await page.click('#show-member-map');
     assert.equal(await page.locator('#member-map-dialog [data-correct-person="D"]').count(), 0);
     await page.click('#member-map-dialog [data-correct-person="A"]');
+    assert(await page.locator('#location-apply-related').isChecked(),'same-location correction defaults to applying to the group');
+    assert.match(await page.locator('#location-apply-label').textContent(),/其他 2 位/);
     assert.match(await page.locator('#location-correction-current').textContent(), /臺北市/);
     await page.fill('#location-search-query', '新竹市關帝廟');
     await page.clock.runFor(100); assert.deepEqual(requests, [], 'typing never triggers autocomplete requests');
@@ -70,16 +72,18 @@ const choices = [
     assert.equal(data.people[0].locationOverride.source, 'nominatim');
     assert.equal(data.people[0].locationOverride.query, '新竹市關帝廟');
     assert.equal(data.people[0].locationOverride.lat, 24.8028082);
-    assert.equal(data.people[1].locationOverride, undefined); assert.equal(data.people[1].geocode.lat, 25.05);
-    await page.waitForSelector('#member-map-dialog .member-map-cluster');
-    assert.equal(await page.locator('#member-map-dialog .member-map-cluster').textContent(), '2');
-    await page.click('#member-map-dialog .member-map-cluster'); await page.clock.runFor(100);
-    await page.waitForFunction(() => document.querySelectorAll('#member-map-dialog .member-map-marker').length === 2);
-    assert.equal(await page.locator('#member-map-dialog .location-manual-badge').count(), 1);
+    assert.equal(data.people[1].locationOverride.lat,24.8028082); assert.equal(data.people[1].geocode.lat, 25.05);
+    assert.equal(data.people[2].locationOverride.lat,24.8028082,'unlocated same-location member receives the correction');
+    assert.equal(data.people[3].locationOverride,undefined,'private member is excluded from the group correction');
+    await page.waitForFunction(() => document.querySelectorAll('#member-map-dialog .member-map-marker').length === 1);
+    assert.equal(await page.locator('#member-map-dialog .member-map-marker').textContent(),'3');
+    assert.equal(await page.locator('#member-map-dialog .location-manual-badge').count(), 3);
     // A user correction participates in existing undo; automatic metadata does not overwrite it.
     await page.click('#close-member-map'); await page.click('#save-status .save-status__action');
     await page.waitForFunction(() => !FamilyApp.snapshot().data.people[0].locationOverride);
+    assert.equal(await page.evaluate(()=>FamilyApp.snapshot().data.people.filter(p=>p.locationOverride).length),0,'one undo restores every member in the shared correction');
     await page.click('#show-member-map'); await page.click('#member-map-dialog [data-correct-person="A"]');
+    await page.uncheck('#location-apply-related');
     await page.fill('#location-search-query', '新竹市關帝廟'); await page.click('#location-search-submit');
     await page.waitForSelector('[data-candidate="1"]'); assert.equal(requests.length, 2, 'candidate results use persistent cache');
     await page.click('[data-candidate="1"]'); await page.click('#save-location-correction');
@@ -89,7 +93,34 @@ const choices = [
       await FamilyApp.locationCommand({ type:'updateLocations', query:'關帝廟', result:{ provider:'nominatim', query:'關帝廟', checkedAt:2, status:'resolved', lat:25.1, lon:121.6, displayName:'錯誤地點', osmType:'way', osmId:'300' } });
     });
     assert.equal(await page.evaluate(() => FamilyLocation.effective(FamilyApp.snapshot().data.people[0]).lat), 24.8028082);
-    await page.click('#member-map-dialog [data-correct-person="A"]'); await page.click('#location-mode-map');
+    await page.click('#member-map-dialog [data-correct-person="A"]');
+    await page.uncheck('#location-apply-related');
+    await page.fill('#location-search-query', '新竹市關帝廟'); await page.click('#location-search-submit');
+    await page.waitForSelector('[data-candidate="1"]');
+    // Switching from the search overview keeps the map, even before choosing a candidate.
+    const overviewMap = await page.locator('#location-correction-canvas [role="group"][tabindex="0"]').evaluateHandle(el => el.firstElementChild);
+    await page.click('#location-mode-map');
+    assert(await page.evaluate(node => node === document.querySelector('#location-correction-canvas [role="group"][tabindex="0"]').firstElementChild, overviewMap));
+    await page.click('#location-mode-search');
+    assert(await page.evaluate(node => node === document.querySelector('#location-correction-canvas [role="group"][tabindex="0"]').firstElementChild, overviewMap));
+    await overviewMap.dispose();
+    await page.click('[data-candidate="1"]');
+    const map = page.locator('#location-correction-canvas [role="group"][tabindex="0"]');
+    await map.focus(); await map.press('+'); await map.press('+'); await map.press('ArrowRight');
+    const dragBox = await page.locator('#location-correction-canvas').boundingBox();
+    await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
+    await page.mouse.down(); await page.mouse.move(dragBox.x + dragBox.width / 2 + 80, dragBox.y + dragBox.height / 2, { steps:5 }); await page.mouse.up();
+    const focusedMap = await map.evaluateHandle(el => el.firstElementChild);
+    const markerBefore = await page.locator('#location-correction-canvas').getByRole('button', { name:/^新竹關帝廟：/ }).boundingBox();
+    // Do not advance the fake clock: the last drag's bounds callback is still pending.
+    await page.click('#location-mode-map');
+    assert(await page.evaluate(node => node === document.querySelector('#location-correction-canvas [role="group"][tabindex="0"]').firstElementChild, focusedMap),
+      'switching to crosshair mode must preserve the map instance');
+    await page.click('#location-mode-search');
+    const markerAfter = await page.locator('#location-correction-canvas').getByRole('button', { name:/^新竹關帝廟：/ }).boundingBox();
+    assert(Math.abs(markerBefore.x-markerAfter.x)<1&&Math.abs(markerBefore.y-markerAfter.y)<1,'switching back preserves the adjusted viewport');
+    assert(await page.locator('#save-location-correction').isDisabled(),'returning to search requires a candidate selection');
+    await page.click('#location-mode-map'); await focusedMap.dispose();
     await page.waitForSelector('.location-correction-crosshair');
     async function checkCrosshair() {
       const visual = await page.locator('.location-correction-crosshair').evaluate(el => {
@@ -117,10 +148,6 @@ const choices = [
       assert(Math.abs(save.x-cancel.x-cancel.width-8)<1,'cancel and save icons stay together');
     }
     await checkCrosshair();
-    const map = page.locator('#location-correction-canvas [role="group"][tabindex="0"]'); await map.focus(); await map.press('ArrowRight');
-    const dragBox = await page.locator('#location-correction-canvas').boundingBox();
-    await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
-    await page.mouse.down(); await page.mouse.move(dragBox.x + dragBox.width / 2 + 80, dragBox.y + dragBox.height / 2, { steps:5 }); await page.mouse.up();
     await page.screenshot({ path:path.join(dir, 'correction-map-desktop.png'), animations:'disabled' });
     await page.setViewportSize({ width:390, height:844 });
     const mobile = await page.locator('#location-correction-dialog').boundingBox();
@@ -137,8 +164,8 @@ const choices = [
     data = await page.evaluate(() => FamilyApp.snapshot().data);
     assert.equal(data.people[0].locationOverride.source, 'map'); assert.equal(data.people[0].locationOverride.osmId, undefined);
     assert.notEqual(data.people[0].locationOverride.lon, 120.9665544); assert.equal(requests.length, 2, 'moving the crosshair uses no geocoder');
-    assert(Math.abs(data.people[0].locationOverride.lon - (120.9665544 + 180 / 2 ** 15 - 80 * 360 / (256 * 2 ** 15))) < 0.000001,
-      'the saved point follows the visible crosshair after a mouse drag, even before debounced bounds callbacks');
+    assert(Math.abs(data.people[0].locationOverride.lon - (120.9665544 + 180 / 2 ** 17 - 80 * 360 / (256 * 2 ** 17))) < 0.000001,
+      'the saved point retains search-mode zoom and drag adjustments across mode switches, even before debounced bounds callbacks');
     await page.click('#close-member-map'); await page.setViewportSize({ width:1280, height:900 });
     await page.evaluate(() => window.editFamilyMember('A')); await page.fill('#member-name', '改名'); await page.click('#save-member');
     await page.waitForFunction(() => FamilyApp.snapshot().data.people[0].name === '改名');

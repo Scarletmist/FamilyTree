@@ -13,6 +13,8 @@ dialog.innerHTML = `<div class="dialog-header"><h2 id="location-correction-title
       <div id="location-search-section"><form id="location-search-form"><label for="location-search-query">補充地名或縣市</label><div class="location-search-input"><input id="location-search-query" maxlength="120" required autocomplete="off" /><button type="submit" class="plain-button" id="location-search-submit">查詢</button></div></form><p id="location-search-status" role="status" aria-live="polite"></p><div id="location-search-results" aria-label="候選地點"></div></div>
       <p id="location-map-help" class="form-note" hidden>移動地圖，將正確的公開地點對準中央準星，再按右下角的勾選圖示儲存。原所在地文字會保留。</p>
       <p id="location-selection-status" role="status" aria-live="polite">請搜尋並選擇地點，或在地圖上指定。</p>
+      <label id="location-apply-group" class="location-apply-group" hidden><input type="checkbox" id="location-apply-related" /><span id="location-apply-label"></span></label>
+      <p id="location-apply-note" class="form-note" hidden></p>
     </div>
   </div>
   <div class="form-actions location-correction-actions"><p id="location-correction-error" class="form-error" role="alert"></p><button type="button" id="location-restore-auto" class="plain-button" hidden>恢復自動定位</button><button type="button" id="cancel-location-correction" class="plain-button">取消</button><button type="button" id="save-location-correction" class="primary-button" disabled>使用此位置</button></div>`;
@@ -31,11 +33,12 @@ const searchStatus = get('location-search-status');
 const selectionStatus = get('location-selection-status');
 const saveButton = get('save-location-correction');
 let person = null, mode = 'search', selected = null, choices = [], runtime = null, controller = null;
+let relatedMembers = [];
 let center = [23.7, 121], saving = false, session = 0, opener = null, focusKey = '';
 function text(tag, value, className = '') { const node = document.createElement(tag); node.textContent = value; node.className = className; return node; }
 function cancelSearch() { controller?.abort(); controller = null; get('location-search-submit').disabled = saving; }
 function selectedChanged() {
-  selectionStatus.textContent = selected ? (mode === 'map' ? '中央準星為修正位置，儲存後只套用到此成員。' : '已選擇：' + selected.displayName) : '請搜尋並選擇地點，或在地圖上指定。';
+  selectionStatus.textContent = selected ? (mode === 'map' ? '中央準星為修正位置，按勾選圖示儲存。' : '已選擇：' + selected.displayName) : '請搜尋並選擇地點，或在地圖上指定。';
   saveButton.disabled = saving || !selected;
 }
 function drawChoices() {
@@ -71,7 +74,7 @@ function setMode(next) {
   get('location-mode-map').setAttribute('aria-pressed', String(mode === 'map'));
   get('location-search-section').hidden = mode !== 'search';
   get('location-map-help').hidden = mode !== 'map';
-  focusKey = mode === 'map' ? '' : choices.length ? 'candidates' : 'current';
+  // Mode changes only replace the overlays; keep the current map instance and view.
   if (mode === 'map' && runtime) centerChanged(center);
   drawChoices(); selectedChanged(); drawMap();
 }
@@ -84,6 +87,17 @@ export async function openCorrection(id) {
   const position = Location.effective(person);
   center = position ? [position.lat, position.lon] : [23.7, 121];
   choices = []; saving = false; input.value = person.locationOverride?.query || person.location;
+  focusKey = 'current';
+  relatedMembers = FamilyApp.snapshot().data.people.filter(p => p.id !== person.id && Location.eligible(p)
+    && Location.normalize(p.location) === Location.normalize(person.location)).map(p => ({
+      id:p.id, expectedLocation:p.location, expectedOverride:structuredClone(p.locationOverride || null)
+    }));
+  get('location-apply-group').hidden = get('location-apply-note').hidden = !relatedMembers.length;
+  get('location-apply-related').checked = Boolean(relatedMembers.length);
+  get('location-apply-label').textContent = `一併套用至相同所在地的其他 ${relatedMembers.length} 位成員`;
+  const correctedCount = relatedMembers.filter(p => p.expectedOverride).length;
+  get('location-apply-note').textContent = (correctedCount ? `其中 ${correctedCount} 位已有手動位置，勾選後將一併覆蓋。` : '')
+    + '取消勾選只修正目前成員；每位成員之後仍可個別修正。恢復自動定位只影響目前成員。';
   get('location-correction-person').textContent = `${person.name} · 所在地：${person.location}`;
   get('location-correction-current').textContent = position ? (Location.overrideCurrent(person) ? '已手動修正：' : '目前自動定位：') + position.displayName : '目前尚無可顯示的位置。';
   get('location-restore-auto').hidden = !Location.overrideCurrent(person);
@@ -123,6 +137,10 @@ async function persist(restore = false) {
     const command = { type: restore ? 'clearLocationOverride' : 'setLocationOverride', id: person.id,
       expectedLocation: person.location, expectedOverride: person.locationOverride || null, expectedVersion: FamilyApp.snapshot().version };
     if (!restore) {
+      if (get('location-apply-related').checked && relatedMembers.length) {
+        command.applyToSameLocation = true;
+        command.expectedRelatedMembers = relatedMembers;
+      }
       command.override = { location: person.location, source: mode === 'map' ? 'map' : 'nominatim',
         lat: selected.lat, lon: selected.lon, displayName: selected.displayName, updatedAt: Date.now() };
       if (mode === 'search') Object.assign(command.override, { query: selected.query, osmType: selected.osmType, osmId: selected.osmId });

@@ -91,10 +91,12 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     assert.equal(await page.locator('.member-map-unlocated').count(),2);
     await page.screenshot({path:path.join(dir,'map-desktop.png'),animations:'disabled'});
     await page.setViewportSize({width:390,height:844});
+    await page.clock.runFor(100);
     const mobile=await page.locator('#member-map-dialog').boundingBox();
     assert(mobile.x>=0&&mobile.y>=0&&mobile.x+mobile.width<=391&&mobile.y+mobile.height<=845);
     await page.screenshot({path:path.join(dir,'map-mobile.png'),animations:'disabled'});
     await page.setViewportSize({width:844,height:390});
+    await page.clock.runFor(100);
     const landscape=await page.locator('#member-map-dialog').boundingBox();
     assert(landscape.x>=0&&landscape.y>=0&&landscape.x+landscape.width<=845&&landscape.y+landscape.height<=391);
     await page.screenshot({path:path.join(dir,'map-landscape.png'),animations:'disabled'});

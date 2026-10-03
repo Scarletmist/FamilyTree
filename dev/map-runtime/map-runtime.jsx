@@ -38,6 +38,11 @@ function MemberMap({ groups, focusKey, onSelect, tileUrl, initialCenter = [23.7,
   }
   const [view, setView] = useState(() => ({ ...focusedView(), key:focusKey }));
   const currentView = view.key === focusKey ? view : { ...focusedView(), key:focusKey };
+  // Remember a new focus immediately, before debounced bounds callbacks. Changing
+  // correction modes may remove its marker without changing the map's view.
+  useLayoutEffect(() => {
+    setView(previous => previous.key === focusKey ? previous : currentView);
+  }, [focusKey]);
   const { center, zoom } = currentView;
   const updateView = update => setView(previous => ({ ...update(previous.key === focusKey ? previous : currentView), key:focusKey }));
   const focusRef = useRef(focusKey);

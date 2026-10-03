@@ -110,6 +110,41 @@ test('device ownership is claimed once and changes only on explicit takeover',()
 const manual = (location = '新竹天公壇', lat = 24.8028) => ({ source:'map', location, lat, lon:120.9665, displayName:'地圖指定位置', updatedAt:20 });
 const correct = (data, id = 'A', override = manual()) => Commands.apply(data, { type:'setLocationOverride', id,
   expectedLocation:data.people.find(p=>p.id===id).location, expectedOverride:data.people.find(p=>p.id===id).locationOverride || null, override });
+const sharedCommand = data => ({ type:'setLocationOverride', id:'A', expectedLocation:data.people[0].location,
+  expectedOverride:data.people[0].locationOverride || null, override:manual(data.people[0].location), applyToSameLocation:true,
+  expectedRelatedMembers:data.people.filter(p=>p.id!=='A'&&Location.eligible(p)&&Location.normalize(p.location)===Location.normalize(data.people[0].location))
+    .map(p=>({id:p.id,expectedLocation:p.location,expectedOverride:p.locationOverride || null})) });
+
+test('one shared correction updates eligible same-location members with independent overrides',()=>{
+  const data={schemaVersion:2,people:[person('A','台北 關帝廟'),{...person('B',' 臺北  關帝廟 '),locationOverride:manual('臺北  關帝廟',25)},
+    {...person('C','台北 關帝廟'),mapHidden:true},person('D','新竹關帝廟')]};
+  const before=structuredClone(data), change=Commands.apply(data,sharedCommand(data));
+  assert.match(change.label,/2 位/);assert.equal(change.metadataOnly,undefined);
+  assert.equal(Location.effective(change.data.people[0]).lat,24.8028);
+  assert.equal(Location.effective(change.data.people[1]).lat,24.8028);
+  assert.equal(change.data.people[1].location,' 臺北  關帝廟 ');
+  assert.equal(change.data.people[1].locationOverride.location,'臺北  關帝廟');
+  assert.notEqual(change.data.people[0].locationOverride,change.data.people[1].locationOverride);
+  assert.deepEqual(change.data.people.slice(2),data.people.slice(2));assert.deepEqual(data,before);
+  const personal=correct(change.data,'B',manual('臺北  關帝廟',25)).data;
+  assert.equal(Location.effective(personal.people[1]).lat,25);assert.equal(Location.effective(personal.people[0]).lat,24.8028);
+  const restored=Commands.apply(personal,{type:'clearLocationOverride',id:'B',expectedLocation:personal.people[1].location,expectedOverride:personal.people[1].locationOverride}).data;
+  assert.equal(restored.people[1].locationOverride,undefined);assert.equal(Location.effective(restored.people[0]).lat,24.8028);
+});
+
+test('shared corrections reject changed membership, privacy, positions and malformed target guards atomically',()=>{
+  const data={schemaVersion:2,people:[person('A'),person('B')]}, command=sharedCommand(data);
+  const changed=[{...data,people:[data.people[0]]},{...data,people:[...data.people,person('C')]},
+    {...data,people:[data.people[0],{...data.people[1],mapHidden:true}]},
+    {...data,people:[data.people[0],{...data.people[1],locationOverride:manual('新竹天公壇',25)}]},
+    {...data,people:[data.people[0],person('B','新竹關帝廟')]}];
+  for(const latest of changed){const before=structuredClone(latest);assert.throws(()=>Commands.apply(latest,command),/已更新/);assert.deepEqual(latest,before);}
+  for(const expectedRelatedMembers of [undefined,[],[null],[{id:'B'}],[...command.expectedRelatedMembers,...command.expectedRelatedMembers]])
+    assert.throws(()=>Commands.apply(data,{...command,expectedRelatedMembers}),/已更新/);
+  assert.throws(()=>Commands.apply(data,{...command,applyToSameLocation:'true'}),/範圍格式/);
+  assert.throws(()=>Commands.apply(data,{...command,override:{...manual(),lat:999}}),/格式/);
+  assert.equal(data.people[0].locationOverride,undefined);assert.equal(data.people[1].locationOverride,undefined);
+});
 test('manual corrections are personal, undoable user data and protected from automatic writes/resets',async()=>{
   const data={schemaVersion:2,people:[person('A'),person('B')]};
   const correction=correct(data);

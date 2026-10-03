@@ -56,5 +56,16 @@ test('dev corrections preserve personal positions, reject stale saves and suppor
     assert.equal(restore.status,200);assert.equal(restore.data.data.people[0].locationOverride,undefined);assert.match(restore.data.undoLabel,/恢復/);
     const undoRestore=await send({version:restore.data.version},'/api/family/undo');assert.equal(undoRestore.status,200);assert.deepEqual(undoRestore.data.data.people[0].locationOverride,override);
     const undoCorrection=await send({version:undoRestore.data.version},'/api/family/undo');assert.equal(undoCorrection.status,200);assert.equal(undoCorrection.data.data.people[0].locationOverride,undefined);
+    const shared=await send({...command,expectedVersion:undoCorrection.data.version,applyToSameLocation:true,
+      expectedRelatedMembers:[{id:'B',expectedLocation:'關帝廟',expectedOverride:null}]});
+    assert.equal(shared.status,200);assert.match(shared.data.undoLabel,/2 位/);
+    assert.deepEqual(shared.data.data.people.map(p=>p.locationOverride),[override,override]);
+    const exportedShared=await (await fetch(base+'/api/family/export')).json();assert.deepEqual(exportedShared.people.map(p=>p.locationOverride),[override,override]);
+    const onlyB=await send({type:'setLocationOverride',id:'B',expectedVersion:shared.data.version,expectedLocation:'關帝廟',expectedOverride:override,override:{...override,lat:25}});
+    assert.equal(onlyB.status,200);assert.equal(onlyB.data.data.people[0].locationOverride.lat,24.8028);assert.equal(onlyB.data.data.people[1].locationOverride.lat,25);
+    const undoB=await send({version:onlyB.data.version},'/api/family/undo');assert.equal(undoB.status,200);
+    assert.deepEqual(undoB.data.data.people.map(p=>p.locationOverride),[override,override]);
+    const undoShared=await send({version:undoB.data.version},'/api/family/undo');assert.equal(undoShared.status,200);
+    assert(undoShared.data.data.people.every(p=>p.locationOverride===undefined),'one undo restores the whole shared correction');
   } finally {await new Promise(resolve=>server.close(resolve));await fs.rm(dir,{recursive:true,force:true});}
 });

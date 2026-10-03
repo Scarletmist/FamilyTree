@@ -108,7 +108,7 @@
     cached: key => FamilyRepository.getLocationCache(key),
     cache: (key, result) => FamilyRepository.setLocationCache(key, result),
     available: () => isOwner() && navigator.onLine && document.visibilityState === 'visible'
-      && !document.querySelector('#member-dialog[open], #family-name-dialog[open], #import-dialog[open], .family-management-dialog[open], #location-correction-dialog[open]'),
+      && !document.querySelector('#member-dialog[open], #family-name-dialog[open], #import-dialog[open], .family-management-dialog[open], #member-map-dialog[open][data-editing="true"]'),
     status: notify,
     lock: withQueryLock
   });

@@ -6,7 +6,9 @@ const paths = {
   pick: 'M12 2v4 M12 18v4 M2 12h4 M18 12h4 M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10',
   save: 'M5 12l4 4L19 6',
   cancel: 'M18 6 6 18 M6 6l12 12',
-  takeover: 'M4 7h14 M14 3l4 4-4 4 M20 17H6 M10 13l-4 4 4 4'
+  takeover: 'M4 7h14 M14 3l4 4-4 4 M20 17H6 M10 13l-4 4 4 4',
+  back: 'm15 6-6 6 6 6',
+  more: 'M5 12h.01 M12 12h.01 M19 12h.01'
 };
 export function setMapIcon(button, name, label) {
   button.classList.add('map-icon-button');

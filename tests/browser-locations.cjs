@@ -41,6 +41,8 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
       return route.fulfill(failSatellite ? {status:503,body:'unavailable'} : {contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#354d3e"/><path d="M0 40h256M80 0v256M190 0v256" stroke="#829580" stroke-width="10"/></svg>'});
     });
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+    const mapDialog=page.locator('#member-map-dialog');
+    async function layers(){if(await mapDialog.getByRole('button',{name:'底圖與群組設定',exact:true}).getAttribute('aria-expanded')!=='true')await mapDialog.getByRole('button',{name:'底圖與群組設定',exact:true}).click();}
     await page.clock.install();
     const url=`http://127.0.0.1:${server.address().port}/repo/`;
     await page.goto(url);await page.waitForFunction(()=>window.FamilyApp?.snapshot()&&window.FamilyMemberMap);
@@ -80,9 +82,20 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     assert.equal(await page.locator('.member-map-cluster').textContent(),'3','cluster counts members across both locations');
     assert.equal(await page.locator('.member-map-cluster').getAttribute('data-location-count'),'2');
     const canvas=page.locator('#member-map-canvas'), mapNode=await canvas.locator('[role="group"][tabindex="0"]').evaluateHandle(el=>el.firstElementChild);
+    async function alignedControls() {
+      const layer=await canvas.getByRole('button',{name:'底圖與群組設定',exact:true}).boundingBox();
+      const plus=await canvas.getByRole('button',{name:'放大地圖',exact:true}).boundingBox();
+      const minus=await canvas.getByRole('button',{name:'縮小地圖',exact:true}).boundingBox();
+      const map=await canvas.boundingBox();
+      assert(Math.abs(layer.x-plus.x)<1 && Math.abs(plus.x-minus.x)<1,'all map controls share one horizontal position');
+      assert(Math.abs(map.x+map.width-layer.x-layer.width-16)<1,'controls stay inset 16px from the map edge');
+      assert(Math.abs(plus.y-layer.y-layer.height-12)<1,'layers and zoom have a consistent 12px gap');
+      assert.equal(await canvas.locator('.pigeon-overlays .member-map-zoom').count(),0,'chrome does not inherit a map overlay coordinate system');
+    }
+    await alignedControls();
     const mapBefore=await canvas.locator('.pigeon-tiles').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('style')));
     const dataVersion=await page.evaluate(()=>FamilyApp.snapshot().version);
-    await canvas.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
+    await layers();await mapDialog.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
     await page.waitForFunction(()=>[...document.querySelectorAll('#member-map-canvas img')].some(img=>img.dataset.mapSource==='satellite'&&img.complete&&img.naturalWidth>0));
     assert(satelliteRequests.length>0);assert(satelliteRequests.every(url=>/^https:\/\/mt[0-3]\.google\.com\/vt\/lyrs=s&x=\d+&y=\d+&z=\d+$/.test(url)));
     assert(await page.evaluate(node=>node===document.querySelector('#member-map-canvas [role="group"][tabindex="0"]').firstElementChild,mapNode),'basemap changes preserve the map instance');
@@ -90,8 +103,8 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     assert.equal(await page.evaluate(()=>FamilyApp.snapshot().version),dataVersion,'a basemap preference does not edit family data or history');
     assert.equal(await page.locator('.member-map-cluster').textContent(),'3');
     assert.match(await canvas.locator('.pigeon-attribution').textContent(),/Google Maps.*OpenStreetMap contributors/);
-    assert.equal(await canvas.getByRole('button',{name:'Google 衛星圖',exact:true}).getAttribute('aria-pressed'),'true');
-    const grouping=canvas.getByRole('button',{name:'合併鄰近地點',exact:true});
+    assert.equal(await mapDialog.getByRole('button',{name:'Google 衛星圖',exact:true}).getAttribute('aria-pressed'),'true');
+    const grouping=mapDialog.getByRole('button',{name:'合併鄰近地點',exact:true});
     assert.equal(await grouping.getAttribute('aria-pressed'),'true','nearby clustering defaults to enabled');
     await grouping.click();
     assert.equal(await grouping.getAttribute('aria-pressed'),'false');
@@ -101,12 +114,13 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     assert.equal(await canvas.getByRole('button',{name:'新竹關帝廟：C',exact:true}).textContent(),'●');
     assert(await page.evaluate(node=>node===document.querySelector('#member-map-canvas [role="group"][tabindex="0"]').firstElementChild,mapNode),'changing clustering preserves the map instance');
     assert.deepEqual(await canvas.locator('.pigeon-tiles').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('style'))),mapBefore,'changing clustering preserves pan and zoom');
-    await canvas.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
-    await canvas.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
+    await mapDialog.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
+    await mapDialog.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
     assert.equal(await grouping.getAttribute('aria-pressed'),'false','basemap switching preserves the grouping choice');
     assert.equal(await page.evaluate(()=>FamilyApp.snapshot().version),dataVersion,'grouping does not edit family data');
     await grouping.click();
     assert.equal(await canvas.locator('.member-map-cluster').textContent(),'3','reenabling clustering merges nearby places');
+    await page.keyboard.press('Escape');
     await mapNode.dispose();
     await page.screenshot({path:path.join(dir,'map-cluster.png'),animations:'disabled'});
     await page.click('.member-map-cluster');await page.clock.runFor(100);
@@ -136,18 +150,20 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     const correct=page.locator('#member-map-dialog [data-correct-person="A"]');
     assert.equal(await correct.locator('svg').count(),1);assert.equal(await correct.textContent(),'');
     assert.equal(await correct.getAttribute('aria-label'),'修正A的地點');
-    assert.match(await page.locator('#member-map-status').textContent(),/3 位成員已定位/);
+    assert.match(await page.locator('#member-map-status').textContent(),/3 已定位 · 0 待定位/);
     assert.equal(await page.locator('.member-map-unlocated').count(),2);
     await page.screenshot({path:path.join(dir,'map-desktop.png'),animations:'disabled'});
     await page.setViewportSize({width:390,height:844});
     await page.clock.runFor(100);
     const mobile=await page.locator('#member-map-dialog').boundingBox();
+    await alignedControls();
     assert(mobile.x>=0&&mobile.y>=0&&mobile.x+mobile.width<=391&&mobile.y+mobile.height<=845);
-    for(const button of await canvas.locator('.member-map-basemaps button, .member-map-clustering button').all()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
+    for(const button of await canvas.locator('.member-map-layers > button, .member-map-zoom button').all()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
     await page.screenshot({path:path.join(dir,'map-mobile.png'),animations:'disabled'});
     await page.setViewportSize({width:844,height:390});
     await page.clock.runFor(100);
     const landscape=await page.locator('#member-map-dialog').boundingBox();
+    await alignedControls();
     assert(landscape.x>=0&&landscape.y>=0&&landscape.x+landscape.width<=845&&landscape.y+landscape.height<=391);
     await page.screenshot({path:path.join(dir,'map-landscape.png'),animations:'disabled'});
     await page.click('#close-member-map');await page.setViewportSize({width:1280,height:900});
@@ -169,16 +185,16 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     await page.reload();await page.waitForFunction(()=>FamilyApp.snapshot()?.data.people.find(p=>p.id==='C')?.geocode?.status==='resolved');
     await page.clock.runFor(15000);assert.equal(requests.length,3,'reload does not repeat completed/private queries');
     await page.click('#show-member-map');await page.waitForSelector('#member-map-canvas img[data-map-source="satellite"]');
-    assert.equal(await canvas.getByRole('button',{name:'Google 衛星圖',exact:true}).getAttribute('aria-pressed'),'true','basemap choice survives reload');
-    await canvas.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
+    await layers();assert.equal(await mapDialog.getByRole('button',{name:'Google 衛星圖',exact:true}).getAttribute('aria-pressed'),'true','basemap choice survives reload');
+    await mapDialog.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
     await page.waitForSelector('#member-map-canvas img[data-map-source="osm"]');
     // Use a new zoom level so already decoded satellite images cannot mask a service outage.
     await canvas.getByRole('button',{name:'縮小地圖',exact:true}).click();await page.clock.runFor(100);
     failSatellite=true;
-    await canvas.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
+    await layers();await mapDialog.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
     await page.waitForSelector('#member-map-canvas .member-map-tile-error');
     assert.match(await canvas.locator('.member-map-tile-error').textContent(),/載入失敗/);
-    await canvas.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
+    await mapDialog.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
     await page.waitForFunction(()=>!document.querySelector('#member-map-canvas .member-map-tile-error'));
     assert.equal(await canvas.locator('.pigeon-attribution a[href="https://www.google.com/maps"]').count(),0,'street map restores its own attribution');
     await page.click('#close-member-map');
@@ -201,6 +217,7 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     assert.equal(await nearCluster.getAttribute('aria-label'),maximumTitle);
     const maximumView=await nearMap.locator('.pigeon-tiles').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('style')));
     await nearCluster.click();await page.clock.runFor(100);
+    assert.match(await nearMap.locator('.member-map-cluster-popup').textContent(),/第一所在地.*甲.*乙.*第二所在地.*丙/);
     assert.deepEqual(await nearMap.locator('.pigeon-tiles').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('style'))),maximumView,'maximum zoom cluster does not attempt to expand or recenter');
     await nearMap.getByRole('button',{name:'縮小地圖',exact:true}).click();await page.clock.runFor(100);
     assert.match(await nearCluster.getAttribute('title'),/點選放大/);
@@ -218,7 +235,7 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     const transferred={...exported,people:[...exported.people,person('F','新竹市')]};
     await second.locator('#import-file').setInputFiles({name:'transfer.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(transferred))});await second.click('#confirm-import');
     await second.clock.runFor(15000);assert.equal(requests.length,3);assert.equal(await second.evaluate(()=>FamilyMemberLocations.state().owner),false);
-    await second.click('#show-member-map');await second.click('#member-map-takeover');await second.clock.runFor(100);
+    await second.click('#show-member-map');await second.click('#member-map-status');await second.click('#member-map-takeover');await second.clock.runFor(100);
     await second.waitForFunction(()=>FamilyApp.snapshot().data.people.find(p=>p.id==='F').geocode?.status==='resolved');
     assert.equal(requests.length,4);assert.equal(requests[3],'新竹市');await secondContext.close();
     assert.deepEqual(errors,[]);

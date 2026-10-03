@@ -511,7 +511,7 @@
       const payload = await FamilyApp.manageFamily(body);
       accept(payload); showUndoStatus('已儲存修改。', payload); return payload;
     },
-    undo: () => undoLastChange(snapshot.version),
+    undo: (expectedVersion = snapshot.version) => undoLastChange(expectedVersion),
     addRelative(id, type) { openMember(); addRelation({ personId: id, type, ...(FamilyModel.isDescent(type) ? {kind:'親生'} : {}) }, {expanded:true}); resetMemberBaseline(); },
     complete(id, targetId, category, message) {
       if (message.includes('性別')) { openMember(targetId); form.elements.namedItem('gender').focus(); return; }

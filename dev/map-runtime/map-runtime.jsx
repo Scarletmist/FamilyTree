@@ -1,6 +1,7 @@
 import React, { useState, useLayoutEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Map, Overlay } from 'pigeon-maps';
+import { Map } from 'pigeon-maps';
+import { clusterGroups } from './marker-clusters.mjs';
 
 function CenterReporter({ mapState, pixelToLatLng, onCenterChange }) {
   const center = pixelToLatLng([mapState.width / 2, mapState.height / 2]);
@@ -8,7 +9,22 @@ function CenterReporter({ mapState, pixelToLatLng, onCenterChange }) {
   return null;
 }
 
-function MemberMap({ groups, focusKey, onSelect, tileUrl, initialCenter = [23.7, 121], initialZoom = 7, picking = false, onCenterChange }) {
+function MarkerLayer({ groups, clustering, mapState, latLngToPixel, onSelect, onExpand }) {
+  const markers = clustering ? clusterGroups(groups, mapState.zoom) : groups.map(group => ({ ...group, count:group.people.length, clustered:false }));
+  return <>{markers.map(marker => {
+    const [x, y] = latLngToPixel([marker.lat, marker.lon]);
+    const label = marker.clustered ? `此區域共 ${marker.count} 位成員，點選放大` : `${marker.label}：${marker.people.map(p => p.name).join('、')}`;
+    return <div key={marker.key} className="pigeon-click-block" style={{ position:'absolute', left:x - (marker.clustered ? 24 : 22), top:y - (marker.clustered ? 24 : 44) }}>
+      <button type="button" className={`member-map-marker${marker.clustered ? ' member-map-cluster' : ''}`} aria-label={label} title={label}
+        data-member-count={marker.count} data-location-count={marker.groups?.length || 1}
+        onClick={() => marker.clustered ? onExpand(marker, mapState.zoom) : onSelect(marker.key)}>
+        <span>{marker.count > 1 || marker.clustered ? marker.count : '●'}</span>
+      </button>
+    </div>;
+  })}</>;
+}
+
+function MemberMap({ groups, focusKey, onSelect, tileUrl, initialCenter = [23.7, 121], initialZoom = 7, picking = false, onCenterChange, clustering = true }) {
   function focusedView() {
     const focused = groups.find(group => group.key === focusKey);
     if (focused) return { center:[focused.lat, focused.lon], zoom:15 };
@@ -26,7 +42,7 @@ function MemberMap({ groups, focusKey, onSelect, tileUrl, initialCenter = [23.7,
   const updateView = update => setView(previous => ({ ...update(previous.key === focusKey ? previous : currentView), key:focusKey }));
   const focusRef = useRef(focusKey);
   focusRef.current = focusKey;
-  return <div tabIndex={0} role="group" aria-label={picking ? '指定位置地圖，方向鍵移動中央準星，加減鍵縮放' : '地圖，方向鍵移動，加減鍵縮放'} style={{ height: '100%' }} onKeyDown={event => {
+  return <div tabIndex={0} role="group" aria-label={picking ? '指定位置地圖，方向鍵移動中央準星，加減鍵縮放' : '地圖，方向鍵移動，加減鍵縮放'} style={{ height:'100%', position:'relative', isolation:'isolate' }} onKeyDown={event => {
     if (event.target !== event.currentTarget) return;
     const step = 180 / 2 ** zoom;
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)) {
@@ -41,15 +57,17 @@ function MemberMap({ groups, focusKey, onSelect, tileUrl, initialCenter = [23.7,
       if (focusRef.current === focusKey) updateView(() => ({ center, zoom }));
     }}>
     <CenterReporter onCenterChange={onCenterChange} />
-    {groups.map(group => <Overlay key={group.key} anchor={[group.lat, group.lon]} offset={[22, 44]}>
-      <button type="button" className="member-map-marker" aria-label={`${group.label}：${group.people.map(p => p.name).join('、')}`}
-        title={group.label} onClick={() => onSelect(group.key)}><span>{group.people.length > 1 ? group.people.length : '●'}</span></button>
-    </Overlay>)}
+    <MarkerLayer groups={groups} clustering={clustering} onSelect={onSelect}
+      onExpand={(marker, currentZoom) => updateView(() => ({ center:[marker.lat, marker.lon], zoom:Math.min(19, currentZoom + 2) }))} />
     <div className="member-map-zoom" role="group" aria-label="地圖縮放">
       <button type="button" aria-label="放大地圖" onClick={() => updateView(view => ({ ...view, zoom:Math.min(19, view.zoom + 1) }))}>＋</button>
       <button type="button" aria-label="縮小地圖" onClick={() => updateView(view => ({ ...view, zoom:Math.max(2, view.zoom - 1) }))}>−</button>
     </div>
-  </Map>{picking && <div className="location-correction-crosshair" aria-hidden="true"><span /></div>}</div>;
+  </Map>{picking && <svg className="location-correction-crosshair" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <path d="M24 3v12 M24 33v12 M3 24h12 M33 24h12 M24 16a8 8 0 1 0 0 16 8 8 0 0 0 0-16" fill="none" stroke="white" strokeWidth="6" />
+    <path d="M24 3v12 M24 33v12 M3 24h12 M33 24h12 M24 16a8 8 0 1 0 0 16 8 8 0 0 0 0-16" fill="none" stroke="#b92332" strokeWidth="2.5" />
+    <circle cx="24" cy="24" r="3" fill="#b92332" stroke="white" strokeWidth="1.5" />
+  </svg>}</div>;
 }
 
 export function mount(container) {

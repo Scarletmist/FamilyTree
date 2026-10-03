@@ -1,4 +1,5 @@
 import { openCorrection } from './location-correction.mjs';
+import { mapIconButton, setMapIcon } from './map-icons.mjs';
 const Location = window.FamilyLocation;
 const dialog = document.createElement('dialog');
 dialog.id = 'member-map-dialog'; dialog.className = 'member-map-dialog';
@@ -12,6 +13,7 @@ const canvas = dialog.querySelector('#member-map-canvas');
 const list = dialog.querySelector('#member-map-list');
 const status = dialog.querySelector('#member-map-status');
 const takeover = dialog.querySelector('#member-map-takeover');
+setMapIcon(takeover, 'takeover', '由此裝置接手定位');
 function el(tag, text, className = '') { const node = document.createElement(tag); node.textContent = text; node.className = className; return node; }
 function groupPeople(people) {
   const result = new Map();
@@ -58,8 +60,7 @@ function draw() {
       button.addEventListener('click', () => { dialog.close(); window.dispatchEvent(new CustomEvent('familytreeselect', { detail: { id: person.id } })); });
       row.append(button);
       if (Location.overrideCurrent(person)) row.append(el('span', '已手動修正', 'location-manual-badge'));
-      const correct = el('button', '修正地點', 'plain-button'); correct.type = 'button'; correct.dataset.correctPerson = person.id;
-      correct.setAttribute('aria-label', `修正${person.name}的地點`);
+      const correct = mapIconButton('correct', `修正${person.name}的地點`); correct.dataset.correctPerson = person.id;
       correct.addEventListener('click', () => openCorrection(person.id)); row.append(correct);
       section.append(row);
     }
@@ -72,16 +73,15 @@ function draw() {
     const label = !Location.eligible(person) ? '隱私排除' : Location.current(person) ? ({ not_found: '查無地點', ambiguous: '同名地點，請補充所在地' })[person.geocode.status] : '待定位';
     row.append(el('span', `${person.name} · ${label}`));
     if (Location.eligible(person)) {
-      const correct = el('button', '修正地點', 'plain-button'); correct.type = 'button'; correct.dataset.correctPerson = person.id;
-      correct.setAttribute('aria-label', `修正${person.name}的地點`);
+      const correct = mapIconButton('correct', `修正${person.name}的地點`); correct.dataset.correctPerson = person.id;
       correct.addEventListener('click', () => openCorrection(person.id)); row.append(correct);
     }
     if (Location.eligible(person) && Location.current(person)) {
-      const retry = el('button', '重新查詢', 'plain-button'); retry.type = 'button';
+      const retry = mapIconButton('retry', '重新查詢');
       retry.addEventListener('click', async () => { retry.disabled = true; try { await FamilyMemberLocations.retry(person.id); } catch (error) { errorMessage = error.message; refreshStatus(); } finally { retry.disabled = false; } });
       row.append(retry);
     }
-    const edit = el('button', '編輯', 'plain-button'); edit.type = 'button';
+    const edit = mapIconButton('edit', `編輯${person.name}`);
     edit.addEventListener('click', () => { dialog.close(); window.editFamilyMember?.(person.id); }); row.append(edit);
     list.append(row);
   }

@@ -1,3 +1,4 @@
+import { setMapIcon } from './map-icons.mjs';
 const Location = window.FamilyLocation;
 const dialog = document.createElement('dialog');
 dialog.id = 'location-correction-dialog';
@@ -10,13 +11,18 @@ dialog.innerHTML = `<div class="dialog-header"><h2 id="location-correction-title
       <p id="location-correction-person"></p><p id="location-correction-current" class="form-note"></p>
       <div class="location-correction-modes" aria-label="修正方式"><button type="button" id="location-mode-search" class="plain-button" aria-pressed="true">搜尋地點</button><button type="button" id="location-mode-map" class="plain-button" aria-pressed="false">在地圖上指定</button></div>
       <div id="location-search-section"><form id="location-search-form"><label for="location-search-query">補充地名或縣市</label><div class="location-search-input"><input id="location-search-query" maxlength="120" required autocomplete="off" /><button type="submit" class="plain-button" id="location-search-submit">查詢</button></div></form><p id="location-search-status" role="status" aria-live="polite"></p><div id="location-search-results" aria-label="候選地點"></div></div>
-      <p id="location-map-help" class="form-note" hidden>移動地圖，將正確的公開地點對準中央準星，再按「使用此位置」。原所在地文字會保留。</p>
+      <p id="location-map-help" class="form-note" hidden>移動地圖，將正確的公開地點對準中央準星，再按右下角的勾選圖示儲存。原所在地文字會保留。</p>
       <p id="location-selection-status" role="status" aria-live="polite">請搜尋並選擇地點，或在地圖上指定。</p>
     </div>
   </div>
   <div class="form-actions location-correction-actions"><p id="location-correction-error" class="form-error" role="alert"></p><button type="button" id="location-restore-auto" class="plain-button" hidden>恢復自動定位</button><button type="button" id="cancel-location-correction" class="plain-button">取消</button><button type="button" id="save-location-correction" class="primary-button" disabled>使用此位置</button></div>`;
 document.body.append(dialog);
 const get = id => dialog.querySelector('#' + id);
+for (const [id, icon, label] of [
+  ['location-mode-search', 'search', '搜尋地點'], ['location-mode-map', 'pick', '在地圖上指定'],
+  ['location-search-submit', 'search', '查詢'], ['location-restore-auto', 'retry', '恢復自動定位'],
+  ['cancel-location-correction', 'cancel', '取消'], ['save-location-correction', 'save', '使用此位置']
+]) setMapIcon(get(id), icon, label);
 const canvas = get('location-correction-canvas');
 const input = get('location-search-query');
 const results = get('location-search-results');
@@ -55,7 +61,7 @@ function drawMap() {
   const groups = mode === 'map' ? [] : choices.length ? choices.map((choice, index) => ({ key: 'candidate-' + index,
     lat: choice.lat, lon: choice.lon, label: choice.name || choice.displayName, people: [{ name: choice.displayName }] }))
     : initial ? [{ key: 'current', lat: initial.lat, lon: initial.lon, label: person.location, people: [{ name: person.name }] }] : [];
-  runtime?.update({ groups, focusKey, initialCenter: center, initialZoom: initial ? 15 : 7, picking: mode === 'map', onCenterChange: centerChanged,
+  runtime?.update({ groups, clustering:false, focusKey, initialCenter: center, initialZoom: initial ? 15 : 7, picking: mode === 'map', onCenterChange: centerChanged,
     onSelect: key => { const choice = choices[Number(key.replace('candidate-', ''))]; if (choice) { selected = choice; focusKey = key; drawChoices(); selectedChanged(); drawMap(); } },
     tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' });
 }

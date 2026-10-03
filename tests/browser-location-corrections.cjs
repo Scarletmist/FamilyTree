@@ -36,7 +36,7 @@ const choices = [
       if (fail) { fail = false; await route.fulfill({ status:503, body:'unavailable' }); }
       else await route.fulfill({ contentType:'application/json', body:JSON.stringify(requests.at(-1) === '查無地點' ? [] : choices) });
     });
-    await context.route('https://tile.openstreetmap.org/**', route => route.fulfill({ contentType:'image/png', body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jK1sAAAAASUVORK5CYII=', 'base64') }));
+    await context.route('https://tile.openstreetmap.org/**', route => route.fulfill({ contentType:'image/svg+xml', body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#68756b"/><path d="M0 40h256M0 170h256M80 0v256M210 0v256" stroke="#eee" stroke-width="12"/></svg>' }));
     const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message)); await page.clock.install();
     const url = `http://127.0.0.1:${server.address().port}/repo/`;
     await page.goto(url); await page.waitForFunction(() => window.FamilyLocationCorrection && FamilyApp.snapshot());
@@ -71,7 +71,10 @@ const choices = [
     assert.equal(data.people[0].locationOverride.query, '新竹市關帝廟');
     assert.equal(data.people[0].locationOverride.lat, 24.8028082);
     assert.equal(data.people[1].locationOverride, undefined); assert.equal(data.people[1].geocode.lat, 25.05);
-    assert.equal(await page.locator('.member-map-marker').count(), 2);
+    await page.waitForSelector('#member-map-dialog .member-map-cluster');
+    assert.equal(await page.locator('#member-map-dialog .member-map-cluster').textContent(), '2');
+    await page.click('#member-map-dialog .member-map-cluster'); await page.clock.runFor(100);
+    await page.waitForFunction(() => document.querySelectorAll('#member-map-dialog .member-map-marker').length === 2);
     assert.equal(await page.locator('#member-map-dialog .location-manual-badge').count(), 1);
     // A user correction participates in existing undo; automatic metadata does not overwrite it.
     await page.click('#close-member-map'); await page.click('#save-status .save-status__action');
@@ -88,6 +91,32 @@ const choices = [
     assert.equal(await page.evaluate(() => FamilyLocation.effective(FamilyApp.snapshot().data.people[0]).lat), 24.8028082);
     await page.click('#member-map-dialog [data-correct-person="A"]'); await page.click('#location-mode-map');
     await page.waitForSelector('.location-correction-crosshair');
+    async function checkCrosshair() {
+      const visual = await page.locator('.location-correction-crosshair').evaluate(el => {
+        const box=el.getBoundingClientRect(), map=document.querySelector('#location-correction-canvas').getBoundingClientRect();
+        const pointerEvents=getComputedStyle(el).pointerEvents, paths=[...el.querySelectorAll('path')];
+        // Ignore pointer-events:none only for this hit-test, then restore dragging behavior.
+        el.style.pointerEvents='auto';
+        const top=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);
+        el.style.removeProperty('pointer-events');
+        return {width:box.width,height:box.height,dx:box.x+box.width/2-map.x-map.width/2,dy:box.y+box.height/2-map.y-map.height/2,
+          pointerEvents,onTop:top===el||el.contains(top),strokes:paths.map(path=>path.getAttribute('stroke'))};
+      });
+      assert.equal(visual.width,48);assert.equal(visual.height,48);
+      assert(Math.abs(visual.dx)<1&&Math.abs(visual.dy)<1,'crosshair stays at the visible map center');
+      assert(visual.onTop,'crosshair paints above map tiles');
+      assert.equal(visual.pointerEvents,'none');assert.deepEqual(visual.strokes,['white','#b92332']);
+      for (const id of ['location-mode-search','location-mode-map','location-search-submit','location-restore-auto','cancel-location-correction','save-location-correction']) {
+        const button=page.locator('#'+id);
+        assert.equal(await button.locator('svg').count(),1);assert.equal(await button.textContent(),'');
+        assert(await button.getAttribute('aria-label'));
+        if(await button.isVisible()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
+      }
+      const footer=await page.locator('.location-correction-actions').boundingBox(), save=await page.locator('#save-location-correction').boundingBox(), cancel=await page.locator('#cancel-location-correction').boundingBox();
+      assert(footer.x+footer.width-save.x-save.width<=25,'save icon stays at the footer right edge');
+      assert(Math.abs(save.x-cancel.x-cancel.width-8)<1,'cancel and save icons stay together');
+    }
+    await checkCrosshair();
     const map = page.locator('#location-correction-canvas [role="group"][tabindex="0"]'); await map.focus(); await map.press('ArrowRight');
     const dragBox = await page.locator('#location-correction-canvas').boundingBox();
     await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
@@ -98,8 +127,10 @@ const choices = [
     assert(mobile.x >= 0 && mobile.y >= 0 && mobile.x + mobile.width <= 391 && mobile.y + mobile.height <= 845);
     assert(await page.locator('#location-correction-canvas').evaluate(el => el.getBoundingClientRect().height >= 140));
     await page.screenshot({ path:path.join(dir, 'correction-map-mobile.png'), animations:'disabled' });
+    await checkCrosshair();
     await page.setViewportSize({ width:844, height:390 });
     await page.screenshot({ path:path.join(dir, 'correction-map-landscape.png'), animations:'disabled' });
+    await checkCrosshair();
     const landscape = await page.locator('#location-correction-dialog').boundingBox();
     assert(landscape.x >= 0 && landscape.y >= 0 && landscape.x + landscape.width <= 845 && landscape.y + landscape.height <= 391);
     await page.click('#save-location-correction'); await page.waitForFunction(() => !document.querySelector('#location-correction-dialog').open);

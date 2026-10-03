@@ -327,9 +327,8 @@
       if (person.location) profile.appendChild(element('p', '', '所在地：' + person.location));
       if (globalThis.FamilyLocation?.eligible(person)) {
         if (globalThis.FamilyLocation.overrideCurrent(person)) profile.appendChild(element('p', 'location-manual-badge', '已手動修正地點'));
-        const correct = element('button', 'plain-button correct-location', '修正地點'); correct.type = 'button';
+        const correct = iconButton('correct-location', '修正' + person.name + '的地點', 'M12 21s-7-5.2-7-11a7 7 0 0 1 14 0 M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6 M14 18l5-5 2 2-5 5-3 1 1-3Z');
         correct.dataset.correctPerson = person.id;
-        correct.setAttribute('aria-label', '修正' + person.name + '的地點');
         correct.addEventListener('click', () => globalThis.FamilyLocationCorrection?.open(person.id));
         profile.appendChild(correct);
       }

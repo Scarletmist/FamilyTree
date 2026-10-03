@@ -48,7 +48,7 @@ function draw() {
   const people = FamilyApp.snapshot()?.data.people || [];
   groups = groupPeople(people);
   const signature = groups.map(g => g.key).join('|');
-  runtime?.update({ groups, focusKey: focusKey || signature, onSelect: key => { focusKey = key; draw(); list.querySelector(`[data-location-key="${key}"]`)?.scrollIntoView({ block: 'nearest' }); }, tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' });
+  runtime?.update({ groups, focusKey: focusKey || signature, onSelect: key => { focusKey = key; draw(); list.querySelector(`[data-location-key="${key}"]`)?.scrollIntoView({ block: 'nearest' }); } });
   list.replaceChildren();
   for (const group of groups) {
     const section = el('section', '', 'member-map-place'); section.dataset.locationKey = group.key;

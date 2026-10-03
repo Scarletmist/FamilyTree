@@ -65,8 +65,7 @@ function drawMap() {
     lat: choice.lat, lon: choice.lon, label: choice.name || choice.displayName, people: [{ name: choice.displayName }] }))
     : initial ? [{ key: 'current', lat: initial.lat, lon: initial.lon, label: person.location, people: [{ name: person.name }] }] : [];
   runtime?.update({ groups, clustering:false, focusKey, initialCenter: center, initialZoom: initial ? 15 : 7, picking: mode === 'map', onCenterChange: centerChanged,
-    onSelect: key => { const choice = choices[Number(key.replace('candidate-', ''))]; if (choice) { selected = choice; focusKey = key; drawChoices(); selectedChanged(); drawMap(); } },
-    tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' });
+    onSelect: key => { const choice = choices[Number(key.replace('candidate-', ''))]; if (choice) { selected = choice; focusKey = key; drawChoices(); selectedChanged(); drawMap(); } } });
 }
 function setMode(next) {
   cancelSearch(); mode = next; selected = null; error.textContent = ''; searchStatus.textContent = '';

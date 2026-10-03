@@ -37,6 +37,7 @@ const choices = [
       else await route.fulfill({ contentType:'application/json', body:JSON.stringify(requests.at(-1) === '查無地點' ? [] : choices) });
     });
     await context.route('https://tile.openstreetmap.org/**', route => route.fulfill({ contentType:'image/svg+xml', body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#68756b"/><path d="M0 40h256M0 170h256M80 0v256M210 0v256" stroke="#eee" stroke-width="12"/></svg>' }));
+    await context.route(/^https:\/\/mt[0-3]\.google\.com\/vt\//, route => route.fulfill({ contentType:'image/svg+xml', body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#354d3e"/><path d="M0 40h256M80 0v256M190 0v256" stroke="#829580" stroke-width="10"/></svg>' }));
     const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message)); await page.clock.install();
     const url = `http://127.0.0.1:${server.address().port}/repo/`;
     await page.goto(url); await page.waitForFunction(() => window.FamilyLocationCorrection && FamilyApp.snapshot());
@@ -65,6 +66,12 @@ const choices = [
     const chosenMarker = await page.locator('#location-correction-canvas').getByRole('button', { name:/^新竹關帝廟：/ }).boundingBox();
     assert(Math.abs(chosenMarker.x + chosenMarker.width / 2 - (preview.x + preview.width / 2)) < 3,
       'selecting a candidate centers its marker in the map: ' + JSON.stringify({ preview, chosenMarker }));
+    const correction=page.locator('#location-correction-canvas');
+    await correction.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
+    await page.waitForSelector('#location-correction-canvas img[data-map-source="satellite"]');
+    assert.equal(await page.locator('#member-map-canvas').getByRole('button',{name:'Google 衛星圖',exact:true}).getAttribute('aria-pressed'),'true','both map dialogs share the local basemap preference');
+    assert(!(await page.locator('#save-location-correction').isDisabled()),'a basemap switch keeps the selected candidate');
+    await correction.getByRole('button',{name:'OpenStreetMap 街道圖',exact:true}).click();
     await page.screenshot({ path:path.join(dir, 'correction-candidates.png'), animations:'disabled' });
     await page.click('#save-location-correction'); await page.waitForFunction(() => !document.querySelector('#location-correction-dialog').open);
     let data = await page.evaluate(() => FamilyApp.snapshot().data);
@@ -112,6 +119,9 @@ const choices = [
     await page.mouse.down(); await page.mouse.move(dragBox.x + dragBox.width / 2 + 80, dragBox.y + dragBox.height / 2, { steps:5 }); await page.mouse.up();
     const focusedMap = await map.evaluateHandle(el => el.firstElementChild);
     const markerBefore = await page.locator('#location-correction-canvas').getByRole('button', { name:/^新竹關帝廟：/ }).boundingBox();
+    await correction.getByRole('button',{name:'Google 衛星圖',exact:true}).click();
+    const markerOnSatellite=await correction.getByRole('button',{name:/^新竹關帝廟：/}).boundingBox();
+    assert(Math.abs(markerBefore.x-markerOnSatellite.x)<1&&Math.abs(markerBefore.y-markerOnSatellite.y)<1,'basemap switching preserves the live dragged map position before bounds callbacks');
     // Do not advance the fake clock: the last drag's bounds callback is still pending.
     await page.click('#location-mode-map');
     assert(await page.evaluate(node => node === document.querySelector('#location-correction-canvas [role="group"][tabindex="0"]').firstElementChild, focusedMap),
@@ -137,6 +147,7 @@ const choices = [
       assert(Math.abs(visual.dx)<1&&Math.abs(visual.dy)<1,'crosshair stays at the visible map center');
       assert(visual.onTop,'crosshair paints above map tiles');
       assert.equal(visual.pointerEvents,'none');assert.deepEqual(visual.strokes,['white','#b92332']);
+      for(const button of await correction.locator('.member-map-basemaps button').all()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
       for (const id of ['location-mode-search','location-mode-map','location-search-submit','location-restore-auto','cancel-location-correction','save-location-correction']) {
         const button=page.locator('#'+id);
         assert.equal(await button.locator('svg').count(),1);assert.equal(await button.textContent(),'');
@@ -190,6 +201,7 @@ const choices = [
     const secondContext = await browser.newContext();
     await secondContext.route('https://nominatim.openstreetmap.org/**', route => { throw new Error('unexpected lookup on the second device'); });
     await secondContext.route('https://tile.openstreetmap.org/**', route => route.abort());
+    await secondContext.route(/^https:\/\/mt[0-3]\.google\.com\/vt\//, route => route.abort());
     const second = await secondContext.newPage(); second.on('pageerror', e => errors.push(e.message));
     await second.goto(url); await second.waitForFunction(() => window.FamilyLocationCorrection && FamilyApp.snapshot());
     await second.locator('#import-file').setInputFiles({ name:'transfer.json', mimeType:'application/json', buffer:Buffer.from(JSON.stringify(exported)) });

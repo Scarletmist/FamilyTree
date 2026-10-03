@@ -1614,6 +1614,11 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
 .map-icon-button svg { width:20px; height:20px; flex:none; }
 .member-map-zoom { position:absolute; top:12px; right:12px; display:flex; flex-direction:column; gap:2px; z-index:2; }
 .member-map-zoom button { width:44px; height:44px; background:white; border:1px solid #ccd6cc; border-radius:8px; font-size:22px; color:#24352b; cursor:pointer; }
+.member-map-basemaps { position:absolute; top:12px; left:12px; display:flex; gap:4px; padding:4px; background:white; border-radius:12px; box-shadow:0 2px 6px #0003; z-index:2; }
+.member-map-basemaps button { display:flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; background:white; border:1px solid #ccd6cc; border-radius:8px; color:#24352b; cursor:pointer; }
+.member-map-basemaps button[aria-pressed=true] { background:#e8f1ea; border-color:#2f6755; color:#235343; }
+.member-map-basemaps svg { width:20px; height:20px; }
+.member-map-tile-error { position:absolute; bottom:28px; left:12px; right:12px; margin:0; padding:8px 10px; background:#fffef2f2; color:#563723; border-radius:8px; font-size:13px; pointer-events:none; z-index:2; }
 .member-map-dialog button { touch-action:manipulation; user-select:none; -webkit-tap-highlight-color:transparent; }
 .member-map-dialog button:active { filter:brightness(.9); }
 .member-map-dialog button:focus-visible { outline:3px solid #286854; outline-offset:3px; }

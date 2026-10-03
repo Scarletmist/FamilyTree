@@ -1,7 +1,10 @@
-import React, { useState, useLayoutEffect, useRef } from 'react';
+import React, { useState, useLayoutEffect, useRef, useMemo, useEffect, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Map } from 'pigeon-maps';
 import { clusterGroups } from './marker-clusters.mjs';
+import { BASEMAPS, getBasemap, subscribeBasemap, selectBasemap } from './basemaps.mjs';
+
+const MAX_ZOOM = 19;
 
 function CenterReporter({ mapState, pixelToLatLng, onCenterChange }) {
   const center = pixelToLatLng([mapState.width / 2, mapState.height / 2]);
@@ -13,18 +16,32 @@ function MarkerLayer({ groups, clustering, mapState, latLngToPixel, onSelect, on
   const markers = clustering ? clusterGroups(groups, mapState.zoom) : groups.map(group => ({ ...group, count:group.people.length, clustered:false }));
   return <>{markers.map(marker => {
     const [x, y] = latLngToPixel([marker.lat, marker.lon]);
-    const label = marker.clustered ? `此區域共 ${marker.count} 位成員，點選放大` : `${marker.label}：${marker.people.map(p => p.name).join('、')}`;
+    const canExpand = marker.clustered && mapState.zoom < MAX_ZOOM;
+    const label = marker.clustered
+      ? canExpand ? `此區域共 ${marker.count} 位成員，點選放大` : [`此區域共 ${marker.count} 位成員`, ...marker.groups.map(group => `${group.label}：${group.people.map(p => p.name).join('、')}`)].join('\n')
+      : `${marker.label}：${marker.people.map(p => p.name).join('、')}`;
     return <div key={marker.key} className="pigeon-click-block" style={{ position:'absolute', left:x - (marker.clustered ? 24 : 22), top:y - (marker.clustered ? 24 : 44) }}>
       <button type="button" className={`member-map-marker${marker.clustered ? ' member-map-cluster' : ''}`} aria-label={label} title={label}
         data-member-count={marker.count} data-location-count={marker.groups?.length || 1}
-        onClick={() => marker.clustered ? onExpand(marker, mapState.zoom) : onSelect(marker.key)}>
+        onClick={() => { if (canExpand) onExpand(marker, mapState.zoom); else if (!marker.clustered) onSelect(marker.key); }}>
         <span>{marker.count > 1 || marker.clustered ? marker.count : '●'}</span>
       </button>
     </div>;
   })}</>;
 }
 
-function MemberMap({ groups, focusKey, onSelect, tileUrl, initialCenter = [23.7, 121], initialZoom = 7, picking = false, onCenterChange, clustering = true }) {
+function MemberMap({ groups, focusKey, onSelect, initialCenter = [23.7, 121], initialZoom = 7, picking = false, onCenterChange, clustering = true }) {
+  const basemapId = useSyncExternalStore(subscribeBasemap, getBasemap);
+  const basemap = BASEMAPS[basemapId];
+  const [tileError, setTileError] = useState(false);
+  useEffect(() => { setTileError(false); }, [basemapId]);
+  // Replace only tile images on a source change, preserving the map's live drag and zoom.
+  const Tile = useMemo(() => function BasemapTile({ tile, tileLoaded }) {
+    return <img src={tile.url} srcSet={tile.srcSet} width={tile.width} height={tile.height} loading="lazy" alt=""
+      data-map-source={basemapId} onLoad={tileLoaded}
+      onError={() => { if (getBasemap() === basemapId && tile.active) setTileError(true); tileLoaded(); }}
+      style={{ position:'absolute', left:tile.left, top:tile.top, willChange:'transform', transformOrigin:'top left', opacity:1 }} />;
+  }, [basemapId]);
   function focusedView() {
     const focused = groups.find(group => group.key === focusKey);
     if (focused) return { center:[focused.lat, focused.lon], zoom:15 };
@@ -53,22 +70,30 @@ function MemberMap({ groups, focusKey, onSelect, tileUrl, initialCenter = [23.7,
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)) {
       event.preventDefault();
       updateView(view => ({ ...view, center:[Math.max(-85, Math.min(85, view.center[0] + (event.key === 'ArrowUp' ? step : event.key === 'ArrowDown' ? -step : 0))), ((view.center[1] + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0) + 540) % 360) - 180] }));
-    } else if (['+','-','='].includes(event.key)) { event.preventDefault(); updateView(view => ({ ...view, zoom:Math.max(2, Math.min(19, view.zoom + (event.key === '-' ? -1 : 1))) })); }
-  }}><Map key={focusKey} center={center} zoom={zoom} minZoom={2} maxZoom={19} animate={false}
-    provider={(x, y, z) => tileUrl.replace('{z}', z).replace('{x}', x).replace('{y}', y)}
-    attributionPrefix={false} attribution={<span>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></span>}
+    } else if (['+','-','='].includes(event.key)) { event.preventDefault(); updateView(view => ({ ...view, zoom:Math.max(2, Math.min(MAX_ZOOM, view.zoom + (event.key === '-' ? -1 : 1))) })); }
+  }}><Map key={focusKey} center={center} zoom={zoom} minZoom={2} maxZoom={MAX_ZOOM} animate={false}
+    provider={basemap.provider} tileComponent={Tile}
+    attributionPrefix={false} attribution={<span>{basemapId === 'satellite' && <><a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">© Google Maps</a> · 地點資料：</>}© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></span>}
     onBoundsChanged={({ center, zoom }) => {
       // A replaced map may still deliver a delayed callback; it must not undo the new focus.
       if (focusRef.current === focusKey) updateView(() => ({ center, zoom }));
     }}>
     <CenterReporter onCenterChange={onCenterChange} />
     <MarkerLayer groups={groups} clustering={clustering} onSelect={onSelect}
-      onExpand={(marker, currentZoom) => updateView(() => ({ center:[marker.lat, marker.lon], zoom:Math.min(19, currentZoom + 2) }))} />
+      onExpand={(marker, currentZoom) => updateView(() => ({ center:[marker.lat, marker.lon], zoom:Math.min(MAX_ZOOM, currentZoom + 2) }))} />
     <div className="member-map-zoom" role="group" aria-label="地圖縮放">
-      <button type="button" aria-label="放大地圖" onClick={() => updateView(view => ({ ...view, zoom:Math.min(19, view.zoom + 1) }))}>＋</button>
+      <button type="button" aria-label="放大地圖" onClick={() => updateView(view => ({ ...view, zoom:Math.min(MAX_ZOOM, view.zoom + 1) }))}>＋</button>
       <button type="button" aria-label="縮小地圖" onClick={() => updateView(view => ({ ...view, zoom:Math.max(2, view.zoom - 1) }))}>−</button>
     </div>
-  </Map>{picking && <svg className="location-correction-crosshair" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+  </Map><div className="member-map-basemaps" role="group" aria-label="地圖底圖">
+    <button type="button" aria-label={BASEMAPS.osm.label} title={BASEMAPS.osm.label} aria-pressed={basemapId === 'osm'} onClick={() => selectBasemap('osm')}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z M9 3v15 M15 6v15" /></svg>
+    </button>
+    <button type="button" aria-label={BASEMAPS.satellite.label} title={BASEMAPS.satellite.label} aria-pressed={basemapId === 'satellite'} onClick={() => selectBasemap('satellite')}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m9 9 6 6 4-4-6-6-4 4Z M5 3l4 4-2 2-4-4 2-2Z M17 15l4 4-2 2-4-4 2-2Z M12 12l-3 3 M3 13a8 8 0 0 1 8 8 M3 17a4 4 0 0 1 4 4" /></svg>
+    </button>
+  </div>{tileError && <p className="member-map-tile-error" role="status">{basemap.label}部分底圖載入失敗，請切換底圖或稍後重開。</p>}
+  {picking && <svg className="location-correction-crosshair" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
     <path d="M24 3v12 M24 33v12 M3 24h12 M33 24h12 M24 16a8 8 0 1 0 0 16 8 8 0 0 0 0-16" fill="none" stroke="white" strokeWidth="6" />
     <path d="M24 3v12 M24 33v12 M3 24h12 M33 24h12 M24 16a8 8 0 1 0 0 16 8 8 0 0 0 0-16" fill="none" stroke="#b92332" strokeWidth="2.5" />
     <circle cx="24" cy="24" r="3" fill="#b92332" stroke="white" strokeWidth="1.5" />

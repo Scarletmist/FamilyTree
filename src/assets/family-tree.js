@@ -132,7 +132,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     applyResponsiveDefaults();
     bindPanning(canvas.parentElement, { viewportController: treeZoom, getSelectedId: () => selectedId, closeSelectedDetails });
     bindGlobalDismiss(closeSelectedDetails);
-    bindMobileBackNavigation(closeSelectedDetails);
+    bindMobileBackNavigation(closeSelectedDetails, () => relationshipDetails.leaveReading());
     memberTooltip.hide(null, true);
     updateSelectedDetails = null;
     canvas.replaceChildren();
@@ -262,7 +262,13 @@ let FAMILY = FamilyApp?.graph?.() || null;
             node.appendChild(element('span', 'person__order', first.name + '：' + (member.order ?? '未填寫') + (rankGroups.length > 1 ? '（另 ' + (rankGroups.length - 1) + ' 組）' : '')));
           }
           memberTooltip.bind(node, p);
-          node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px) and (orientation:portrait)').matches); showDetails(); });
+          node.addEventListener('click', () => {
+            memberTooltip.hide(node, true);
+            selectedId = selectedId === p.id ? null : p.id;
+            if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false);
+            showDetails();
+            if (selectedId && treeZoom.isMobileLayout()) treeZoom.focusMember(selectedId);
+          });
           nodes.set(p.id, node);
           group.appendChild(node);
         });
@@ -646,11 +652,10 @@ let FAMILY = FamilyApp?.graph?.() || null;
       restoreCanvasViewStateOnce();
     }
   }
-  function selectFamilyMember(id, { preserveDetailsState = false, expandDetails = false } = {}) {
+  function selectFamilyMember(id, { preserveDetailsState = false } = {}) {
     selectedId = id;
     if (id && !preserveDetailsState) {
-      const collapse = expandDetails ? false : matchMedia('(max-width:700px) and (orientation:portrait)').matches;
-      relationshipDetails.setCollapsed(document.getElementById('relationship-details'), collapse);
+      relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false);
     }
     memberTooltip.hide(null, true);
     if (updateSelectedDetails) updateSelectedDetails(); else render();
@@ -659,6 +664,15 @@ let FAMILY = FamilyApp?.graph?.() || null;
   }
 
   bindMobileOverlayAvoidance();
+  window.addEventListener('familydetailsreadingchange', event => {
+    if (event.detail?.reading || !selectedId) return;
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('relationship-details');
+      if (!panel.hidden && panel.dataset.collapsed !== 'true' && treeZoom.isMobileLayout()) {
+        treeZoom.refreshLayout(); treeZoom.focusMember(selectedId);
+      }
+    });
+  });
   window.addEventListener('familytreeselect', event => {
     const { id = null, options = {} } = event.detail || {};
     // A map/list selection may target someone outside the current query or family.
@@ -706,7 +720,12 @@ let FAMILY = FamilyApp?.graph?.() || null;
         queryViewportAction = 'fit';
       }
       render();
-      if (queryScope === null) requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
+      if (queryScope === null) requestAnimationFrame(() => {
+        const panel = document.getElementById('relationship-details');
+        if (selectedId && !panel.hidden && panel.dataset.collapsed !== 'true' && panel.dataset.reading !== 'true' &&
+            treeZoom.isMobileLayout()) treeZoom.focusMember(selectedId);
+        else treeZoom.restoreViewportAnchor(anchor);
+      });
     }, 150);
   });
   window.addEventListener('pagehide', saveCanvasViewState);

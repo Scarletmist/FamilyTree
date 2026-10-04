@@ -235,3 +235,25 @@ test('unlinked member detail omits relationship query shortcut', () => {
     assert(panel.querySelector('.query-relationship'), 'inverse-only related member still gets the query shortcut');
   } finally { global.document = previous; }
 });
+
+test('mobile inspector keeps identity and actions in its scroll area, with secondary actions in More', () => {
+  const previous = global.document, previousMedia = global.matchMedia;
+  global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
+  global.matchMedia = query => ({ matches: !query.includes('orientation:landscape') });
+  try {
+    const controller = Details.createController(), panel = new FakeElement('section');
+    controller.render(panel, graph, 'p11', {});
+    const body = panel.querySelector('.relationship-details__body');
+    assert(body.contains(panel.querySelector('.relationship-details__header')));
+    assert(body.contains(panel.querySelector('.edit-member')));
+    assert(panel.querySelector('.detail-expand'));
+    const more = panel.querySelector('.relationship-details__more-body');
+    assert(more.contains(panel.querySelector('.add-relative')));
+    assert(more.contains(panel.querySelector('.details-locate')));
+    assert.equal(panel.querySelector('.add-relative').children[0].attributes['data-icon'], 'person-plus');
+    const children = panel.querySelectorAll('details[data-group]').find(item => item.dataset.group === 'children');
+    assert.equal(children.open, true);
+    children.open = false; controller.render(panel, graph, 'p11', {});
+    assert.equal(panel.querySelectorAll('details[data-group]').find(item => item.dataset.group === 'children').open, false);
+  } finally { global.document = previous; global.matchMedia = previousMedia; }
+});

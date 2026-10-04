@@ -197,6 +197,7 @@
     // Keep disclosure and drawer choices when the graph is redrawn.
     const openStates = new Map();
     let collapsed = false;
+    let layout = null;
     let currentPersonId = null, pendingNavigationTarget = null;
     const navigationHistory = [];
     function remember(panel) {
@@ -216,6 +217,7 @@
       const tab = panel.querySelector('.relationship-details__tab');
       if (!content || !tab) return;
       panel.dataset.collapsed = String(collapsed);
+      layout?.sync();
       content.hidden = collapsed;
       content.inert = collapsed;
       tab.hidden = !collapsed;
@@ -226,6 +228,11 @@
       if (focus) (collapsed ? tab : button)?.focus({ preventScroll: true });
     }
     function render(panel, graph, personId, { onEdit, onSelect, onQuery, onLocate, onClose, onReturnList } = {}) {
+      layout ||= globalThis.FamilyMemberDetailLayout?.create(panel, {
+        setCollapsed: (value, options) => setCollapsed(panel, value, options)
+      });
+      layout?.beforeRender();
+      const mobile = globalThis.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px)').matches;
       if (!personId) {
         navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null;
       } else if (personId !== currentPersonId) {
@@ -243,6 +250,7 @@
           active.classList.contains('query-relationship') ? 'query-relationship' :
           active.classList.contains('add-relative') ? 'add-relative' :
           active.classList.contains('details-locate') ? 'details-locate' :
+          active.classList.contains('detail-expand') ? 'detail-expand' :
           active.classList.contains('details-collapse') ? 'details-collapse' :
           active.classList.contains('details-close') ? 'details-close' : '',
           group: active.closest('details[data-group]')?.dataset.group } : null;
@@ -257,6 +265,7 @@
       // Keep the last contents painted during CSS exit, while closing the
       // inspector logically at once. Reopening replaces them synchronously.
       if (!person) {
+        layout?.sync();
         if (!globalThis.FamilyMotion?.canAnimate()) panel.replaceChildren();
         return;
       }
@@ -270,6 +279,7 @@
       const previousPerson = graph.people.find(p => p.id === navigationHistory.at(-1));
       const backLabel = previousPerson ? '返回' + previousPerson.name : '返回成員清單';
       const back = iconButton('details-back', backLabel, 'M15 18l-6-6 6-6');
+      back.dataset.returnList = String(!previousPerson);
       back.append(element('span','details-back-label',backLabel));
       back.disabled = !navigationHistory.length && !onReturnList;
       if (back.disabled) back.className += ' details-back--placeholder';
@@ -313,6 +323,13 @@
       title.id = 'relationship-details-title';
       title.title = person.name + '的關係';
       const navigation = element('div','relationship-details__navigation'); navigation.append(back,collapse,close);
+      if (mobile) {
+        const expand = iconButton('detail-expand', '展開完整閱讀', globalThis.FamilyMemberDetailLayout?.expandPath || 'M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5');
+        expand.setAttribute('aria-controls', content.id);
+        navigation.replaceChildren(back, element('span', 'detail-nav-title', person.name), expand, collapse, close);
+        const grabber = element('div', 'detail-grabber'); grabber.setAttribute('aria-hidden', 'true');
+        top.append(grabber);
+      }
       const avatar = element('span','profile-avatar',person.name.slice(-1)); avatar.setAttribute('aria-hidden','true');
       const identity = element('div','relationship-details__identity');
       const eyebrow = element('small','profile-eyebrow','成員詳情');
@@ -328,12 +345,17 @@
         moreSummary.appendChild(moreIcon);
         const moreBody = element('div', 'relationship-details__more-body');
         moreBody.appendChild(locate);
+        if (mobile) moreBody.appendChild(addRelative);
         more.append(moreSummary, moreBody);
-        actions.append(edit, query, addRelative, more);
+        if (mobile) actions.append(edit, query, more);
+        else actions.append(edit, query, addRelative, more);
       }
-      top.append(header, actions);
+      if (!mobile) top.append(header, actions);
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
+      if (mobile) {
+        const overview = element('div', 'detail-overview'); overview.append(header, actions); body.append(overview);
+      }
       const profile = element('div', 'relationship-details__profile');
       if (person.location) {
         const row = element('p', '', '所在地：');
@@ -382,7 +404,7 @@
         groups.forEach((group, index) => {
           const details = element('details', 'relationship-group');
           details.dataset.group = group.id;
-          details.open = saved?.has(group.id) ? saved.get(group.id) : index === 0;
+          details.open = saved?.has(group.id) ? saved.get(group.id) : index === 0 || Boolean(mobile && ['parents', 'children'].includes(group.id));
           const summary = element('summary', 'relationship-group__summary');
           summary.append(element('span', 'relationship-group__title', group.title), element('span', 'relationship-group__count', String(group.entries.length)));
           details.appendChild(summary);
@@ -448,6 +470,7 @@
       tab.addEventListener('click', () => setCollapsed(panel, false, { focus: true }));
       panel.append(content, tab);
       setCollapsed(panel, collapsed, { reveal: false });
+      layout?.afterRender();
       if (focused && !panel.hidden) {
         const target = collapsed ? tab : focused.group ?
           [...panel.querySelectorAll('details[data-group]')].find(group => group.dataset.group === focused.group)?.querySelector('summary') :
@@ -455,7 +478,7 @@
         (target || content.querySelector('.details-collapse'))?.focus({ preventScroll: true });
       }
     }
-    return { render, setCollapsed, isCollapsed: () => collapsed };
+    return { render, setCollapsed, isCollapsed: () => collapsed, leaveReading: () => layout?.leaveReading() || false };
   }
 
   return { buildGroups, siblingRole, createController };

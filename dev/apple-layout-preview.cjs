@@ -24,6 +24,18 @@ const { renderFamilyTreeHtml, resolvePublicFile, mimeTypeFor } = require('./site
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'family-apple-layout-'));
   const dataFile = path.join(directory, 'family.json');
   await fs.copyFile(path.join(__dirname, '../fixtures/family.json'), dataFile);
+  if (process.argv.includes('--member-detail-review')) {
+    // A resolved public place exercises inspector -> map without editing the fixture.
+    const data = JSON.parse(await fs.readFile(dataFile, 'utf8'));
+    const person = data.people.find(member => member.name === '陳文彬');
+    if (person) {
+      person.location = '臺南市'; person.position = '家族資料整理'; person.mapHidden = false;
+      person.locationOverride = { source:'map', location:person.location, lat:22.99, lon:120.21,
+        displayName:'臺南市（介面測試地點）', updatedAt:Date.now() };
+    }
+    data.locationLookupDeviceId = 'member-detail-review';
+    await fs.writeFile(dataFile, JSON.stringify(data));
+  }
   const server = createFamilyServer({ dataFile });
   server.listen(Number(process.env.PORT || 4180), '127.0.0.1', () => console.log(`正式介面（隔離示例資料）：http://127.0.0.1:${server.address().port}/family-tree.html`));
 })().catch(error => { console.error(error); process.exitCode = 1; });

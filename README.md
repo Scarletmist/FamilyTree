@@ -132,9 +132,10 @@ GOOGLE_OAUTH_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com npm run build
 - 開啟頁面、重新聚焦、恢復網路及頁面可見時，若目前仍持有有效 Access Token 會檢查遠端；頁面保持開啟時也會每分鐘檢查一次。
 - Access Token 會在目前瀏覽器分頁的 **sessionStorage** 中暫存到 Google 回傳的到期時間，因此同一分頁重新整理後可恢復尚未過期的 Token 並自動同步；Token 不會寫進 IndexedDB/localStorage。關閉分頁、瀏覽器清除 sessionStorage、Token 過期或 Google 回傳 401 後，仍需由使用者再次按「重新授權並同步」。純前端 Token Model 沒有 Refresh Token，無法在 Token 過期後完全無互動續期。
 - 「中斷連結」會清除記憶體與 sessionStorage 中的 Access Token、本機連結狀態並停止自動同步；程式不會呼叫 Drive 刪除 API。若要完全撤銷此網站的 Google 帳戶授權，請在 Google 帳戶的第三方應用程式存取權設定中移除。
+- 無法讀取本機同步狀態時，「雲端」視窗會提供「強制重置此裝置資料」。確認後會停止此瀏覽器各族譜分頁的同步，清除此網站的本機族譜、未同步變更、復原紀錄、備份、快取、編輯草稿及暫存授權，再重新載入；此操作無法復原。重置不會呼叫 Google Drive 的新增、修改或刪除 API，也不會清除其他裝置資料。完成後可重新連結同一帳號，下載原有雲端族譜；若其他分頁仍占用資料庫，畫面會提示先關閉分頁，待清除成功後才重新載入。
 - 目前同步單位是一整份 JSON，不是多人即時協作資料庫。若兩個裝置幾乎在同一瞬間各自完成上傳，Google Drive API 並沒有被本專案當成原子 compare-and-swap DB 使用，因此仍建議避免在兩台裝置同時編輯；版本檢查是衝突保護，而不是 Google Docs 類型的即時合併。
 
-靜態整合測試：`node tests/browser-static.cjs`（需 Node 版 Playwright，可用 `PLAYWRIGHT_MODULE` 指定位置）。測試涵蓋專案子路徑、空白起始、IndexedDB 重新載入、備註、新增修改、匯入匯出及跨分頁版本衝突。Google OAuth / Drive 真實帳號授權不會放進自動化測試，避免測試環境持有使用者憑證。
+靜態整合測試：`npm run test:storage:browser`（需 Node 版 Playwright，可用 `PLAYWRIGHT_MODULE` 指定位置）。測試涵蓋專案子路徑、空白起始、IndexedDB 重新載入、備註、新增修改、匯入匯出、跨分頁版本衝突、儲存失敗重試與裝置重置。重置測試以模擬 Drive 驗證取消、失敗、分頁占用、資料清除及重新下載，並確認沒有雲端寫入；可用 `PLAYWRIGHT_EXECUTABLE` 指定 Brave 等 Chromium 瀏覽器。Google OAuth / Drive 真實帳號授權不會放進自動化測試，避免測試環境持有使用者憑證。
 
 ## 兩人關係查詢與稱謂設定
 

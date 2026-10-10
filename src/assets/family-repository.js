@@ -14,6 +14,84 @@
   const emptySyncState = () => ({ fileId: null, remoteVersion: null, dirty: false, connected: false, lastSyncedAt: null });
   let dbPromise = null;
   let dbConnection = null;
+  const resetKey = 'family-tree:device-reset:' + storagePath;
+  let resetting = false, resetWork = null, resetId = null;
+  let resetChannel = null;
+  if (isStatic) {
+    try {
+      resetChannel = new BroadcastChannel(resetKey);
+      resetChannel.onmessage = event => receiveReset(event.data);
+    } catch {}
+    window.addEventListener('storage', event => {
+      if (event.key !== resetKey || !event.newValue) return;
+      try { receiveReset(JSON.parse(event.newValue)); } catch {}
+    });
+  }
+
+  function deviceResetVersion() {
+    try { return JSON.parse(localStorage.getItem(resetKey) || 'null')?.id || ''; }
+    catch { return ''; }
+  }
+  function clearDeviceSession() {
+    for (const key of ['family-tree-google-drive-token-v1', 'family-tree:member-form-draft:v1', 'family-tree:canvas-view:v1:' + location.pathname]) {
+      try { sessionStorage.removeItem(key); } catch {}
+    }
+  }
+  function beginReset(id) {
+    resetId = id;
+    resetting = true;
+    clearDeviceSession();
+    if (dbConnection) invalidateDb(dbConnection);
+    window.dispatchEvent(new CustomEvent('familydevicereset', { detail: { phase: 'start', id } }));
+  }
+  function receiveReset(detail) {
+    if (!detail || typeof detail.id !== 'string') return;
+    if (detail.phase === 'start' && resetId !== detail.id) beginReset(detail.id);
+    else if (['complete', 'failed'].includes(detail.phase) && resetId === detail.id) {
+      if (detail.phase === 'failed') resetting = false;
+      resetId = null;
+      window.dispatchEvent(new CustomEvent('familydevicereset', { detail }));
+    }
+  }
+  function publishReset(phase, id) {
+    const detail = { phase, id };
+    try { localStorage.setItem(resetKey, JSON.stringify(detail)); } catch {}
+    try { resetChannel?.postMessage(detail); } catch {}
+    if (phase !== 'start') receiveReset(detail);
+  }
+  async function resetDevice({ onBlocked = () => {} } = {}) {
+    if (!isStatic) throw repositoryError('只有此瀏覽器儲存模式支援重置裝置資料。');
+    if (resetWork) return resetWork;
+    if (resetting) throw repositoryError('其他分頁正在重置此裝置資料，請等待完成。');
+    const id = crypto.randomUUID();
+    beginReset(id);
+    publishReset('start', id);
+    resetWork = (async () => {
+      try {
+        // Do not read the damaged store or use an import command: remove only
+        // this site's device database, including history, backups and caches.
+        await new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase(dbName);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error || repositoryError('無法清除此裝置的族譜資料。'));
+          // A blocked delete remains pending; do not report completion early.
+          request.onblocked = () => onBlocked();
+        });
+        for (const key of [legacyKey, legacyKey + ':before-import', 'family-tree:location-settings:' + storagePath]) {
+          localStorage.removeItem(key);
+        }
+        for (const pathname of new Set([storagePath, location.pathname, storagePath + 'index.html', storagePath + 'family-tree.html'])) {
+          localStorage.removeItem('family-tree:recent-members:v1:' + pathname);
+        }
+        clearDeviceSession();
+        publishReset('complete', id);
+      } catch (error) {
+        publishReset('failed', id);
+        throw error;
+      } finally { resetWork = null; }
+    })();
+    return resetWork;
+  }
 
   function repositoryError(message, status = 400, code = 'STORE_ERROR') {
     return Object.assign(new Error(message), { status, code });
@@ -30,6 +108,7 @@
     db.close();
   }
   function openDb() {
+    if (resetting) return Promise.reject(repositoryError('此裝置資料正在重置，請等待頁面重新載入。', 409, 'DEVICE_RESETTING'));
     if (!isStatic) return Promise.reject(new Error('開發模式不使用 IndexedDB 儲存族譜。'));
     if (!('indexedDB' in window)) return Promise.reject(new Error('此瀏覽器不支援 IndexedDB。'));
     if (dbPromise) return dbPromise;
@@ -41,6 +120,7 @@
       };
       request.onsuccess = () => {
         const db = request.result;
+        if (resetting) { db.close(); reject(repositoryError('此裝置資料正在重置。', 409, 'DEVICE_RESETTING')); return; }
         dbConnection = db;
         db.onclose = () => invalidateDb(db);
         db.onversionchange = () => invalidateDb(db);
@@ -438,6 +518,9 @@
 
   window.FamilyRepository = {
     isStatic,
+    resetDevice,
+    deviceResetVersion,
+    isResetting: () => resetting,
     load,
     read: load,
     addMember,

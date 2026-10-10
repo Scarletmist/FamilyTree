@@ -423,7 +423,7 @@ dialog textarea { width:100%; box-sizing:border-box; font:inherit; padding:8px; 
 @keyframes cloud-auth-spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .cloud-auth-toast { transition:none; } .cloud-auth-toast[data-auth-state="refreshing"] .cloud-auth-toast__indicator { animation:none; border-right-color:currentColor; opacity:.45; } }
 .cloud-sync-dialog { width:min(520px,calc(100vw - 32px)); }
-.cloud-sync-panel { display:grid; gap:14px; }
+.cloud-sync-panel { display:grid; gap:14px; align-content:start; }
 .cloud-sync-state-card { border:1px solid var(--color-line); border-radius:10px; padding:12px 14px; background:#fffaf4; }
 .cloud-sync-state-card strong { display:block; margin-bottom:4px; }
 .cloud-sync-state-card p { color:var(--color-ink-soft); font-size:.875rem; }

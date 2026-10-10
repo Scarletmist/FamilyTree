@@ -10,6 +10,13 @@
   const meta = document.getElementById('cloud-sync-meta');
   const alertButton = document.getElementById('cloud-sync-alert');
   const alertText = document.getElementById('cloud-sync-alert-text');
+  const resetSection = document.getElementById('cloud-sync-reset-section');
+  const resetButton = document.getElementById('cloud-sync-reset-device');
+  const resetDialog = document.getElementById('cloud-reset-device-dialog');
+  const resetConfirm = document.getElementById('cloud-reset-device-confirm');
+  const resetCancel = document.getElementById('cloud-reset-device-cancel');
+  const resetStatus = document.getElementById('cloud-reset-device-status');
+  const resetError = document.getElementById('cloud-reset-device-error');
   const authToast = document.getElementById('cloud-auth-toast');
   const authToastText = document.getElementById('cloud-auth-toast-text');
   const conflictDialog = document.getElementById('cloud-conflict-dialog');
@@ -20,6 +27,7 @@
   let tokenExpiresAt = 0;
   let syncConnected = false;
   let syncStateUnavailable = false;
+  let deviceResetRequested = false, resetBusy = false;
   let tokenClient = null;
   let tokenClientPromise = null;
   let authInFlight = null;
@@ -57,7 +65,8 @@
         accessToken,
         tokenExpiresAt,
         scope,
-        clientId
+        clientId,
+        deviceResetVersion: repository.deviceResetVersion?.() || ''
       }));
     } catch {}
   }
@@ -68,7 +77,8 @@
       if (!raw) return false;
       const saved = JSON.parse(raw);
       const expiresAt = Number(saved?.tokenExpiresAt || 0);
-      const sameGrant = saved?.clientId === clientId && saved?.scope === scope;
+      const sameGrant = saved?.clientId === clientId && saved?.scope === scope
+        && (saved?.deviceResetVersion || '') === (repository.deviceResetVersion?.() || '');
       if (!sameGrant || !saved?.accessToken || expiresAt <= Date.now() + TOKEN_VALIDITY_MARGIN_MS) {
         clearStoredToken();
         return false;
@@ -148,13 +158,16 @@
     disconnect.disabled = true;
     action.disabled = false;
     action.textContent = '重試讀取同步狀態';
+    if (resetSection) resetSection.hidden = false;
     setUi('error', text, '請稍後重試，或重新整理頁面。' + (error?.name ? `（${error.name}）` : ''));
   }
   async function readSyncState() {
+    if (deviceResetRequested) return null;
     try {
       const state = await repository.getSyncState();
       syncStateUnavailable = false;
       disconnect.disabled = false;
+      if (resetSection) resetSection.hidden = true;
       return state;
     } catch (error) {
       showSyncStateError(error);
@@ -222,6 +235,7 @@
         scope,
         prompt: '',
         callback: result => {
+          if (deviceResetRequested) return;
           if (result.error || !result.access_token) {
             const error = new Error(result.error_description || result.error || 'Google 授權未完成。');
             completeAuthToast(false, error);
@@ -272,7 +286,7 @@
     return requestTokenFromPreparedClient({ purpose: syncConnected ? 'refresh' : 'connect' });
   }
   function prepareAuthorization() {
-    if (!clientId || !syncConnected || tokenClient) return;
+    if (deviceResetRequested || !clientId || !syncConnected || tokenClient) return;
     ensureTokenClient().catch(() => {});
   }
   function checkTokenRefreshAtStartup() {
@@ -290,7 +304,7 @@
     return true;
   }
   function opportunisticAuthorizeFromGesture() {
-    if (syncStateUnavailable || !clientId || !tokenNeedsGestureRefresh()) return;
+    if (deviceResetRequested || syncStateUnavailable || !clientId || !tokenNeedsGestureRefresh()) return;
     // requestAccessToken must be called from the user-driven event. If GIS has
     // not finished preloading yet, prepare it now and use the next normal click.
     if (!tokenClient) { prepareAuthorization(); return; }
@@ -366,6 +380,7 @@
     return syncEngine.sync({ interactive });
   }
   async function syncNow({ interactive = true } = {}) {
+    if (deviceResetRequested) return { outcome: 'cancelled' };
     if (syncInFlight) return syncInFlight;
     syncInFlight = (async () => {
       try {
@@ -397,7 +412,7 @@
     action.textContent = accessToken ? '立即同步' : state.connected ? '重新授權並同步' : '連結 Google Drive';
   }
   function scheduleAutoSync() {
-    if (!accessToken) return;
+    if (deviceResetRequested || !accessToken) return;
     clearTimeout(autoTimer);
     autoTimer = setTimeout(() => syncNow({ interactive: false }), 1800);
   }
@@ -411,6 +426,61 @@
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
   }
+
+  function stopForDeviceReset() {
+    deviceResetRequested = true;
+    accessToken = null;
+    tokenExpiresAt = 0;
+    syncConnected = false;
+    clearStoredToken();
+    clearTimeout(autoTimer);
+    autoTimer = null;
+    stopPolling();
+    hideAuthToast();
+    finishAuthorization(null, new Error('此裝置資料正在重置，已停止 Google 授權。'));
+    driveClient.cancelPending();
+    resolveConflict('cancel');
+    action.disabled = true;
+    disconnect.disabled = true;
+  }
+  window.addEventListener('familydevicereset', event => {
+    if (event.detail?.phase === 'start') {
+      stopForDeviceReset();
+      setUi('resetting', '此裝置資料正在重置…');
+    } else if (event.detail?.phase === 'complete') location.reload();
+    else if (event.detail?.phase === 'failed') {
+      setUi('error', '此裝置資料重置未完成', '可重試重置，或重新整理頁面後確認目前資料。');
+      if (resetSection) resetSection.hidden = false;
+    }
+  });
+  resetButton?.addEventListener('click', () => {
+    resetStatus.textContent = '';
+    resetError.textContent = '';
+    resetDialog.showModal();
+    resetCancel.focus();
+  });
+  resetCancel?.addEventListener('click', () => { if (!resetBusy) resetDialog.close(); });
+  resetDialog?.addEventListener('cancel', event => { if (resetBusy) event.preventDefault(); });
+  resetConfirm?.addEventListener('click', async () => {
+    if (resetBusy) return;
+    resetBusy = true;
+    resetConfirm.disabled = resetCancel.disabled = true;
+    resetStatus.textContent = '正在清除此裝置資料…';
+    resetError.textContent = '';
+    try {
+      stopForDeviceReset();
+      if (syncInFlight) await syncInFlight;
+      await repository.resetDevice({ onBlocked: () => {
+        resetStatus.textContent = '請關閉此瀏覽器中其他族譜分頁，讓重置繼續完成。';
+      } });
+    } catch (error) {
+      resetStatus.textContent = '';
+      resetError.textContent = '重置未完成：' + (error.message || '瀏覽器無法清除本機資料，請稍後重試。');
+    } finally {
+      resetBusy = false;
+      resetConfirm.disabled = resetCancel.disabled = false;
+    }
+  });
 
   button.addEventListener('click', async () => {
     await refreshUiFromState();

@@ -138,10 +138,27 @@
         <p id="cloud-sync-meta"></p>
       </div>
       <p class="cloud-sync-help">跨裝置同步的雲端資料只會儲存在您授權的 Google 帳號中；本網站不會在伺服端留存或集中保存您的族譜資料。使用同一 Google 帳號即可在不同裝置同步同一份族譜。</p>
+      <div id="cloud-sync-reset-section" hidden>
+        <p>若持續無法讀取同步狀態，可清除此裝置在本網站儲存的資料，再重新連結 Google Drive。</p>
+        <button type="button" id="cloud-sync-reset-device" class="destructive-button">強制重置此裝置資料</button>
+      </div>
     </div>
     <div class="form-actions">
       <button type="button" id="cloud-sync-disconnect" class="plain-button" hidden>中斷連結</button>
       <button type="button" id="cloud-sync-action" class="primary-button">連結 Google Drive</button>
+    </div>
+  </dialog>
+  <dialog id="cloud-reset-device-dialog" class="cloud-sync-dialog" aria-labelledby="cloud-reset-device-title" aria-describedby="cloud-reset-device-description">
+    <div class="dialog-header"><h2 id="cloud-reset-device-title">重置此裝置資料？</h2></div>
+    <div class="dialog-scroll">
+      <p id="cloud-reset-device-description">這會清除此瀏覽器在本網站儲存的族譜、未同步變更、復原紀錄、備份、地點快取與編輯草稿，並中斷此裝置的 Google Drive 連線。此操作無法復原。</p>
+      <p>Google Drive 的雲端族譜及其他裝置資料不會被修改。重置完成後，可重新連結同一 Google 帳號，下載雲端族譜。</p>
+      <p id="cloud-reset-device-status" role="status"></p>
+      <p id="cloud-reset-device-error" class="form-error" role="alert"></p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="cloud-reset-device-cancel" class="plain-button">取消</button>
+      <button type="button" id="cloud-reset-device-confirm" class="destructive-button">確認重置此裝置</button>
     </div>
   </dialog>
   <dialog id="cloud-conflict-dialog" aria-labelledby="cloud-conflict-title">

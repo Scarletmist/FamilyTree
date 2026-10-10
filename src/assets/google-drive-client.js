@@ -9,13 +9,26 @@
   const UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3/files';
 
   function create({ getAccessToken, onUnauthorized, validateData, fileName = 'family-tree.json' }) {
+    const pendingRequests = new Set();
+    let requestEpoch = 0;
+    function cancelPending() {
+      requestEpoch++;
+      pendingRequests.forEach(controller => controller.abort());
+      pendingRequests.clear();
+    }
     async function driveFetch(url, options = {}) {
       const token = getAccessToken?.();
       if (!token) throw new Error('Google 授權已過期；請在下一次操作時允許恢復同步，或開啟雲端面板重新授權。');
-      const response = await fetch(url, {
-        ...options,
-        headers: { ...(options.headers || {}), Authorization: 'Bearer ' + token }
-      });
+      const controller = new AbortController(), epoch = requestEpoch;
+      pendingRequests.add(controller);
+      let response;
+      try {
+        response = await fetch(url, {
+          ...options, signal: controller.signal,
+          headers: { ...(options.headers || {}), Authorization: 'Bearer ' + token }
+        });
+        if (epoch !== requestEpoch) throw new DOMException('同步已停止。', 'AbortError');
+      } finally { pendingRequests.delete(controller); }
       if (response.status === 401) {
         await onUnauthorized?.();
         throw new Error('Google 授權已過期；下次操作時會自動嘗試恢復同步。');
@@ -81,7 +94,7 @@
       return data;
     }
 
-    return { find, create: createRemote, update, download };
+    return { find, create: createRemote, update, download, cancelPending };
   }
 
   return { create };

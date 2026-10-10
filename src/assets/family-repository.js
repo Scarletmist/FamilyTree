@@ -13,6 +13,7 @@
   const defaultData = () => ({ schemaVersion: 2, familyName: '我的家族', people: [] });
   const emptySyncState = () => ({ fileId: null, remoteVersion: null, dirty: false, connected: false, lastSyncedAt: null });
   let dbPromise = null;
+  let dbConnection = null;
 
   function repositoryError(message, status = 400, code = 'STORE_ERROR') {
     return Object.assign(new Error(message), { status, code });
@@ -21,6 +22,12 @@
     if (!payload || typeof payload !== 'object' || typeof payload.version !== 'string') throw new Error('瀏覽器族譜資料格式不正確。');
     FamilyModel.build(payload.data);
     return payload;
+  }
+  function invalidateDb(db) {
+    if (dbConnection !== db) return;
+    dbConnection = null;
+    dbPromise = null;
+    db.close();
   }
   function openDb() {
     if (!isStatic) return Promise.reject(new Error('開發模式不使用 IndexedDB 儲存族譜。'));
@@ -32,20 +39,38 @@
         const db = request.result;
         if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName, { keyPath: 'key' });
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const db = request.result;
+        dbConnection = db;
+        db.onclose = () => invalidateDb(db);
+        db.onversionchange = () => invalidateDb(db);
+        resolve(db);
+      };
       request.onerror = () => reject(request.error || new Error('無法開啟 IndexedDB。'));
       request.onblocked = () => reject(new Error('IndexedDB 更新被其他分頁阻擋，請關閉其他族譜分頁後重試。'));
     }).catch(error => { dbPromise = null; throw error; });
     return dbPromise;
   }
-  async function recordGet(key) {
-    const db = await openDb();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(storeName, 'readonly');
-      const request = tx.objectStore(storeName).get(key);
-      request.onsuccess = () => resolve(request.result?.value ?? null);
-      request.onerror = () => reject(request.error || new Error('無法讀取 IndexedDB。'));
-    });
+  async function recordGet(key, retry = true) {
+    let db;
+    try {
+      db = await openDb();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const request = tx.objectStore(storeName).get(key);
+        let value = null;
+        request.onsuccess = () => { value = request.result?.value ?? null; };
+        request.onerror = () => reject(request.error || new Error('無法讀取 IndexedDB。'));
+        tx.oncomplete = () => resolve(value);
+        tx.onerror = () => reject(tx.error || new Error('無法讀取 IndexedDB。'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB 讀取已取消。'));
+      });
+    } catch (error) {
+      if (!retry || !['UnknownError', 'InvalidStateError'].includes(error?.name)) throw error;
+      // Retry only reads, reopening the existing database without replacing data.
+      if (db) invalidateDb(db);
+      return recordGet(key, false);
+    }
   }
   async function recordPutMany(entries) {
     const db = await openDb();

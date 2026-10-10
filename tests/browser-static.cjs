@@ -26,6 +26,7 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
   try {
     browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' });
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
+    context.setDefaultTimeout(10_000);
     const page = await context.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     const url = 'http://127.0.0.1:' + server.address().port + '/repo/';
@@ -49,7 +50,8 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.match(await page.inputValue('#member-notes'), /第一行/);
     await page.fill('#member-notes', '更新備註'); await page.click('#save-member');
     await page.waitForFunction(() => FamilyApp.graph().people[0].notes === '更新備註');
-    await page.click('#edit-family-name'); await page.fill('#family-name-input', '靜態族譜'); await page.click('#save-family-name');
+    await page.click('#desktop-more-open'); await page.click('[data-action="family-name"]');
+    await page.fill('#family-name-input', '靜態族譜'); await page.click('#save-family-name');
     await page.waitForFunction(() => FamilyApp.snapshot().data.familyName === '靜態族譜');
     // A cloud sync whose JSON is semantically unchanged must not invalidate an open form.
     await page.click('#add-member'); await page.fill('#member-name', '同步期間新增');
@@ -100,7 +102,11 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.match(await page.locator('.relation-preview').last().textContent(), /F是S的師妹/);
     await page.click('#cancel-member');
     await page.click('#desktop-more-open');
-    const downloadPromise = page.waitForEvent('download'); await page.click('[data-action="export"]');
+    const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(async error => {
+      error.message += '\nExport status: ' + await page.locator('#save-status').textContent();
+      throw error;
+    });
+    await page.click('[data-action="export"]');
     const exported = JSON.parse(await fs.readFile(await (await downloadPromise).path(), 'utf8'));
     assert.deepEqual(exported, fixture);
     // A stale tab must not overwrite another tab's persisted changes.
@@ -137,6 +143,7 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     await relation('A', '子女'); await save();
     await page.click('#add-member'); await page.fill('#member-name', 'D'); await choose('#member-gender', '男');
     await relation('B', '子女'); await relation('C', '手足'); await save();
+    await page.click('#mobile-search-open');
     await choose('#relationship-a', 'A'); await choose('#relationship-b', 'B');
     await page.click('#relationship-search [type=submit]');
     assert.match(await page.locator('#relationship-summary h2').textContent(), /A 為 B 的堂兄/);
@@ -145,7 +152,7 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.equal(savedCousin.seniority, 'older');
     const scopeTrigger = page.locator('.family-scope-select .select-trigger');
     assert.equal(await scopeTrigger.isDisabled(), true, 'Query mode disables the shared scope trigger');
-    await page.click('#relationship-reset');
+    await page.click('.relationship-result-end');
     const beforeScope = await page.evaluate(() => JSON.stringify(FamilyApp.snapshot().data));
     const scopeChoice = await page.locator('#family-filter').evaluate(select => {
       const option = [...select.options].find(option => option.value);

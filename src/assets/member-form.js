@@ -781,13 +781,21 @@
     selectTreeMember(null);
     showStatus('已從 Google Drive 載入較新的族譜資料。', 'info');
   });
-  load().catch(e => {
-    const cached = FamilyRepository.isStatic ? null : backup.read();
-    if (cached) { accept(cached, true); return; }
-    const canvas = document.getElementById('tree-canvas');
-    canvas.replaceChildren();
-    const message = document.createElement('p'); message.className = 'tree__error';
-    message.textContent = location.protocol === 'file:' ? '請先執行 node server.cjs，再開啟 http://127.0.0.1:4173，才能讀取與儲存族譜。' : e.message;
-    canvas.appendChild(message);
-  });
+  async function loadInitial() {
+    try {
+      await load();
+      showStatus('');
+    } catch (e) {
+      const cached = FamilyRepository.isStatic ? null : backup.read();
+      if (cached) { accept(cached, true); return; }
+      const canvas = document.getElementById('tree-canvas');
+      canvas.replaceChildren();
+      const message = document.createElement('p'); message.className = 'tree__error';
+      message.textContent = location.protocol === 'file:' ? '請先執行 node dev/server.cjs，再開啟 http://127.0.0.1:4173，才能讀取與儲存族譜。' : FamilyRepository.isStatic ? '無法讀取此裝置的族譜資料，請稍後重試。' : e.message;
+      canvas.appendChild(message);
+      document.getElementById('local-save-state').textContent = '族譜讀取失敗';
+      showStatus(message.textContent, 'error', 0, { label: '重試載入', onClick: loadInitial });
+    }
+  }
+  loadInitial();
 })();

@@ -19,6 +19,7 @@
   let accessToken = null;
   let tokenExpiresAt = 0;
   let syncConnected = false;
+  let syncStateUnavailable = false;
   let tokenClient = null;
   let tokenClientPromise = null;
   let authInFlight = null;
@@ -142,21 +143,41 @@
     try { return new Intl.DateTimeFormat('zh-TW', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value)); }
     catch { return new Date(value).toLocaleString(); }
   }
+  function showSyncStateError(error, text = '無法讀取此瀏覽器的雲端同步狀態') {
+    syncStateUnavailable = true;
+    disconnect.disabled = true;
+    action.disabled = false;
+    action.textContent = '重試讀取同步狀態';
+    setUi('error', text, '請稍後重試，或重新整理頁面。' + (error?.name ? `（${error.name}）` : ''));
+  }
+  async function readSyncState() {
+    try {
+      const state = await repository.getSyncState();
+      syncStateUnavailable = false;
+      disconnect.disabled = false;
+      return state;
+    } catch (error) {
+      showSyncStateError(error);
+      return null;
+    }
+  }
   async function refreshUiFromState() {
-    const state = await repository.getSyncState();
+    const state = await readSyncState();
+    if (!state) return false;
     syncConnected = Boolean(state.connected);
     disconnect.hidden = !state.connected;
     if (!clientId) {
       action.disabled = true;
       action.textContent = '目前未啟用雲端同步';
       setUi('unconfigured', '這個網站目前未啟用雲端同步', '可繼續在此裝置使用，並匯出族譜備份。');
-      return;
+      return true;
     }
     action.disabled = false;
     action.textContent = accessToken ? '立即同步' : state.connected ? '重新授權並同步' : '連結 Google Drive';
     if (accessToken && Date.now() < tokenExpiresAt && !state.dirty) setUi('synced', 'Google Drive 已同步', state.lastSyncedAt ? '上次同步：' + formatTime(state.lastSyncedAt) : '已連結 Google Drive appDataFolder。');
     else if (state.connected) setUi(state.dirty ? 'pending' : 'connected', state.dirty ? '此裝置有尚未同步的變更；下次操作時會嘗試恢復同步' : 'Google Drive 已連結；下次操作時會自動嘗試恢復同步', state.lastSyncedAt ? '上次同步：' + formatTime(state.lastSyncedAt) : '族譜仍安全保存在 IndexedDB。');
     else setUi('disconnected', '連結 Google Drive 以跨裝置同步', '族譜已儲存在此裝置。');
+    return true;
   }
   function loadGoogleIdentity() {
     if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -211,7 +232,7 @@
           tokenExpiresAt = Date.now() + Math.max(60, Number(result.expires_in) || 3600) * 1000;
           syncConnected = true;
           persistToken();
-          repository.setSyncState({ connected: true }).catch(() => {});
+          repository.setSyncState({ connected: true }).catch(error => showSyncStateError(error, '無法儲存此瀏覽器的雲端連線狀態'));
           startPolling();
           completeAuthToast(true);
           finishAuthorization(accessToken);
@@ -269,7 +290,7 @@
     return true;
   }
   function opportunisticAuthorizeFromGesture() {
-    if (!clientId || !tokenNeedsGestureRefresh()) return;
+    if (syncStateUnavailable || !clientId || !tokenNeedsGestureRefresh()) return;
     // requestAccessToken must be called from the user-driven event. If GIS has
     // not finished preloading yet, prepare it now and use the next normal click.
     if (!tokenClient) { prepareAuthorization(); return; }
@@ -355,9 +376,8 @@
         }
         return result;
       } catch (error) {
-        const state = await repository.getSyncState().catch(() => ({ dirty: true }));
-        setUi(state.dirty ? 'pending' : 'error', error.message || 'Google Drive 同步失敗。', '本機 IndexedDB 資料不受影響。');
-        if (interactive && message) message.textContent = error.message || 'Google Drive 同步失敗。';
+        const state = await readSyncState();
+        if (state) setUi(state.dirty ? 'pending' : 'error', error.message || 'Google Drive 同步失敗。', '本次同步未完成，請稍後重試。');
         return { outcome: 'error', error };
       } finally {
         syncInFlight = null;
@@ -367,7 +387,8 @@
     return syncInFlight;
   }
   async function refreshActionOnly() {
-    const state = await repository.getSyncState().catch(() => ({ connected: false }));
+    const state = await readSyncState();
+    if (!state) return;
     syncConnected = Boolean(state.connected);
     disconnect.hidden = !state.connected;
     if (syncConnected) prepareAuthorization();
@@ -400,6 +421,7 @@
   document.getElementById('close-cloud-sync-dialog')?.addEventListener('click', () => dialog.close());
   dialog.addEventListener('cancel', () => {});
   action.addEventListener('click', async () => {
+    if (syncStateUnavailable) { await refreshUiFromState(); return; }
     await syncNow({ interactive: true });
   });
   disconnect.addEventListener('click', async () => {
@@ -409,9 +431,13 @@
     clearStoredToken();
     stopPolling();
     hideAuthToast();
-    await repository.setSyncState({ connected: false });
-    setUi('disconnected', '已停止此裝置的 Google Drive 同步', '本程式不會刪除 Google Drive 上既有的 appDataFolder 資料；若要撤銷帳號授權，請至 Google 帳戶的第三方應用程式設定。');
-    await refreshActionOnly();
+    try {
+      await repository.setSyncState({ connected: false });
+      setUi('disconnected', '已停止此裝置的 Google Drive 同步', '本程式不會刪除 Google Drive 上既有的 appDataFolder 資料；若要撤銷帳號授權，請至 Google 帳戶的第三方應用程式設定。');
+      await refreshActionOnly();
+    } catch (error) {
+      showSyncStateError(error, '無法儲存此瀏覽器的中斷連結狀態');
+    }
   });
 
   window.addEventListener('familyrepositorychange', event => {
@@ -435,7 +461,7 @@
   (async () => {
     const restoredSessionToken = restoreStoredToken();
     try {
-      await refreshUiFromState();
+      if (!await refreshUiFromState()) return;
       if (syncConnected) {
         prepareAuthorization();
         checkTokenRefreshAtStartup();

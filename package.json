@@ -7,6 +7,7 @@
     "test:relationships:browser": "node tests/browser-relationship-policy.cjs",
     "test:motion:browser": "node tests/browser-motion.cjs",
     "test:canvas:browser": "node tests/browser-canvas-motion.cjs",
+    "test:storage:browser": "node tests/browser-static.cjs && node tests/browser-static-storage-errors.cjs",
     "test:browser": "python tests/family-ui.py && python tests/ux-form-query.py && python tests/ux-canvas-dismiss.py && python tests/ux-member-list-toolbar.py && python tests/ux-compact-history-toast-draft.py && python tests/ux-peek-back-filter-empty.py && python tests/ux-recent-undo-viewstate.py && python tests/ux-unlinked-query-filter.py && python tests/ux-mobile-viewport-shell.py && python tests/ux-mobile-gesture-policy.py && python tests/ux-p0-mobile.py && python tests/ux-p1.py && python tests/ux-p2.py && python tests/ux-p2-mobile-regressions.py && python tests/ux-semantic-zoom.py && python tests/ux-google-auth-opportunistic.py",
     "build": "node dev/build.cjs",
     "test:locations:browser": "node tests/browser-locations.cjs && node tests/browser-location-corrections.cjs && node tests/browser-map-workspace.cjs"

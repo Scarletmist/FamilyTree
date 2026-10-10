@@ -23,7 +23,7 @@ export function createTreeLayout({
     }));
   const byId = new Map(people.map(person => [person.id, person]));
 
-  const unions = (graph.unions || []).filter(union => {
+  const availableUnions = (graph.unions || []).filter(union => {
     if (focus && union.id !== focus.id) return false;
     const valid = Array.isArray(union.partners)
       && union.partners.length >= 1
@@ -33,17 +33,23 @@ export function createTreeLayout({
     if (!valid) console.warn('略過無效婚姻', union.id);
     return valid;
   });
-  const unionById = new Map(unions.map(union => [union.id, union]));
+  const availableUnionIds = new Set(availableUnions.map(union => union.id));
 
   const descents = (graph.descents || []).filter(descent => {
     if (descent.kind === '親生'
       && descent.generations === 2
       && intermediatePlans.some(plan => plan.near === descent.child && plan.edgeKey.startsWith('親生祖孫|'))) return false;
     if (focus && descent.union !== focus.id) return false;
-    const valid = byId.has(descent.child) && unionById.has(descent.union);
+    const valid = byId.has(descent.child) && availableUnionIds.has(descent.union);
     if (!valid) console.warn('略過無效親子關係', descent);
     return valid;
   });
+
+  // Intermediate connectors replace some grandparent descents. Their unused
+  // family origins must not leave stubs or reserve ports and routing lanes.
+  const descentUnionIds = new Set(descents.map(descent => descent.union));
+  const unions = availableUnions.filter(union => union.married || descentUnionIds.has(union.id));
+  const unionById = new Map(unions.map(union => [union.id, union]));
 
   const childrenOf = union => descents
     .filter(descent => descent.union === union.id)

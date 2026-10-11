@@ -1,9 +1,10 @@
 /* Shared by the browser and local server. JSON member relationships are the only source of truth. */
 (function (root, factory) {
-  const model = factory(typeof module === 'object' && module.exports ? require('./family-location.js') : root.FamilyLocation);
+  const model = factory(typeof module === 'object' && module.exports ? require('./family-location.js') : root.FamilyLocation,
+    typeof module === 'object' && module.exports ? require('./family-inference.js') : root.FamilyInference);
   if (typeof module === 'object' && module.exports) module.exports = model;
   else root.FamilyModel = model;
-})(globalThis, function (Location) {
+})(globalThis, function (Location, Inference) {
   'use strict';
   const DEFAULT_FAMILY_NAME = '陳氏家族';
   function normalizeFamilyName(value) {
@@ -120,6 +121,7 @@
     const child = id => ({ type: 'child', personId: id, kind: '親生' });
     const plans = [];
     for (const bond of graph.bonds) {
+      if (bond.inferred) continue;
       const [a, b] = bond.members, edgeKey = intermediateKey(bond.kind, bond.members);
       if (['堂親', '表親'].includes(bond.kind)) {
         const eligible = id => parents.get(id).filter(p => bond.kind !== '堂親' || byId.get(p).gender !== 'F');
@@ -316,8 +318,11 @@
     for (const [a, b] of siblings.values()) {
       if (!hasRankGroup(data, a, 'sibling') && !hasRankGroup(data, b, 'sibling') && knownOrder(byId.get(a)) && knownOrder(byId.get(b)) && compareOrder(byId.get(a), byId.get(b)) === 0) fail('手足次序重複，請填入其他數字或留空。');
     }
-    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents,
-      bonds: [...cousins.values()].concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
+    const inferredRelations = Inference.derive(data, (base, target) => peerPresentation(data, byId.get(target), byId.get(base), 'sibling').order);
+    const inferredCousins = inferredRelations.filter(r => isCousin(r.type) && !r.recorded && r.from < r.personId)
+      .map(r => ({ members: [r.from, r.personId], kind: r.type === 'tangCousin' ? '堂親' : '表親', inferred: true }));
+    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents, inferredRelations,
+      bonds: [...cousins.values()].concat(inferredCousins).concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
   // A shared stroke asserts a common source, so require evidence, not merely
@@ -581,5 +586,10 @@
     const next = { ...data, rankGroups: body.rankGroups };
     build(next); return next;
   }
-  return { dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
+  function completeKinship(data) {
+    const graph = build(data);
+    return Inference.normalize(data, graph.inferredRelations);
+  }
+  const inferredRole = (relation, target) => Inference.role(relation, target);
+  return { completeKinship, inferredRole, dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
 });

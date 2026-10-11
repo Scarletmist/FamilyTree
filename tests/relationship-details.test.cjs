@@ -11,8 +11,8 @@ const entry = (id, type, target) => group(id, type)?.entries.find(e => e.personI
 test('groups every relation type without changing the underlying graph', () => {
   const before = JSON.stringify(demo);
   const groups = Details.buildGroups(graph, 'p11');
-  assert.deepEqual(groups.map(g => g.id), ['parents', 'spouses', 'children', 'siblings', 'students']);
-  assert.deepEqual(groups.map(g => g.entries.length), [2, 1, 6, 3, 1]);
+  assert.deepEqual(groups.map(g => g.id), ['parents', 'grandparents', 'spouses', 'children', 'siblings', 'cousins', 'unclesAunts', 'students']);
+  assert.deepEqual(groups.map(g => g.entries.length), [2, 2, 1, 6, 3, 1, 2, 1]);
   assert.equal(entry('p17', 'teachers', 'p11').name, '陳建國');
   assert.equal(entry('p11', 'spouses', 'p15').name, '吳雅婷');
   assert.equal(entry('p11', 'children', 'p17').badges.includes('親生'), true);
@@ -139,7 +139,7 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     assert.match(query.attributes['aria-label'], /查詢其他成員與陳建國的關係/);
     query.click(); assert.equal(queried, 'p11');
     let groups = panel.querySelectorAll('details[data-group]');
-    assert.deepEqual(groups.map(d => d.dataset.group), ['parents', 'spouses', 'children', 'siblings', 'students', 'evidence']);
+    assert.deepEqual(groups.map(d => d.dataset.group), ['parents', 'grandparents', 'spouses', 'children', 'siblings', 'cousins', 'unclesAunts', 'students', 'evidence']);
     assert.equal(groups[0].open, true);
     assert(groups.slice(1).every(d => !d.open));
     groups.find(d => d.dataset.group === 'siblings').open = true;

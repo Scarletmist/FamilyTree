@@ -208,7 +208,7 @@
     paths.forEach(p => segments(p.points).forEach(s => {
       const key = `${s.axis}:${s.fixed}`;
       if (!lines.has(key)) lines.set(key, []);
-      lines.get(key).push({ ...s, people: p.people });
+      lines.get(key).push({ ...s, people: p.people, inferred: p.inferred });
     }));
     const result = [];
     for (const entries of lines.values()) {
@@ -219,7 +219,11 @@
         if (!covering.length) continue;
         const s = covering[0];
         const point = v => s.axis === 'h' ? [v, s.fixed] : [s.fixed, v];
-        result.push({ points: [point(lo), point(hi)], people: [...new Set(covering.flatMap(s => s.people))] });
+        const interval = { points: [point(lo), point(hi)], people: [...new Set(covering.flatMap(s => s.people))] };
+        // A shared interval still represents a manual relationship if any of
+        // its sources is manual. Only purely inferred strokes may be hidden.
+        if (covering.some(s => s.inferred !== undefined)) interval.inferred = covering.every(s => s.inferred === true);
+        result.push(interval);
       }
     }
     return result;

@@ -11,6 +11,7 @@ const parent = personId => ({ type: 'parent', personId, kind: '親生' });
 const child = personId => ({ type: 'child', personId, kind: '親生' });
 const initial = { schemaVersion: 2, people: [person('G'), person('P', [parent('G')]), person('C', [parent('P')]),
   person('A', [{ type: 'fellowDisciple', personId: 'C' }]), person('B', [parent('A')]), person('X'), person('Y', [parent('X')])] };
+const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelationships, ...person }) => person) });
 
 (async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'family-peer-generations-'));
@@ -41,7 +42,7 @@ const initial = { schemaVersion: 2, people: [person('G'), person('P', [parent('G
       }
       await page.goto(base);
       await checkGenerations({ G: 1, P: 2, C: 3, A: 3, B: 4, X: 1, Y: 2 });
-      assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), initial);
+      assert.deepEqual(sourceData(await page.evaluate(() => FamilyApp.snapshot().data)), initial);
       const peerRows = await page.locator('.person[data-person-id="A"],.person[data-person-id="C"]').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
       assert(Math.abs(peerRows[0] - peerRows[1]) < 1, 'fellow disciples share the rendered row');
       if (process.env.PEER_GENERATION_SCREENSHOTS) await page.locator('#tree-canvas').screenshot({ path: path.join(process.env.PEER_GENERATION_SCREENSHOTS, `peer-generations-${mode}-${width}.png`) });
@@ -58,7 +59,7 @@ const initial = { schemaVersion: 2, people: [person('G'), person('P', [parent('G
       await checkGenerations({ [fatherId]: 1, A: 2, B: 3, C: 3 });
       await page.evaluate(() => FamilyApp.undo(FamilyApp.snapshot().version));
       await checkGenerations({ C: 3, A: 3, B: 4 });
-      assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), initial);
+      assert.deepEqual(sourceData(await page.evaluate(() => FamilyApp.snapshot().data)), initial);
 
       // Until A has ancestors, it keeps following C when C's ancestry expands.
       await page.evaluate(member => FamilyApp.addMember({ member, requestId: crypto.randomUUID(), version: FamilyApp.snapshot().version }), person('E', [child('G')]));

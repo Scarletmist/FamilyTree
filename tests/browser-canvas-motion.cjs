@@ -91,6 +91,14 @@ const { createFamilyServer } = require('../dev/server.cjs');
         if (!await page.locator('.details-locate').isVisible()) await activate(more);
         await activate(page.locator('.details-locate')); await settle();
         await visibleMember(relativeId);
+        // Escape dismisses an open action menu before closing the inspector.
+        // Start the dock-close checks with that menu already dismissed.
+        if (await more.evaluate(node => node.closest('details').open)) await activate(more);
+        // Desktop keeps the member browser open beside the inspector. Dismiss
+        // it so Escape tests the inspector rather than another open dialog.
+        if (await page.locator('#member-list-dialog').evaluate(dialog => dialog.open)) {
+          await activate(page.locator('#close-member-list')); await settle();
+        }
         if (!touch) {
           for (const closeAction of ['button','escape','background','collapsed']) {
             await page.evaluate(id => {
@@ -113,7 +121,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
             await settle();
             const afterClose = await snapshot();
             if (closeAction === 'collapsed') assert.equal(afterClose.width, beforeClose.width);
-            else assert(afterClose.width>beforeClose.width, 'Closing the dock should reveal more canvas');
+            else assert(afterClose.width>beforeClose.width, JSON.stringify({reason:'Closing the dock should reveal more canvas',width,height,closeAction,beforeClose,afterClose}));
             for (const key of ['x','y','left','top']) assert(Math.abs(afterClose[key]-beforeClose[key])<2,
               JSON.stringify({closeAction,key,beforeClose,afterClose}));
             assert(await page.evaluate(()=>savedSvg===document.getElementById('tree-connectors')));

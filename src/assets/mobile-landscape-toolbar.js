@@ -40,7 +40,7 @@
     dialog.setAttribute('aria-labelledby','landscape-more-title');
     dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;
     const sections = [
-      ['檢視',[['relationship','查關係','query'],['map','成員地圖','map'],['canvas-names','隱藏姓名','eye'],['legend','關係圖例','legend']]],
+      ['檢視',[['relationship','查關係','query'],['map','成員地圖','map'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','query'],['legend','關係圖例','legend']]],
       ['成員管理',[['groups','排行群組','list'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','list'],['undo','復原','undo']]],
       ['備份與同步',[['cloud','Google Drive 同步','cloud'],['import','匯入族譜','import'],['export','匯出族譜','export']]],
       ['族譜設定',[['family-name','編輯家族名稱','edit']]]
@@ -49,9 +49,15 @@
       const section = document.createElement('section'); section.className = 'workspace-menu-group';
       const heading = document.createElement('h3'); heading.textContent = title; section.append(heading);
       for (const [name,label,icon] of items) {
-        const button = document.createElement('button'); button.type = 'button'; button.className = 'landscape-more-action'; button.dataset.action = name;
+        const button = name === 'inferred-lines' ? get('toggle-inferred-lines') : document.createElement('button');
+        button.type = 'button'; button.className = 'landscape-more-action'; button.dataset.action = name; button.hidden = false;
         button.innerHTML = svg(icons[icon]); const text = document.createElement('span'); text.dataset.label = ''; text.textContent = label;
+        if (name === 'inferred-lines' && button.getAttribute('aria-pressed') === 'true') text.textContent = '隱藏自動辨別線段';
         button.append(text); section.append(button);
+        if (name === 'inferred-lines') {
+          const hint = document.createElement('p'); hint.id = 'inferred-lines-hint'; hint.className = 'workspace-menu-hint';
+          hint.textContent = '只影響全覽；選取成員時會顯示全部自動線段。'; section.append(hint);
+        }
       }
       dialog.querySelector('.landscape-more-sheet__body').append(section);
     }

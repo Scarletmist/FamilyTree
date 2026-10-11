@@ -43,7 +43,8 @@
     const person = memberInput(command.member, 'p-' + command.requestId);
     const existing = data.people.find(item => item.id === person.id);
     if (existing) {
-      if (JSON.stringify(existing) === JSON.stringify(person)) {
+      const original = { ...existing }; delete original.inferredRelationships;
+      if (JSON.stringify(original) === JSON.stringify(person)) {
         return { data, unchanged: true, memberId: person.id, label: `新增成員「${person.name}」` };
       }
       throw commandError('此筆新增已儲存，請重新開啟新增表單。', 409, 'ALREADY_SAVED');
@@ -99,9 +100,10 @@
     return { data: command.data, label: '匯入族譜', backupBeforeImport: true };
   }
 
-  function apply(data, command) {
+  function applyRaw(data, command) {
     if (!data || !command || typeof command.type !== 'string') throw commandError('不支援的族譜操作。', 400, 'INVALID_COMMAND');
     switch (command.type) {
+      case 'refreshKinship': return { data, unchanged: true, metadataOnly: true, label: '補齊已知親屬關係' };
       case 'claimLocationLookup': {
         if (!/^[a-zA-Z0-9_-]{1,80}$/.test(command.deviceId || '')) throw commandError('背景定位裝置格式不正確。');
         if (data.locationLookupDeviceId === command.deviceId || (data.locationLookupDeviceId && !command.takeOver)) return { data, unchanged: true, metadataOnly: true };
@@ -172,5 +174,10 @@
     }
   }
 
+  function apply(data, command) {
+    const change = applyRaw(data, command);
+    const completed = Model.completeKinship(change.data);
+    return { ...change, data: completed, unchanged: Boolean(change.unchanged && completed === change.data) };
+  }
   return { apply, memberInput, commandError };
 });

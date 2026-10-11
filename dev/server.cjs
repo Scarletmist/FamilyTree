@@ -30,6 +30,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     } finally { await fs.rm(temporary, { force: true }); }
   }
   async function persist(data) {
+    data = Model.completeKinship(data);
     const text = JSON.stringify(data, null, 2) + '\n';
     await atomicWrite(dataFile, text);
     return { data, version: hash(text) };
@@ -39,6 +40,14 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     history.unshift({ data: current.data, version: current.version, savedAt: Date.now(), label });
     history = history.slice(0, HISTORY_LIMIT);
     return { ...saved, undoLabel: label };
+  }
+  async function readForClient() {
+    const operation = writes.then(async () => {
+      const current = await read(), completed = Model.completeKinship(current.data);
+      return completed === current.data ? current : { ...await persist(completed), undoLabel: current.undoLabel };
+    });
+    writes = operation.catch(() => {});
+    return operation;
   }
   function applyCommand(data, command) {
     try { return { change: Commands.apply(data, command) }; }
@@ -54,7 +63,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     catch (error) { return [error.status || 400, { error: error.message }]; }
     // A retry after a lost response returns the original save before stale-version rejection.
     const existing = current.data.people.find(person => person.id === candidate.id);
-    if (existing) return JSON.stringify(existing) === JSON.stringify(candidate)
+    const original = existing && { ...existing }; if (original) delete original.inferredRelationships;
+    if (existing) return JSON.stringify(original) === JSON.stringify(candidate)
       ? [200, { ...current, memberId: candidate.id }]
       : [409, { error: '此筆新增已儲存，請重新開啟新增表單。' }];
     if (body.version !== current.version) return [409, { error: '資料已被其他操作更新，請按「更新資料」後檢查表單再儲存。' }];
@@ -117,12 +127,12 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
       const url = new URL(req.url, `http://${req.headers.host}`);
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-      if (req.method === 'GET' && url.pathname === '/api/family') return reply(res, 200, await read());
+      if (req.method === 'GET' && url.pathname === '/api/family') return reply(res, 200, await readForClient());
       if (req.method === 'GET' && url.pathname === '/index.html') {
         res.writeHead(301, { Location: '/' }); return res.end();
       }
       if (req.method === 'GET' && url.pathname === '/api/family/export') {
-        const { data } = await read();
+        const { data } = await readForClient();
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="family.json"', 'Cache-Control': 'no-store' });
         return res.end(JSON.stringify(data, null, 2) + '\n');
       }

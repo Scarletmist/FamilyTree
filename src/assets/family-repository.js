@@ -187,15 +187,23 @@
     } catch {}
     return legacy;
   }
-  async function readStatic() {
+  async function readStatic(attempt = 0) {
     const migrated = await migrateLegacy();
     const saved = migrated || await recordGet('current');
     if (!saved) return { data: defaultData(), version: 'empty' };
+    const completed = FamilyModel.completeKinship(saved.data);
+    if (completed !== saved.data) {
+      try { return await executeStatic({ type: 'refreshKinship', expectedVersion: saved.version }); }
+      catch (error) {
+        if (error.status === 409 && attempt < 2) return readStatic(attempt + 1);
+        throw error;
+      }
+    }
     const history = await recordGet('history');
     return { ...assertPayload(saved), undoLabel: history?.[0]?.label || null };
   }
-  function emitChange(payload, source) {
-    window.dispatchEvent(new CustomEvent('familyrepositorychange', { detail: { payload, source } }));
+  function emitChange(payload, source, detail = {}) {
+    window.dispatchEvent(new CustomEvent('familyrepositorychange', { detail: { payload, source, ...detail } }));
   }
 
   async function executeStatic(command) {
@@ -224,6 +232,17 @@
           const history = Array.isArray(historyRequest.result?.value) ? historyRequest.result.value : [];
           const sync = { ...emptySyncState(), ...(syncRequest.result?.value || {}) };
           if (command.expectedVersion && current.version !== command.expectedVersion) {
+            // A lost response may be retried after its successful save. Computed
+            // kinship metadata does not make that same member a different input.
+            if (command.type === 'addMember') {
+              try {
+                const retry = FamilyCommands.apply(current.data, command);
+                if (retry.unchanged) {
+                  result = { ...current, memberId: retry.memberId, undoLabel: history[0]?.label || null };
+                  return;
+                }
+              } catch {}
+            }
             fail(repositoryError('資料已在其他分頁或雲端更新，請更新資料後再儲存。', 409, 'STALE_VERSION'));
             return;
           }
@@ -313,13 +332,14 @@
             return;
           }
           const target = history[0];
-          try { FamilyModel.build(target.data); }
+          let completed;
+          try { completed = FamilyModel.completeKinship(target.data); }
           catch (error) {
             if (!error.status) error.status = 400;
             fail(error);
             return;
           }
-          const saved = { data: target.data, version: crypto.randomUUID(), savedAt: Date.now(), undoLabel: history[1]?.label || null };
+          const saved = { data: completed, version: crypto.randomUUID(), savedAt: Date.now(), undoLabel: history[1]?.label || null };
           const sync = { ...emptySyncState(), ...(syncRequest.result?.value || {}), dirty: true };
           store.put({ key: 'current', value: saved });
           store.put({ key: 'history', value: history.slice(1) });
@@ -430,6 +450,8 @@
   async function replaceFromCloud(data, remote = {}, expectedLocalVersion = null) {
     if (!isStatic) throw new Error('開發模式不支援 Google Drive 同步。');
     FamilyModel.build(data);
+    const completed = FamilyModel.completeKinship(data), enriched = completed !== data;
+    data = completed;
     const db = await openDb();
     const result = await new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
@@ -454,7 +476,7 @@
           ...(syncRequest.result?.value || {}),
           fileId: remote.fileId || null,
           remoteVersion: remote.remoteVersion || null,
-          dirty: false,
+          dirty: enriched,
           connected: true,
           lastSyncedAt: Date.now()
         };
@@ -472,7 +494,7 @@
       tx.onerror = () => { if (!settled) { settled = true; reject(tx.error || new Error('無法寫入 Google Drive 下載資料。')); } };
       tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || new Error('Google Drive 下載資料寫入已取消。')); } };
     });
-    if (result.changed) emitChange(result.saved, 'cloud');
+    if (result.changed) emitChange(result.saved, 'cloud', { kinshipEnriched: enriched });
     window.dispatchEvent(new CustomEvent('familyreposyncstate', { detail: result.sync }));
     return result.saved;
   }

@@ -33,6 +33,10 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       async function choose(selector,value) {
         await page.locator(selector).selectOption(value,{force:true});
       }
+      async function moreAction(action) {
+        await page.click('#desktop-more-open');
+        await page.locator(`[data-action="${action}"]`).click();
+      }
       const ids = await page.evaluate(()=>Object.fromEntries(FamilyApp.graph().people.map(p=>[p.name,p.id])));
       const a=ids['阿明'],b=ids['阿華'],duplicate=ids['重複資料'];
       await page.evaluate(id=>editFamilyMember(id),b);
@@ -40,8 +44,9 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       await page.fill('.relation-source','口述訪談'); await page.fill('.relation-note','排行尚待確認'); await choose('.relation-status','pending');
       assert.match(await page.locator('.relation-preview').textContent(),/阿明是阿華的兄；阿華是阿明的妹/);
       await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
-      assert.match(await page.locator('[data-group=siblings]').textContent(),/直接設定/);
-      assert.match(await page.locator('[data-group=siblings]').textContent(),/口述訪談/);
+      assert.match(await page.locator('[data-group=siblings]').textContent(),/待確認/);
+      assert.match(await page.locator('[data-group=evidence]').textContent(),/直接設定/);
+      assert.match(await page.locator('[data-group=evidence]').textContent(),/口述訪談/);
       await page.evaluate(id=>editFamilyMember(id),a); await page.fill('#member-order','2'); await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
       await page.evaluate(id=>editFamilyMember(id),b); await page.fill('#member-order','3'); await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
       assert.match(await page.locator('[data-group=siblings]').textContent(),/二兄/);
@@ -60,8 +65,7 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       await page.fill('#member-name','孩子'); await choose('#member-gender','F');
       await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
       // Group editor, including independent ranks and a known relative-order conflict.
-      await page.evaluate(()=>document.getElementById('member-list-dialog').showModal());
-      await page.getByRole('button',{name:'排行群組',exact:true}).click();
+      await moreAction('groups');
       const groupDialog=page.locator('.family-management-dialog');
       await groupDialog.getByLabel('群組名稱',{exact:true}).fill('家庭排行');
       for(const name of ['阿明','阿華']) await groupDialog.getByRole('checkbox',{name,exact:true}).check();
@@ -69,16 +73,16 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       await groupDialog.getByRole('button',{name:'儲存群組'}).click(); assert.match(await groupDialog.locator('.form-error').textContent(),/矛盾/);
       await groupDialog.getByLabel('阿明的群組排行').fill('2'); await groupDialog.getByRole('button',{name:'儲存群組'}).click(); await page.waitForFunction(()=>!document.querySelector('.family-management-dialog'));
       // Persistent undo also restores groups after a reload.
-      await page.reload(); await page.waitForFunction(()=>FamilyEditor.snapshot()); await page.evaluate(()=>document.getElementById('member-list-dialog').showModal());
-      await page.getByRole('button',{name:'復原：修改排行群組',exact:true}).click(); await page.waitForFunction(()=>!FamilyEditor.snapshot().data.rankGroups?.length);
+      await page.reload(); await page.waitForFunction(()=>FamilyEditor.snapshot());
+      await moreAction('undo'); await page.waitForFunction(()=>!FamilyEditor.snapshot().data.rankGroups?.length);
       // Merge must be previewed and can be undone without losing source members.
-      await page.getByRole('button',{name:'合併重複成員',exact:true}).click();
+      await moreAction('merge');
       const merge=page.locator('.family-management-dialog'); await merge.getByLabel('保留的成員',{exact:true}).selectOption(a); await merge.getByLabel('併入後移除的成員',{exact:true}).selectOption(duplicate);
       assert.equal(await merge.getByRole('button',{name:'確認合併'}).isDisabled(),true);
       await merge.getByRole('button',{name:'預覽合併'}).click(); assert.match(await merge.locator('.family-differences').textContent(),/移除成員：重複資料/);
       await merge.getByRole('button',{name:'確認合併'}).click(); await page.waitForFunction(()=>!document.querySelector('.family-management-dialog'));
       assert.equal(await page.evaluate(id=>FamilyApp.graph().people.some(p=>p.id===id),duplicate),false);
-      await page.getByRole('button',{name:'復原：合併成員',exact:true}).click(); await page.waitForFunction(id=>FamilyApp.graph().people.some(p=>p.id===id),duplicate);
+      await moreAction('undo'); await page.waitForFunction(id=>FamilyApp.graph().people.some(p=>p.id===id),duplicate);
       await page.evaluate(()=>document.getElementById('member-list-dialog').close());
       // Import diff gives names and changed fields, without writing on preview.
       const imported=await page.evaluate(()=>structuredClone(FamilyEditor.snapshot().data)); imported.people[0].location='臺北';
@@ -127,13 +131,13 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
         await page.evaluate(()=>{window.__syncResult=FamilyGoogleDriveSync.syncNow({interactive:true});});
         await page.waitForFunction(()=>document.getElementById('cloud-conflict-dialog').open);
         assert.match(await page.locator('#cloud-conflict-dialog .family-differences').textContent(),/雲端新地址/);
-        remoteVersion='9'; await page.click('#cloud-conflict-use-local');
+        remoteVersion='9'; await page.click('#cloud-conflict-use-local'); await page.click('#cloud-conflict-commit');
         await page.evaluate(()=>window.__syncResult);
         assert.equal(writes,0,'remote changes during review must prevent stale overwrite');
         assert.match(await page.locator('#cloud-sync-message').textContent(),/預覽期間資料已更新/);
         await page.evaluate(()=>{window.__syncResult=FamilyGoogleDriveSync.syncNow({interactive:true});});
         await page.waitForFunction(()=>document.getElementById('cloud-conflict-dialog').open);
-        await page.click('#cloud-conflict-use-remote'); await page.evaluate(()=>window.__syncResult);
+        await page.click('#cloud-conflict-use-remote'); await page.click('#cloud-conflict-commit'); await page.evaluate(()=>window.__syncResult);
         await page.waitForFunction(()=>FamilyApp.graph().people[0].location==='雲端新地址');
         assert.equal(writes,0); console.log('PASS mock cloud: diff preview, stale remote guard, confirmed download');
       }

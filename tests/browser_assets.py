@@ -10,6 +10,8 @@ import re
 
 CLASSIC_ASSETS = [
     'family-motion.js',
+    'family-location.js',
+    'family-inference.js',
     'family-model.js',
     'family-display-projection.js',
     'family-commands.js',

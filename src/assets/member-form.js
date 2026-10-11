@@ -520,7 +520,9 @@
     complete(id, targetId, category, message) {
       if (message.includes('性別')) { openMember(targetId); form.elements.namedItem('gender').focus(); return; }
       openMember(id);
-      const type = category === 'fellowDisciples' ? 'fellowDisciple' : category === 'cousins' ? 'tangCousin' : 'sibling';
+      const cousin = FamilyModel.relationshipsFor(snapshot.data, id).find(r => r.personId === targetId && FamilyModel.isCousin(r.type))
+        || snapshot.data.people.find(p => p.id === id)?.inferredRelationships?.find(r => r.personId === targetId && FamilyModel.isCousin(r.type));
+      const type = category === 'fellowDisciples' ? 'fellowDisciple' : category === 'cousins' ? cousin?.type || 'tangCousin' : 'sibling';
       let row = [...relations.children].find(row => row.querySelector('.relation-target').value === targetId && (row.querySelector('.relation-type').value === type || row.querySelector('.relation-type').value === 'swornSibling'));
       if (!row) { addRelation({personId:targetId,type}, {expanded:true}); row = relations.lastElementChild; }
       row.expandEditor(); row.scrollIntoView({block:'center'});

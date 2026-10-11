@@ -511,7 +511,7 @@
   });
 
   window.addEventListener('familyrepositorychange', event => {
-    if (['local', 'geocode'].includes(event.detail?.source)) scheduleAutoSync();
+    if (['local', 'geocode'].includes(event.detail?.source) || event.detail?.kinshipEnriched) scheduleAutoSync();
   });
   window.addEventListener('familyreposyncstate', event => {
     syncConnected = Boolean(event.detail?.connected);

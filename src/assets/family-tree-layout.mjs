@@ -58,7 +58,7 @@ export function createTreeLayout({
   const completedCousins = model.completedCousins(graph);
   const extra = (graph.bonds || [])
     .filter(bond => !completedCousins.has(model.intermediateKey(bond.kind, bond.members)))
-    .map(bond => ({ from: bond.members?.[0], to: bond.members?.[1], kind: bond.kind }))
+    .map(bond => ({ from: bond.members?.[0], to: bond.members?.[1], kind: bond.kind, inferred: bond.inferred === true }))
     .concat(intermediatePlans
       .filter(plan => plan.edgeKey.startsWith('親生祖孫|'))
       .map(plan => ({ from: plan.other, to: plan.near, kind: '親生', planId: plan.id })))

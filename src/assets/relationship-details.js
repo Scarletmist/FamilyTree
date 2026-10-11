@@ -9,12 +9,14 @@
   const CHILD_KINDS = new Set(['親生', '過繼', '養子女']);
   const CATEGORIES = [
     { id: 'parents', title: '父母' },
-    { id: 'grandparents', title: '祖父母（直接設定）' },
+    { id: 'grandparents', title: '祖父母／外祖父母' },
     { id: 'spouses', title: '配偶' },
     { id: 'children', title: '子女' },
-    { id: 'grandchildren', title: '孫子女（直接設定）' },
+    { id: 'grandchildren', title: '孫子女／外孫子女' },
     { id: 'siblings', title: '手足' },
-    { id: 'cousins', title: '堂表兄弟姊妹（直接設定）' },
+    { id: 'cousins', title: '堂表兄弟姊妹' },
+    { id: 'unclesAunts', title: '叔伯姑姨舅' },
+    { id: 'nephewsNieces', title: '姪甥子女' },
     { id: 'fellowDisciples', title: '師兄弟姊妹' },
     { id: 'teachers', title: '師父' },
     { id: 'students', title: '徒弟' }
@@ -92,9 +94,16 @@
       if (evidence) add('siblings', candidate.id, { ordinary: true, context: evidence.label + '：' + evidence.parentIds.map(id => byId.get(id).name).join('、') });
     }
     const direct = FamilyModel.relationshipsFor(graph, personId);
+    const automatic = (graph.inferredRelations || []).filter(r => r.from === personId);
+    const automaticCategories = { tangCousin: 'cousins', biaoCousin: 'cousins', grandparent: 'grandparents', grandchild: 'grandchildren', uncleAunt: 'unclesAunts', nephewNiece: 'nephewsNieces' };
+    for (const relation of automatic) {
+      add(automaticCategories[relation.type], relation.personId, { kind: relation.kind,
+        context: '推導依據：' + [relation.from, ...relation.path.map(edge => edge.to)].map(id => byId.get(id).name).join(' → ') });
+    }
     return CATEGORIES.map(category => {
       const entries = [...groups.get(category.id).values()].map(entry => {
         const target = byId.get(entry.personId);
+        const inferred = automatic.filter(r => r.personId === entry.personId && automaticCategories[r.type] === category.id);
         let role = '';
         const badges = [...entry.kinds];
         if (category.id === 'children') {
@@ -117,7 +126,8 @@
         }
         if (['grandparents', 'grandchildren'].includes(category.id)) {
           const noun = category.id === 'grandparents' ? ({ M: '祖父', F: '祖母', U: '祖父母' })[target.gender] : ({ M: '孫子', F: '孫女', U: '孫子女' })[target.gender];
-          role = [...entry.kinds].map(kind => ({ 親生: '親生', 過繼: '過繼', 養子女: '養', 義子女: '義', 契子女: '契' })[kind] + noun).join('、');
+          role = [...entry.kinds].map(kind => kind === '親生' ? FamilyModel.inferredRole({ type: category.id === 'grandparents' ? 'grandparent' : 'grandchild', lineage: 'unknown' }, target)
+            : ({ 過繼: '過繼', 養子女: '養', 義子女: '義', 契子女: '契' })[kind] + noun).join('、');
         }
         if (category.id === 'siblings') {
           role = FamilyModel.peerPresentation(graph, target, person, entry.ordinary ? 'sibling' : 'swornSibling').role;
@@ -125,11 +135,22 @@
           if (presentation.rank && !presentation.order) badges.push('手足序：' + presentation.rank);
           if (entry.sworn && entry.ordinary) badges.push(FamilyModel.peerPresentation(graph, target, person, 'swornSibling').role);
         }
-        const categoryTypes = {parents:['parent'],grandparents:['grandparent'],spouses:['spouse'],children:['child'],grandchildren:['grandchild'],siblings:['sibling','swornSibling'],cousins:['tangCousin','biaoCousin'],fellowDisciples:['fellowDisciple'],teachers:['teacher'],students:['student']};
+        const categoryTypes = {parents:['parent'],grandparents:['grandparent'],spouses:['spouse'],children:['child'],grandchildren:['grandchild'],siblings:['sibling','swornSibling'],cousins:['tangCousin','biaoCousin'],unclesAunts:[],nephewsNieces:[],fellowDisciples:['fellowDisciple'],teachers:['teacher'],students:['student']};
         const recorded = direct.filter(r => r.personId === target.id && categoryTypes[category.id].includes(r.type));
+        if (category.id === 'cousins' && recorded.length) {
+          const additions = inferred.filter(r => !r.recorded);
+          if (additions.length) {
+            role = [...new Set([role, ...additions.map(r => FamilyModel.inferredRole(r, target))].filter(Boolean))].join('、');
+            entry.contexts.add('直接設定與推導的堂／表類型不同，請確認原始關係。');
+          }
+        }
+        if (inferred.length && (!recorded.length || ['grandparents', 'grandchildren'].includes(category.id) && [...entry.kinds].every(kind => kind === '親生'))) {
+          role = [...new Set(inferred.map(r => FamilyModel.inferredRole(r, target)))].join('、');
+        }
+        if (inferred.some(r => !r.recorded)) badges.push('自動辨別');
         const missing = [];
         if (['siblings','fellowDisciples','cousins'].includes(category.id)) {
-          const type = category.id === 'siblings' ? (entry.ordinary ? 'sibling' : 'swornSibling') : category.id === 'cousins' ? recorded[0]?.type : 'fellowDisciple';
+          const type = category.id === 'siblings' ? (entry.ordinary ? 'sibling' : 'swornSibling') : category.id === 'cousins' ? recorded[0]?.type || inferred[0]?.type : 'fellowDisciple';
           const presentation = FamilyModel.peerPresentation(graph, target, person, type);
           missing.push(...presentation.missing);
           if (presentation.group) entry.contexts.add('排行群組：' + presentation.group);

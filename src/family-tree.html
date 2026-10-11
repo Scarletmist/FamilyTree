@@ -69,6 +69,7 @@
       <button type="button" id="toggle-canvas-names" class="plain-button mosaic-button" aria-label="隱藏畫布姓名" title="隱藏畫布姓名" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="canvas-name-label">隱藏姓名</span>
       </button>
+      <button type="button" id="toggle-inferred-lines" class="plain-button" aria-label="顯示自動辨別線段" aria-pressed="false" aria-describedby="inferred-lines-hint" hidden><span data-label>顯示自動辨別線段</span></button>
     </span>
     <div id="kinship-feedback" class="relationship-search-feedback" hidden>
       <span id="kinship-status" role="status" aria-live="polite"></span>
@@ -122,6 +123,7 @@
   <!-- @include templates/dialogs.html -->
   <script src="assets/family-motion.js"></script>
   <script src="assets/family-location.js"></script>
+  <script src="assets/family-inference.js"></script>
   <script src="assets/family-model.js"></script>
   <script src="assets/family-display-projection.js"></script>
   <script src="assets/family-commands.js"></script>

@@ -1,9 +1,10 @@
 /* Shared by the browser and local server. JSON member relationships are the only source of truth. */
 (function (root, factory) {
-  const model = factory();
+  const model = factory(typeof module === 'object' && module.exports ? require('./family-location.js') : root.FamilyLocation,
+    typeof module === 'object' && module.exports ? require('./family-inference.js') : root.FamilyInference);
   if (typeof module === 'object' && module.exports) module.exports = model;
   else root.FamilyModel = model;
-})(globalThis, function () {
+})(globalThis, function (Location, Inference) {
   'use strict';
   const DEFAULT_FAMILY_NAME = '陳氏家族';
   function normalizeFamilyName(value) {
@@ -78,6 +79,9 @@
     const next = { ...data, people: data.people.map(p => p.id === member.id ? { ...p, ...member } : {
       ...p, relationships: p.relationships.filter(r => r.personId !== member.id)
     }) };
+    const edited = next.people.find(p => p.id === member.id);
+    if (!Location.eligible(edited) || !Location.current(edited)) delete edited.geocode;
+    if (!Location.eligible(edited) || !Location.overrideCurrent(edited)) delete edited.locationOverride;
     build(next);
     return next;
   }
@@ -117,6 +121,7 @@
     const child = id => ({ type: 'child', personId: id, kind: '親生' });
     const plans = [];
     for (const bond of graph.bonds) {
+      if (bond.inferred) continue;
       const [a, b] = bond.members, edgeKey = intermediateKey(bond.kind, bond.members);
       if (['堂親', '表親'].includes(bond.kind)) {
         const eligible = id => parents.get(id).filter(p => bond.kind !== '堂親' || byId.get(p).gender !== 'F');
@@ -173,6 +178,9 @@
       if (typeof p[key] !== 'string' || p[key].length > max || (key === 'name' && !p[key].trim())) fail(`${label}格式不正確或過長。`);
     }
     if (p.notes !== undefined && (typeof p.notes !== 'string' || p.notes.length > 5000)) fail('備註說明須為 5000 字以內的文字。');
+    if (p.mapHidden !== undefined && typeof p.mapHidden !== 'boolean') fail('地圖隱私設定須為布林值。');
+    if (p.geocode !== undefined && !Location.valid(p.geocode)) fail('所在地座標資料格式不正確。');
+    if (p.locationOverride !== undefined && !Location.validOverride(p.locationOverride)) fail('手動修正位置格式不正確。');
     if (!['M', 'F', 'U'].includes(p.gender)) fail('性別格式不正確。');
     if (p.siblingOrder !== null && (!knownOrder(p) || p.siblingOrder > 999)) fail('手足次序須為 1 至 999 的整數，未知請留空。');
     if (p.discipleOrder != null && (!knownDiscipleOrder(p) || p.discipleOrder > 999)) fail('師門次序須為 1 至 999 的整數，未知請留空。');
@@ -192,6 +200,7 @@
   }
   function build(data) {
     if (!data || data.schemaVersion !== 2 || !Array.isArray(data.people)) fail('族譜 JSON 格式不正確。');
+    if (data.locationLookupDeviceId !== undefined && (typeof data.locationLookupDeviceId !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(data.locationLookupDeviceId))) fail('背景定位裝置設定不正確。');
     const familyName = normalizeFamilyName(data.familyName);
     const ignoredIntermediatePlans = ignoredIntermediatePlanIds(data);
     const people = data.people.map(p => ({ ...p }));
@@ -309,8 +318,11 @@
     for (const [a, b] of siblings.values()) {
       if (!hasRankGroup(data, a, 'sibling') && !hasRankGroup(data, b, 'sibling') && knownOrder(byId.get(a)) && knownOrder(byId.get(b)) && compareOrder(byId.get(a), byId.get(b)) === 0) fail('手足次序重複，請填入其他數字或留空。');
     }
-    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents,
-      bonds: [...cousins.values()].concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
+    const inferredRelations = Inference.derive(data, (base, target) => peerPresentation(data, byId.get(target), byId.get(base), 'sibling').order);
+    const inferredCousins = inferredRelations.filter(r => isCousin(r.type) && !r.recorded && r.from < r.personId)
+      .map(r => ({ members: [r.from, r.personId], kind: r.type === 'tangCousin' ? '堂親' : '表親', inferred: true }));
+    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents, inferredRelations,
+      bonds: [...cousins.values()].concat(inferredCousins).concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
   // A shared stroke asserts a common source, so require evidence, not merely
@@ -477,8 +489,8 @@
   }
   function dataDifferences(before, after) {
     const lines = [], left = new Map(before.people.map(p => [p.id, p])), right = new Map(after.people.map(p => [p.id, p]));
-    const labels = { name: '姓名', gender: '性別', location: '所在地', position: '職位', notes: '備註', siblingOrder: '手足排行', discipleOrder: '師門排行' };
-    const show = v => v === null || v === undefined || v === '' ? '未填寫' : String(v);
+    const labels = { name: '姓名', gender: '性別', location: '所在地', position: '職位', notes: '備註', siblingOrder: '手足排行', discipleOrder: '師門排行', mapHidden: '不在地圖顯示', geocode: '定位結果', locationOverride: '手動修正位置' };
+    const show = v => v === null || v === undefined || v === '' ? '未填寫' : typeof v === 'object' ? (v.source || v.status === 'resolved' ? `${v.lat}, ${v.lon}` : v.status === 'ambiguous' ? '同名地點' : '查無地點') : String(v);
     for (const p of before.people) if (!right.has(p.id)) lines.push(`移除成員：${p.name}`);
     for (const p of after.people) {
       const old = left.get(p.id);
@@ -519,12 +531,21 @@
     const next = JSON.parse(JSON.stringify(data));
     next.people = next.people.filter(p => p.id !== removeId);
     const merged = next.people.find(p => p.id === keepId);
-    const editableFields = new Set(['id','relationships','name','gender','location','position','notes','siblingOrder','discipleOrder']);
+    const editableFields = new Set(['id','relationships','name','gender','location','position','notes','siblingOrder','discipleOrder','geocode','locationOverride','mapHidden']);
     for (const key of Object.keys(remove)) if (!editableFields.has(key)) {
       if (!Object.hasOwn(merged,key)) merged[key] = JSON.parse(JSON.stringify(remove[key]));
       else if (!sameJsonData(merged[key],remove[key])) fail('兩位成員的擴充資料「' + key + '」不同，請先統一後再合併。');
     }
     for (const key of ['name','gender','location','position','notes','siblingOrder','discipleOrder']) if (Object.hasOwn(fields, key)) merged[key] = fields[key];
+    if (keep.mapHidden || remove.mapHidden) merged.mapHidden = true;
+    const locationSource = [keep, remove].find(p => Location.current(p) && Location.normalize(p.location) === Location.normalize(merged.location));
+    if (Location.eligible(merged) && locationSource) merged.geocode = { ...locationSource.geocode };
+    else delete merged.geocode;
+    const overrides = [keep, remove].filter(p => Location.overrideCurrent(p) && Location.normalize(p.location) === Location.normalize(merged.location));
+    if (Location.eligible(merged) && overrides.length) {
+      if (overrides.length === 2 && (overrides[0].locationOverride.lat !== overrides[1].locationOverride.lat || overrides[0].locationOverride.lon !== overrides[1].locationOverride.lon)) fail('兩位成員的手動修正位置不同，請先統一位置或恢復自動定位後再合併。');
+      merged.locationOverride = { ...overrides[0].locationOverride, location: merged.location.trim() };
+    } else delete merged.locationOverride;
     merged.relationships.push(...remove.relationships);
     for (const p of next.people) {
       const seen = new Map();
@@ -565,5 +586,10 @@
     const next = { ...data, rankGroups: body.rankGroups };
     build(next); return next;
   }
-  return { dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
+  function completeKinship(data) {
+    const graph = build(data);
+    return Inference.normalize(data, graph.inferredRelations);
+  }
+  const inferredRole = (relation, target) => Inference.role(relation, target);
+  return { completeKinship, inferredRole, dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
 });

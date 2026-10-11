@@ -29,3 +29,14 @@ test('overlapping intervals render once and preserve branch-specific highlightin
   assert.deepEqual(result.find(p => p.points[0][0] === 30).people, ['A', 'C']);
   assert.deepEqual(result[0].people, ['A', 'B', 'C']);
 });
+
+test('hiding inferred branches preserves manual portions of a shared stroke', () => {
+  const result = sharedSegments([
+    { points: [[0, 0], [0, 20], [30, 20]], people: ['A', 'B'], inferred: false },
+    { points: [[0, 0], [0, 20], [60, 20]], people: ['A', 'C'], inferred: true }
+  ]);
+  const manual = result.filter(segment => !segment.inferred);
+  assert.deepEqual(manual.map(segment => segment.points), [[[0, 0], [0, 20]], [[0, 20], [30, 20]]]);
+  assert.deepEqual(result.filter(segment => segment.inferred).map(segment => segment.points), [[[30, 20], [60, 20]]]);
+  assert(sharedSegments([{ points: [[0, 0], [10, 0]], people: ['A', 'C'], inferred: true }]).every(segment => segment.inferred));
+});

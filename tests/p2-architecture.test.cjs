@@ -53,8 +53,8 @@ test('P2 UX source keeps progressive member flow, compact defaults and identifia
   assert.match(search, /第 \$\{person\.gen \+ generationOffset\} 代/);
   assert.match(search, /請先選擇要查詢的成員與稱呼基準/);
   assert.match(search, /\$\{peopleById\.get\(a\.value\)\.name\}是\$\{peopleById\.get\(b\.value\)\.name\}的誰？/);
-  assert.match(mobileToolbar, /data-action="cloud"/);
-  assert.match(mobileToolbar, /portrait-more-text/);
+  assert.match(mobileToolbar, /\['cloud','Google Drive 同步','cloud'\]/);
+  assert.match(mobileToolbar, /\['desktop','portrait','landscape'\]/);
 });
 
 test('static build publishes only src runtime content, never dev, fixtures or templates', async () => {

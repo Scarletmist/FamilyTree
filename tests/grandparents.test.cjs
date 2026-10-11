@@ -5,6 +5,19 @@ const Projection = require('../src/assets/family-display-projection.js');
 const Details = require('../src/assets/relationship-details.js');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 
+async function layoutFor(data) {
+  const { createTreeLayout } = await import('../src/assets/family-tree-layout.mjs');
+  const graph = Projection.project(Model.build(data));
+  const connectedIds = Model.relationshipMemberIds(graph.people);
+  const displayShift = Projection.generationOffset(graph);
+  return createTreeLayout({
+    graph, fullGraph: graph, connectedIds, displayShift,
+    intermediatePlans: Projection.intermediatePlans(data, { graph }),
+    uncertainGeneration: Math.max(0, ...graph.people.map(p => p.gen)) + displayShift + 1,
+    model: Model, orderKey: Model.orderKey
+  });
+}
+
 for (const kind of Model.KINDS) test(`${kind}: direct grandparent and inverse survive editing and display two generations apart`, () => {
   const data = { schemaVersion: 2, people: [person('G'), person('C', [{ type: 'grandparent', personId: 'G', kind }])] };
   const graph = Projection.project(Model.build(data));
@@ -36,4 +49,51 @@ test('direct grandparent agrees with a two-step path and rejects contradictory d
   data.people[2].relationships[1].type = 'grandchild';
   assert.throws(() => Model.build(data), /矛盾/);
   assert.throws(() => Model.validateMember(person('X', [{ type: 'grandparent', personId: 'G' }])), /類型/);
+});
+
+test('intermediate grandparent connectors replace unused family origins in both directions', async () => {
+  for (const type of ['grandparent', 'grandchild']) for (const count of [1, 2, 4]) {
+    const ancestors = Array.from({ length: count }, (_, i) => person('G' + i));
+    const child = person('C');
+    if (type === 'grandparent') child.relationships = ancestors.map(p => ({ type, personId: p.id, kind: '親生' }));
+    else ancestors.forEach(p => p.relationships.push({ type, personId: child.id, kind: '親生' }));
+    const data = { schemaVersion: 2, people: [...ancestors, child] };
+    const before = JSON.stringify(data);
+    const layout = await layoutFor(data);
+    assert.equal(layout.unions.length, 0, `${type}: ${count} grandparents must not leave an origin stub`);
+    assert.equal(layout.unionById.size, 0);
+    assert.equal(layout.originLanes.size, 0);
+    assert.equal(layout.descents.length, 0);
+    assert.equal(layout.extra.length, count);
+    assert(layout.extra.every(edge => edge.planId));
+    assert.equal(layout.graph.unions.length, 1, 'the domain relationship remains available');
+    assert.equal(JSON.stringify(data), before);
+  }
+});
+
+test('replacing grandparent descents preserves marriage and other children of the same family', async () => {
+  const grandparent = personId => ({ type: 'grandparent', personId, kind: '親生' });
+  const married = { schemaVersion: 2, people: [person('G', [{ type: 'spouse', personId: 'H' }]), person('H'), person('C', [grandparent('G'), grandparent('H')])] };
+  const marriageLayout = await layoutFor(married);
+  assert.equal(marriageLayout.unions.length, 1);
+  assert.equal(marriageLayout.unions[0].married, true);
+  assert.equal(marriageLayout.descents.length, 0);
+  assert.equal(marriageLayout.extra.length, 2);
+
+  const shared = { schemaVersion: 2, people: [person('G'), person('P', [{ type: 'parent', personId: 'G', kind: '親生' }]), person('C', [grandparent('G')])] };
+  const sharedLayout = await layoutFor(shared);
+  assert.equal(sharedLayout.unions.length, 1);
+  assert.deepEqual(sharedLayout.childrenOf(sharedLayout.unions[0]).map(d => d.child), ['P']);
+  assert.equal(sharedLayout.extra.length, 1);
+});
+
+test('grandparent origins remain when no intermediate connector replaces them', async () => {
+  for (const kind of Model.KINDS) {
+    const data = { schemaVersion: 2, people: [person('G'), person('C', [{ type: 'grandparent', personId: 'G', kind }])] };
+    if (kind === '親生') data.ignoredIntermediatePlans = Model.intermediatePlans(data).map(plan => plan.id);
+    const layout = await layoutFor(data);
+    assert.equal(layout.unions.length, 1, kind);
+    assert.equal(layout.descents.length, 1, kind);
+    assert.equal(layout.extra.length, 0, kind);
+  }
 });

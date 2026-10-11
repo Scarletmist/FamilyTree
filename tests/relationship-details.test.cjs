@@ -11,8 +11,8 @@ const entry = (id, type, target) => group(id, type)?.entries.find(e => e.personI
 test('groups every relation type without changing the underlying graph', () => {
   const before = JSON.stringify(demo);
   const groups = Details.buildGroups(graph, 'p11');
-  assert.deepEqual(groups.map(g => g.id), ['parents', 'spouses', 'children', 'siblings', 'students']);
-  assert.deepEqual(groups.map(g => g.entries.length), [2, 1, 6, 3, 1]);
+  assert.deepEqual(groups.map(g => g.id), ['parents', 'grandparents', 'spouses', 'children', 'siblings', 'cousins', 'unclesAunts', 'students']);
+  assert.deepEqual(groups.map(g => g.entries.length), [2, 2, 1, 6, 3, 1, 2, 1]);
   assert.equal(entry('p17', 'teachers', 'p11').name, '陳建國');
   assert.equal(entry('p11', 'spouses', 'p15').name, '吳雅婷');
   assert.equal(entry('p11', 'children', 'p17').badges.includes('親生'), true);
@@ -118,14 +118,15 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     const top = content.querySelector('.relationship-details__top');
     const header = content.querySelector('.relationship-details__header');
     const actions = content.querySelector('.relationship-details__actions');
-    assert.equal(top.children[0], header, 'The title row is the first details row');
-    assert.equal(top.children[1], actions, 'Member actions live in a separate second row on desktop');
-    assert.equal(header.children[0], back, 'Back navigation reserves the first header control');
-    assert.equal(header.children[1].id, 'relationship-details-title', 'The member title owns the flexible header space');
+    assert.equal(top.children[0].className, 'relationship-details__navigation', 'Navigation precedes the member identity');
+    assert.equal(top.children[0].children[0], back, 'Back navigation remains the first control');
+    assert.equal(top.children[1], header, 'The member identity has its own row');
+    assert.equal(top.children[2], actions, 'Member actions follow the identity');
+    assert.equal(header.querySelector('h2').id, 'relationship-details-title', 'The member title owns the identity heading');
     assert.equal(actions.children[0], edit, 'Edit is the first contextual action');
     assert.equal(actions.children[1], query, 'Relationship query is the second contextual action');
     assert.equal(actions.children[2].classList.contains('add-relative'), true, 'Add-relative is promoted into the contextual action row');
-    assert.equal(actions.children[3].classList.contains('details-locate'), true, 'Locate remains available on desktop');
+    assert(actions.children[3].querySelector('.details-locate'), 'Locate remains available in member More');
     assert.equal(edit.querySelector('.details-action__label').textContent, '編輯');
     assert.equal(query.querySelector('.details-action__label').textContent, '查關係');
     assert.equal(actions.children[2].querySelector('.details-action__label').textContent, '新增親屬');
@@ -138,7 +139,7 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     assert.match(query.attributes['aria-label'], /查詢其他成員與陳建國的關係/);
     query.click(); assert.equal(queried, 'p11');
     let groups = panel.querySelectorAll('details[data-group]');
-    assert.deepEqual(groups.map(d => d.dataset.group), ['parents', 'spouses', 'children', 'siblings', 'students']);
+    assert.deepEqual(groups.map(d => d.dataset.group), ['parents', 'grandparents', 'spouses', 'children', 'siblings', 'cousins', 'unclesAunts', 'students', 'evidence']);
     assert.equal(groups[0].open, true);
     assert(groups.slice(1).every(d => !d.open));
     groups.find(d => d.dataset.group === 'siblings').open = true;
@@ -233,4 +234,26 @@ test('unlinked member detail omits relationship query shortcut', () => {
     controller.render(panel, localGraph, 'B', {});
     assert(panel.querySelector('.query-relationship'), 'inverse-only related member still gets the query shortcut');
   } finally { global.document = previous; }
+});
+
+test('mobile inspector keeps identity and actions in its scroll area, with secondary actions in More', () => {
+  const previous = global.document, previousMedia = global.matchMedia;
+  global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
+  global.matchMedia = query => ({ matches: !query.includes('orientation:landscape') });
+  try {
+    const controller = Details.createController(), panel = new FakeElement('section');
+    controller.render(panel, graph, 'p11', {});
+    const body = panel.querySelector('.relationship-details__body');
+    assert(body.contains(panel.querySelector('.relationship-details__header')));
+    assert(body.contains(panel.querySelector('.edit-member')));
+    assert(panel.querySelector('.detail-expand'));
+    const more = panel.querySelector('.relationship-details__more-body');
+    assert(more.contains(panel.querySelector('.add-relative')));
+    assert(more.contains(panel.querySelector('.details-locate')));
+    assert.equal(panel.querySelector('.add-relative').children[0].attributes['data-icon'], 'person-plus');
+    const children = panel.querySelectorAll('details[data-group]').find(item => item.dataset.group === 'children');
+    assert.equal(children.open, true);
+    children.open = false; controller.render(panel, graph, 'p11', {});
+    assert.equal(panel.querySelectorAll('details[data-group]').find(item => item.dataset.group === 'children').open, false);
+  } finally { global.document = previous; global.matchMedia = previousMedia; }
 });

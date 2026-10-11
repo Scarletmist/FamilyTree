@@ -112,6 +112,10 @@
         select.addEventListener('focus', () => trigger.focus());
         select.addEventListener('invalid', event => { event.preventDefault(); open(control); });
       }
+      const title = select.getAttribute('aria-label') || select.closest('label')?.firstChild?.textContent?.trim() || '選項';
+      for (const [node, label] of [[control.trigger, title], [control.panel, title], [control.list, title], [control.search, '搜尋' + title]]) {
+        if (node.getAttribute('aria-label') !== label) node.setAttribute('aria-label', label);
+      }
       const text = select.selectedOptions[0]?.textContent || '請選擇';
       if (control.trigger.textContent !== text) control.trigger.textContent = text;
       const disabled = select.matches(':disabled');
@@ -130,6 +134,10 @@
   enhance();
 
   const dialog = document.getElementById('member-list-dialog');
+  document.querySelector('.workspace').append(dialog);
+  const listCompact = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
+  const listScroll = dialog.querySelector('.member-list-scroll');
+  let listScrollTop = 0;
   const searchMembers = document.getElementById('member-list-search');
   const body = document.getElementById('member-list-body');
   const count = document.getElementById('member-list-count');
@@ -196,10 +204,12 @@
   window.refreshIgnoredIntermediateButtons = refreshIgnoredCount;
   function navigateToMember(id) {
     if (!id) return;
-    if (dialog.open) dialog.close();
+    listScrollTop = listScroll.scrollTop;
+    if (dialog.open && listCompact.matches) dialog.close();
     window.dispatchEvent(new CustomEvent('familytreeselect', { detail: { id, options: { expandDetails: true } } }));
   }
   function renderMemberList() {
+    const previousScroll = listScroll.scrollTop;
     const graph = FamilyApp.graph();
     const people = graph?.people || [], linked = FamilyModel.relationshipMemberIds(people);
     const generationOffset = graph ? FamilyDisplayProjection.generationOffset(graph) : 0;
@@ -240,6 +250,9 @@
           button.textContent = value; button.setAttribute('aria-label', `查看${person.name}並定位到族譜圖`);
           button.addEventListener('click', event => { event.stopPropagation(); navigateToMember(person.id); });
           cell.appendChild(button);
+          const meta = document.createElement('small'); meta.className = 'member-list-row-meta';
+          meta.textContent = [person.location,person.position].filter(Boolean).join(' · ');
+          if (meta.textContent) cell.append(meta);
         } else cell.textContent = value;
         row.append(cell);
       });
@@ -253,34 +266,33 @@
     const unlinkedCount = people.filter(person => !linked.has(person.id)).length;
     const unlinkedButton = filterButtons.find(button => button.dataset.memberFilter === 'unlinked');
     if (unlinkedButton) unlinkedButton.textContent = `未設定關係${unlinkedCount ? `（${unlinkedCount}）` : ''}`;
-    if (memberFilter === 'unlinked') {
-      count.textContent = keyword
-        ? `顯示 ${visible.length} / ${unlinkedCount} 位未設定關係成員。點選成員可定位到族譜圖並開啟關係詳情。`
-        : `共 ${unlinkedCount} 位未設定關係成員。點選成員可定位到族譜圖並開啟關係詳情。`;
-    } else {
-      count.textContent = keyword
-        ? `顯示 ${visible.length} / 共 ${people.length} 位成員。點選成員可定位到族譜圖並開啟關係詳情。`
-        : `共 ${people.length} 位成員；淡黃色列表示未設定關係，代別留空。點選成員可定位到族譜圖並開啟關係詳情。`;
-    }
+    count.textContent = keyword ? `找到 ${visible.length} 位成員` : memberFilter === 'unlinked' ? `${unlinkedCount} 位未設定關係` : `${people.length} 位成員`;
     refreshIgnoredCount();
+    listScroll.scrollTop = previousScroll;
   }
-  document.getElementById('show-member-list').addEventListener('click', () => {
-    if (searchMembers) searchMembers.value = '';
-    memberFilter = 'all';
+  function openMemberList({ restore = false } = {}) {
+    if (dialog.open) { searchMembers?.focus(); return; }
+    if (!restore) { searchMembers.value = ''; memberFilter = 'all'; listScrollTop = 0; }
     renderMemberList();
-    dialog.showModal();
+    if (listCompact.matches) dialog.showModal(); else dialog.show();
+    listScroll.scrollTop = listScrollTop;
     searchMembers?.focus();
-  });
-  searchMembers?.addEventListener('input', renderMemberList);
+  }
+  window.openFamilyMemberList = openMemberList;
+  document.getElementById('show-member-list').addEventListener('click', () => openMemberList());
+  searchMembers?.addEventListener('input', () => { listScroll.scrollTop = 0; renderMemberList(); });
   filterButtons.forEach(button => button.addEventListener('click', () => {
     memberFilter = button.dataset.memberFilter || 'all';
+    listScroll.scrollTop = 0;
     renderMemberList();
   }));
   ignoredOpen?.addEventListener('click', () => {
     if (dialog.open) dialog.close();
     window.openIgnoredIntermediatePlans?.();
   });
-  document.getElementById('close-member-list').addEventListener('click', () => dialog.close());
+  document.getElementById('close-member-list').addEventListener('click', () => { listScrollTop = listScroll.scrollTop; dialog.close(); document.getElementById('show-member-list').focus(); });
+  dialog.addEventListener('cancel', () => { listScrollTop = listScroll.scrollTop; });
+  listCompact.addEventListener('change', () => { if (dialog.open) { listScrollTop = listScroll.scrollTop; dialog.close(); openMemberList({restore:true}); } });
   window.addEventListener('familyintermediatechange', () => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); });
   window.addEventListener('familyrepositorychange', () => { queueMicrotask(() => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); }); });
   window.addEventListener('familymemberviewed', event => rememberRecentMember(event.detail?.id));

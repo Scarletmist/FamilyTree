@@ -20,6 +20,80 @@ test('anchored fellow disciples keep different family generations; isolated peer
   const graph = Projection.project(Model.build({ schemaVersion: 2, people: [p('G'), p('S', [parent('G'), fellow('G')]), p('A', [fellow('B')]), p('B')] }));
   assert.deepEqual(graph.people.map(p => p.gen), [1, 2, 1, 1]);
 });
+test('a parent without known ancestors aligns with a fellow disciple and moves its whole family branch', () => {
+  for (const reverseRelation of [false, true]) {
+    const people = [p('G'), p('P', [parent('G')]), p('C', [parent('P'), ...(reverseRelation ? [fellow('A')] : [])]),
+      p('A', reverseRelation ? [] : [fellow('C')]), p('B', [parent('A')]), p('D', [parent('B')]),
+      p('S', [{ type: 'spouse', personId: 'A' }]), p('X'), p('Y', [parent('X')])];
+    for (const ordered of [people, people.slice().reverse()]) {
+      const data = { schemaVersion: 2, people: ordered }, original = JSON.stringify(data);
+      const generations = new Map(Projection.project(Model.build(data)).people.map(person => [person.id, person.gen]));
+      assert.deepEqual(Object.fromEntries(['G', 'P', 'C', 'A', 'B', 'D', 'S', 'X', 'Y'].map(id => [id, generations.get(id)])),
+        { G: 1, P: 2, C: 3, A: 3, B: 4, D: 5, S: 3, X: 1, Y: 2 });
+      assert.equal(JSON.stringify(data), original, 'display placement must not invent or modify family relationships');
+    }
+  }
+});
+
+test('an unanchored parent inherits a known generation through a chain of fellow disciples', () => {
+  const people = [p('G'), p('P', [parent('G')]), p('C', [parent('P')]), p('F', [fellow('C')]),
+    p('A', [fellow('F')]), p('B', [parent('A')])];
+  for (const ordered of [people, people.slice().reverse()]) {
+    const graph = Projection.project(Model.build({ schemaVersion: 2, people: ordered }));
+    for (const id of ['C', 'F', 'A']) assert.equal(graph.people.find(person => person.id === id).gen, 3);
+    assert.equal(graph.people.find(person => person.id === 'B').gen, 4);
+  }
+});
+
+test('multiple known fellow disciples keep their own generations and the earlier generation guides an unknown branch', () => {
+  const people = [p('G'), p('P', [parent('G')]), p('C', [parent('P')]),
+    p('A', [fellow('C'), fellow('P')]), p('B', [parent('A')])];
+  for (const ordered of [people, people.slice().reverse()]) {
+    const generations = new Map(Projection.project(Model.build({ schemaVersion: 2, people: ordered })).people.map(person => [person.id, person.gen]));
+    assert.equal(generations.get('P'), 2);
+    assert.equal(generations.get('C'), 3);
+    assert.equal(generations.get('A'), 2);
+    assert.equal(generations.get('B'), 3);
+  }
+});
+
+test('a descendants fellow-disciple link follows the branch after its root is aligned', () => {
+  const people = [p('G'), p('P', [parent('G')]), p('C', [parent('P')]), p('F', [fellow('C')]),
+    p('A', [fellow('F')]), p('B', [parent('A'), fellow('H')]), p('H')];
+  for (const ordered of [people, people.slice().reverse()]) {
+    const generations = new Map(Projection.project(Model.build({ schemaVersion: 2, people: ordered })).people.map(person => [person.id, person.gen]));
+    for (const id of ['C', 'F', 'A']) assert.equal(generations.get(id), 3);
+    for (const id of ['B', 'H']) assert.equal(generations.get(id), 4);
+  }
+});
+
+test('new ancestors take precedence over the temporary fellow-disciple placement', () => {
+  let data = { schemaVersion: 2, people: [p('G'), p('P', [parent('G')]), p('C', [parent('P')]),
+    p('A', [fellow('C')]), p('B', [parent('A')])] };
+  assert.equal(Projection.project(Model.build(data)).people.find(person => person.id === 'A').gen, 3);
+  data.people.push(p('D', [{ type: 'child', personId: 'A', kind: '親生' }]));
+  for (const ordered of [data.people, data.people.slice().reverse()]) {
+    const generations = new Map(Projection.project(Model.build({ ...data, people: ordered })).people.map(person => [person.id, person.gen]));
+    assert.equal(generations.get('D'), 1);
+    assert.equal(generations.get('A'), 2);
+    assert.equal(generations.get('B'), 3);
+    assert.equal(generations.get('C'), 3);
+  }
+  data = Model.replaceMember(data, { ...data.people.find(person => person.id === 'D'), relationships: [] });
+  assert.equal(Projection.project(Model.build(data)).people.find(person => person.id === 'A').gen, 3);
+});
+
+test('a parent can follow a mentor-positioned fellow disciple without changing either hierarchy', () => {
+  const people = [p('T'), p('C', [{ type: 'teacher', personId: 'T' }]), p('A', [fellow('C')]), p('B', [parent('A')])];
+  for (const ordered of [people, people.slice().reverse()]) {
+    const generations = new Map(Projection.project(Model.build({ schemaVersion: 2, people: ordered })).people.map(person => [person.id, person.gen]));
+    assert.equal(generations.get('T'), 1);
+    assert.equal(generations.get('C'), 2);
+    assert.equal(generations.get('A'), 2);
+    assert.equal(generations.get('B'), 3);
+  }
+});
+
 test('notes remain optional for old JSON and validated when present', () => {
   Model.validateMember(p('A'));
   assert.throws(() => Model.validateMember({ ...p('A'), notes: 123 }), /備註/);

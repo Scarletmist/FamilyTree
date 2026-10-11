@@ -196,7 +196,7 @@ export function bindGlobalDismiss(closeSelectedDetails) {
   });
 }
 
-export function bindMobileBackNavigation(closeSelectedDetails) {
+export function bindMobileBackNavigation(closeSelectedDetails, leaveDetailReading = () => false) {
   if (document.documentElement.dataset.familyMobileBackBound) return;
   document.documentElement.dataset.familyMobileBackBound = 'true';
   const mobile = window.matchMedia?.('(max-width:950px) and (pointer:coarse)');
@@ -221,6 +221,7 @@ export function bindMobileBackNavigation(closeSelectedDetails) {
       if (shouldClose && dialog.open) dialog.close();
       return true;
     }
+    if (leaveDetailReading()) return true;
     return closeSelectedDetails({ focusCanvas: true });
   }
 

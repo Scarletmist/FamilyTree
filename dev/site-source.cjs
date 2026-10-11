@@ -51,6 +51,7 @@ function resolvePublicFile(urlPath) {
 function mimeTypeFor(file) {
   if (/\.m?js$/i.test(file)) return 'text/javascript';
   if (/\.css$/i.test(file)) return 'text/css';
+  if (/\.svg$/i.test(file)) return 'image/svg+xml';
   if (/\.json$/i.test(file)) return 'application/json';
   if (/\.html?$/i.test(file)) return 'text/html';
   return 'application/octet-stream';

@@ -30,6 +30,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     } finally { await fs.rm(temporary, { force: true }); }
   }
   async function persist(data) {
+    data = Model.completeKinship(data);
     const text = JSON.stringify(data, null, 2) + '\n';
     await atomicWrite(dataFile, text);
     return { data, version: hash(text) };
@@ -39,6 +40,14 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     history.unshift({ data: current.data, version: current.version, savedAt: Date.now(), label });
     history = history.slice(0, HISTORY_LIMIT);
     return { ...saved, undoLabel: label };
+  }
+  async function readForClient() {
+    const operation = writes.then(async () => {
+      const current = await read(), completed = Model.completeKinship(current.data);
+      return completed === current.data ? current : { ...await persist(completed), undoLabel: current.undoLabel };
+    });
+    writes = operation.catch(() => {});
+    return operation;
   }
   function applyCommand(data, command) {
     try { return { change: Commands.apply(data, command) }; }
@@ -54,7 +63,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     catch (error) { return [error.status || 400, { error: error.message }]; }
     // A retry after a lost response returns the original save before stale-version rejection.
     const existing = current.data.people.find(person => person.id === candidate.id);
-    if (existing) return JSON.stringify(existing) === JSON.stringify(candidate)
+    const original = existing && { ...existing }; if (original) delete original.inferredRelationships;
+    if (existing) return JSON.stringify(original) === JSON.stringify(candidate)
       ? [200, { ...current, memberId: candidate.id }]
       : [409, { error: '此筆新增已儲存，請重新開啟新增表單。' }];
     if (body.version !== current.version) return [409, { error: '資料已被其他操作更新，請按「更新資料」後檢查表單再儲存。' }];
@@ -116,13 +126,13 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
       if (!expected.has(req.headers.host)) return reply(res, 403, { error: '不允許此主機來源。' });
       const url = new URL(req.url, `http://${req.headers.host}`);
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Referrer-Policy', 'same-origin');
-      if (req.method === 'GET' && url.pathname === '/api/family') return reply(res, 200, await read());
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      if (req.method === 'GET' && url.pathname === '/api/family') return reply(res, 200, await readForClient());
       if (req.method === 'GET' && url.pathname === '/index.html') {
         res.writeHead(301, { Location: '/' }); return res.end();
       }
       if (req.method === 'GET' && url.pathname === '/api/family/export') {
-        const { data } = await read();
+        const { data } = await readForClient();
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="family.json"', 'Cache-Control': 'no-store' });
         return res.end(JSON.stringify(data, null, 2) + '\n');
       }
@@ -132,7 +142,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
       const isIntermediateIgnore = req.method === 'PUT' && url.pathname === '/api/family/intermediate-ignore';
       const isUndo = req.method === 'POST' && url.pathname === '/api/family/undo';
       const isManage = req.method === 'POST' && url.pathname === '/api/family/manage';
-      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo || isManage) {
+      const isLocation = req.method === 'POST' && url.pathname === '/api/family/locations';
+      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo || isManage || isLocation) {
         if (req.headers.origin !== `http://${req.headers.host}` || req.headers['content-type']?.split(';')[0] !== 'application/json') return reply(res, 403, { error: '只允許從本網站提交表單。' });
         const chunks = []; let bytes = 0;
         for await (const chunk of req) {
@@ -142,7 +153,19 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
         }
         let body;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return reply(res, 400, { error: 'JSON 格式不正確。' }); }
-        const operation = writes.then(() => isManage ? manageFamily(body) : isUndo ? undoFamily(body) : isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : isIntermediateIgnore ? updateIntermediateIgnore(body) : editMatch ? edit(editMatch[1], body) : add(body));
+        const operation = writes.then(async () => {
+          if (isLocation) {
+            if (!['updateLocations','claimLocationLookup','resetLocation','setLocationOverride','clearLocationOverride'].includes(body.type)) return [400, { error: '不支援的定位操作。' }];
+            const current = await read();
+            if (body.expectedVersion && body.expectedVersion !== current.version) return [409, { error: '資料已更新，請重新開啟地點修正。' }];
+            const { change, error, status } = applyCommand(current.data, body);
+            if (error) return [status, { error: error.message }];
+            if (change.unchanged) return [200, current];
+            const saved = change.metadataOnly ? await persist(change.data) : await persistChange(current, change.data, change.label);
+            return [200, { ...saved, undoLabel: history[0]?.label || null }];
+          }
+          return isManage ? manageFamily(body) : isUndo ? undoFamily(body) : isImport ? importFamily(body) : isNameUpdate ? updateFamilyName(body) : isIntermediateIgnore ? updateIntermediateIgnore(body) : editMatch ? edit(editMatch[1], body) : add(body);
+        });
         writes = operation.catch(() => {});
         const [status, payload] = await operation;
         return reply(res, status, payload);

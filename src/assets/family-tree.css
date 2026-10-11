@@ -170,6 +170,9 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .relationship-details__actions .details-query-placeholder { display:none; }
 .relationship-details__profile { padding:0 2px 12px; border-bottom:1px solid var(--color-line); font-size:.875rem; color:var(--color-ink-soft); overflow-wrap:anywhere; }
 .relationship-details__profile p + p { margin-top:2px; }
+.relationship-details__location { max-width:100%; min-height:44px; padding:0 4px; border:0; border-radius:4px; background:none; color:var(--color-accent); font:inherit; text-align:left; overflow-wrap:anywhere; vertical-align:middle; text-decoration:underline; text-underline-offset:3px; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+.relationship-details__location:active { background:#eee4d6; }
+.relationship-details__location:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
 .relationship-details__empty { margin-top:14px; font-size:.875rem; color:var(--color-ink-soft); }
 .relationship-groups { display:grid; gap:8px; margin-top:12px; }
 .relationship-group { min-width:0; border:1px solid var(--color-line); border-radius:8px; background:white; overflow:hidden; }
@@ -420,7 +423,7 @@ dialog textarea { width:100%; box-sizing:border-box; font:inherit; padding:8px; 
 @keyframes cloud-auth-spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .cloud-auth-toast { transition:none; } .cloud-auth-toast[data-auth-state="refreshing"] .cloud-auth-toast__indicator { animation:none; border-right-color:currentColor; opacity:.45; } }
 .cloud-sync-dialog { width:min(520px,calc(100vw - 32px)); }
-.cloud-sync-panel { display:grid; gap:14px; }
+.cloud-sync-panel { display:grid; gap:14px; align-content:start; }
 .cloud-sync-state-card { border:1px solid var(--color-line); border-radius:10px; padding:12px 14px; background:#fffaf4; }
 .cloud-sync-state-card strong { display:block; margin-bottom:4px; }
 .cloud-sync-state-card p { color:var(--color-ink-soft); font-size:.875rem; }
@@ -1592,3 +1595,4 @@ select:not([multiple]) { -webkit-appearance:none; appearance:none; }
 @media (prefers-reduced-motion:reduce) {
   .cloud-sync-button[data-sync-state="syncing"]::after { animation:none; opacity:1; transform:none; }
 }
+/* Member map: keep the touch surface inside a bounded dialog so its list can scroll independently. */

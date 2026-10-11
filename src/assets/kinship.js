@@ -176,6 +176,28 @@
     const direct = adjacency.get(bId).filter(e => e.to === aId);
     for (const edge of direct) if (!result.paths.some(p => p.edges.length === 1 && p.edges[0].key === edge.key)) result.paths.push({ nodes: [bId, aId], edges: [edge], familyRoute: false });
     const paths = result.paths.map(p => ({ ...p, ...describe(p, byId) }));
+    for (const relation of (graph.inferredRelations || []).filter(r => r.from === bId && r.personId === aId)) {
+      if (relation.recorded) {
+        if (['grandparent', 'grandchild'].includes(relation.type) && relation.lineage !== 'unknown') {
+          for (const path of paths) if (path.edges.length === 1 && path.edges[0].type === relation.type && path.edges[0].kind === '親生') {
+            path.title = Model.inferredRole(relation, byId.get(aId));
+          }
+        }
+        continue;
+      }
+      const edges = relation.path.map(proof => adjacency.get(proof.from).find(edge => edge.to === proof.to && edge.type === proof.type && edge.kind === proof.kind));
+      if (edges.some(edge => !edge)) continue;
+      const inferredPath = { nodes: [bId, ...edges.map(edge => edge.to)], edges, familyRoute: true, automatic: true };
+      const description = describe(inferredPath, byId);
+      const title = description.confidence === 3 ? description.title : Model.isCousin(relation.type)
+        ? term({ from: bId, to: aId, type: relation.type }, byId) : Model.inferredRole(relation, byId.get(aId));
+      const notes = [...description.notes.filter(note => note !== config.notes.fallback), '此關係由已確認的親屬關係自動辨別'];
+      if (Model.isCousin(relation.type) && !notes.includes(config.notes.cousinAge)) notes.push(config.notes.cousinAge);
+      const existing = paths.find(path => path.edges.map(edge => edge.key).join(';') === edges.map(edge => edge.key).join(';'));
+      const value = { ...inferredPath, title, notes, confidence: 3 };
+      if (existing) Object.assign(existing, value);
+      else paths.push(value);
+    }
     for (const path of paths) if (path.cousinType && path.edges.length > 1) {
       const recorded = direct.find(e => e.type === path.cousinType && ['older', 'younger'].includes(e.seniority));
       if (recorded) {

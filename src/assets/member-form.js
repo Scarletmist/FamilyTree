@@ -88,7 +88,7 @@
   function syncProgressiveFields({ draft = null } = {}) {
     const mobile = matchMedia(COMPACT_LAYOUT_QUERY).matches;
     const fields = draft?.state?.fields || null;
-    const hasOptionalDraft = fields && [fields.location, fields.position, fields.notes, fields.siblingOrder, fields.discipleOrder].some(Boolean);
+    const hasOptionalDraft = fields && [fields.location, fields.position, fields.notes, fields.siblingOrder, fields.discipleOrder, fields.mapHidden].some(Boolean);
     optionalFields.open = !mobile || Boolean(editingId) || Boolean(hasOptionalDraft);
     const hasRanks = fields
       ? Boolean(fields.siblingOrder || fields.discipleOrder)
@@ -100,7 +100,8 @@
     return {
       fields: {
         name: field('name'), location: field('location'), position: field('position'), notes: field('notes'),
-        gender: field('gender'), siblingOrder: field('siblingOrder'), discipleOrder: field('discipleOrder')
+        gender: field('gender'), siblingOrder: field('siblingOrder'), discipleOrder: field('discipleOrder'),
+        mapHidden: form.elements.namedItem('mapHidden').checked
       },
       intermediateChoice: document.getElementById('intermediate-choice')?.value || '',
       relationships: [...relations.children].map(row => ({
@@ -148,7 +149,7 @@
     const state = draft.state;
     Object.entries(state.fields || {}).forEach(([name, value]) => {
       const control = form.elements.namedItem(name);
-      if (control) control.value = value ?? '';
+      if (control) { if (control.type === 'checkbox') control.checked = Boolean(value); else control.value = value ?? ''; }
     });
     const choice = document.getElementById('intermediate-choice');
     if (choice && state.intermediateChoice && [...choice.options].some(option => option.value === state.intermediateChoice)) choice.value = state.intermediateChoice;
@@ -199,7 +200,9 @@
     const storage = FamilyRepository.isStatic ? 'IndexedDB' : restored ? null : backup.save(payload);
     backupStatus.textContent = FamilyRepository.isStatic ? '已儲存至此瀏覽器（IndexedDB）；可連結 Google Drive 跨裝置同步，JSON 匯出仍可作為離線備份。' : restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
     const familyName = graph.familyName;
-    familyTitle.textContent = familyName + '族譜圖';
+    familyTitle.textContent = familyName;
+    document.getElementById('family-emblem').textContent = familyName.slice(0, 1);
+    document.getElementById('local-save-state').textContent = restored ? '備份檢視' : FamilyRepository.isStatic ? '已儲存在此裝置' : '已儲存';
     document.title = '族譜圖 — ' + familyName;
     familyNameButton.disabled = restored;
     addButton.disabled = restored;
@@ -225,7 +228,10 @@
     return true;
   }
   function showUndoStatus(message, payload) {
-    showStatus(message, 'success', 6000, { label: '復原', onClick: () => undoLastChange(payload.version) });
+    showStatus(message, 'success', 6000, { label: '復原', onClick: () => {
+      const coordinatesOnly = snapshot?.undoLabel === payload.undoLabel && FamilyModel.sameJsonData(FamilyLocation.content(snapshot.data), FamilyLocation.content(payload.data));
+      return undoLastChange(coordinatesOnly ? snapshot.version : payload.version);
+    } });
   }
   function addRelation(initial = null, { expanded = initial == null } = {}) {
     const row = document.createElement('div'); row.className = 'relation-row';
@@ -358,6 +364,7 @@
     const person = snapshot.data.people.find(p => p.id === editingId);
     if (!person) throw new Error('此成員已不存在，請關閉表單後更新資料。');
     for (const key of ['name', 'location', 'position', 'notes', 'gender', 'siblingOrder', 'discipleOrder']) form.elements.namedItem(key).value = person[key] ?? '';
+    form.elements.namedItem('mapHidden').checked = Boolean(person.mapHidden);
     relations.replaceChildren();
     FamilyModel.relationshipsFor(snapshot.data, editingId).forEach(addRelation);
   }
@@ -366,8 +373,10 @@
     editingId = id; currentPlanId = plan?.id || null;
     form.reset(); relations.replaceChildren(); error.textContent = ''; showStatus(''); requestId = crypto.randomUUID();
     document.getElementById('intermediate-context')?.remove();
-    document.getElementById('member-dialog-title').textContent = editingId ? '編輯成員與關係' : '新增成員';
-    document.getElementById('refresh-family').textContent = editingId ? '重新載入成員' : '更新資料';
+    document.getElementById('member-dialog-title').textContent = editingId ? '編輯' + snapshot.data.people.find(p => p.id === editingId)?.name : '新增成員';
+    document.getElementById('refresh-family').textContent = '檢視最新資料';
+    form.querySelectorAll('[aria-invalid]').forEach(control => control.removeAttribute('aria-invalid'));
+    form.querySelectorAll('.field-error').forEach(hint => { hint.textContent = ''; });
     if (editingId) populateMember();
     if (plan) {
       document.getElementById('member-dialog-title').textContent = plan.title;
@@ -506,12 +515,14 @@
       const payload = await FamilyApp.manageFamily(body);
       accept(payload); showUndoStatus('已儲存修改。', payload); return payload;
     },
-    undo: () => undoLastChange(snapshot.version),
+    undo: (expectedVersion = snapshot.version) => undoLastChange(expectedVersion),
     addRelative(id, type) { openMember(); addRelation({ personId: id, type, ...(FamilyModel.isDescent(type) ? {kind:'親生'} : {}) }, {expanded:true}); resetMemberBaseline(); },
     complete(id, targetId, category, message) {
       if (message.includes('性別')) { openMember(targetId); form.elements.namedItem('gender').focus(); return; }
       openMember(id);
-      const type = category === 'fellowDisciples' ? 'fellowDisciple' : category === 'cousins' ? 'tangCousin' : 'sibling';
+      const cousin = FamilyModel.relationshipsFor(snapshot.data, id).find(r => r.personId === targetId && FamilyModel.isCousin(r.type))
+        || snapshot.data.people.find(p => p.id === id)?.inferredRelationships?.find(r => r.personId === targetId && FamilyModel.isCousin(r.type));
+      const type = category === 'fellowDisciples' ? 'fellowDisciple' : category === 'cousins' ? cousin?.type || 'tangCousin' : 'sibling';
       let row = [...relations.children].find(row => row.querySelector('.relation-target').value === targetId && (row.querySelector('.relation-type').value === type || row.querySelector('.relation-type').value === 'swornSibling'));
       if (!row) { addRelation({personId:targetId,type}, {expanded:true}); row = relations.lastElementChild; }
       row.expandEditor(); row.scrollIntoView({block:'center'});
@@ -544,17 +555,97 @@
   document.getElementById('member-disciple-order').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   document.getElementById('member-name').addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview()));
   ['gender','siblingOrder'].forEach(name => form.elements.namedItem(name).addEventListener('input', () => [...relations.children].forEach(row => row.updatePreview())));
-  document.getElementById('refresh-family').addEventListener('click', async () => {
-    error.textContent = '';
+  const refreshDialog = document.getElementById('member-refresh-dialog');
+  let pendingRefresh = null;
+  const formMenu = document.getElementById('member-form-menu');
+  const formMore = document.getElementById('member-form-more');
+  formMenu.addEventListener('toggle', () => formMore.setAttribute('aria-expanded', String(formMenu.matches(':popover-open'))));
+  formMore.addEventListener('click', () => {
+    const rect = formMore.getBoundingClientRect();
+    formMenu.style.left = Math.max(8, Math.min(rect.right - 280, innerWidth - 288)) + 'px';
+    formMenu.style.top = Math.min(rect.bottom + 6, innerHeight - 130) + 'px';
+  });
+  function finishRefresh() {
+    refreshDialog.close(); pendingRefresh = null;
+    document.getElementById('member-name').focus({ preventScroll:true });
+  }
+  document.getElementById('member-refresh-keep').addEventListener('click', finishRefresh);
+  refreshDialog.addEventListener('cancel', event => { event.preventDefault(); finishRefresh(); });
+  document.getElementById('member-refresh-replace').addEventListener('click', () => {
+    if (!pendingRefresh) return;
     try {
-      await load();
-      if (editingId) { populateMember(); resetMemberBaseline(); clearMemberDraft(); error.textContent = '已載入此成員的最新資料，請重新套用修改。'; }
-      else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); showStatus('已更新資料，表單內容已保留。', 'info'); }
+      accept(pendingRefresh);
+      if (editingId) populateMember();
+      else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); }
+      resetMemberBaseline(); clearMemberDraft(); finishRefresh();
+      showStatus('已載入最新資料。', 'info');
+    } catch (e) { document.getElementById('member-refresh-error').textContent = e.message; }
+  });
+  document.getElementById('refresh-family').addEventListener('click', async () => {
+    if (saving) return;
+    formMenu.hidePopover(); error.textContent = ''; persistMemberDraft();
+    const previous = snapshot;
+    try {
+      const latest = await FamilyApp.load();
+      if (memberFormDirty() && editingId) {
+        pendingRefresh = latest;
+        document.getElementById('member-refresh-error').textContent = '';
+        window.renderFamilyDifferences?.(document.getElementById('member-refresh-differences'), previous.data, latest.data);
+        refreshDialog.showModal(); document.getElementById('member-refresh-keep').focus();
+      } else {
+        accept(latest);
+        if (editingId) { populateMember(); resetMemberBaseline(); clearMemberDraft(); }
+        else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); }
+        showStatus('已更新資料，表單內容已保留。', 'info');
+      }
+    } catch (e) { error.textContent = e.message; }
+  });
+  function validateName() {
+    const input = document.getElementById('member-name');
+    const message = input.value.trim() ? '' : '請填寫姓名。';
+    document.getElementById('member-name-error').textContent = message;
+    input.setAttribute('aria-invalid', String(Boolean(message)));
+    return !message;
+  }
+  const inlineErrors = new WeakMap();
+  let nextInlineError = 0;
+  function showFieldError(control, message) {
+    let hint = inlineErrors.get(control);
+    if (!hint) {
+      hint = document.createElement('span'); hint.className = 'field-error';
+      hint.id = 'member-field-error-' + ++nextInlineError; hint.setAttribute('aria-live', 'polite');
+      (control.closest('.searchable-select') || control).after(hint);
+      inlineErrors.set(control, hint);
+      control.setAttribute('aria-describedby', [control.getAttribute('aria-describedby'), hint.id].filter(Boolean).join(' '));
+      for (const event of ['input', 'change']) control.addEventListener(event, () => showFieldError(control, ''));
     }
-    catch (e) { error.textContent = e.message; }
+    hint.textContent = message;
+    control.setAttribute('aria-invalid', String(Boolean(message)));
+    const trigger = control.closest('.searchable-select')?.querySelector('.select-trigger');
+    if (trigger) { trigger.setAttribute('aria-invalid', String(Boolean(message))); trigger.setAttribute('aria-describedby', hint.id); }
+  }
+  function nativeFieldError(control) {
+    if (control.id === 'member-name') { validateName(); return; }
+    const message = control.validity.valid ? '' : control.type === 'number' ? '請填寫 1–999 的整數，或留空。' : control.matches('select') ? '請選擇此欄位的選項。' : control.validationMessage;
+    showFieldError(control, message);
+  }
+  form.addEventListener('invalid', event => {
+    event.target.closest('.relation-row')?.expandEditor();
+    for (let parent = event.target.parentElement; parent && parent !== form; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
+    nativeFieldError(event.target);
+  }, true);
+  form.addEventListener('focusout', event => {
+    if (event.target.matches('input[type=number],select[required]')) nativeFieldError(event.target);
+  });
+  document.getElementById('member-name').addEventListener('blur', validateName);
+  document.getElementById('member-name').addEventListener('input', () => {
+    document.getElementById('member-name-error').textContent = '';
+    document.getElementById('member-name').removeAttribute('aria-invalid');
   });
   form.addEventListener('submit', async event => {
-    event.preventDefault(); if (saving || !form.reportValidity()) return;
+    event.preventDefault(); if (saving) return;
+    if (!validateName()) { document.getElementById('member-name').focus(); return; }
+    if (!form.reportValidity()) return;
     error.textContent = '';
     const values = new FormData(form);
     const member = {
@@ -572,6 +663,8 @@
         return r;
       })
     };
+    if (values.has('mapHidden')) member.mapHidden = true;
+    else if (editingId && snapshot.data.people.find(p => p.id === editingId)?.mapHidden !== undefined) member.mapHidden = false;
     setSaving(true);
     try {
       const candidate = { ...member, id: editingId || 'p-' + requestId };
@@ -590,11 +683,15 @@
       error.textContent = e.message || '連線中斷，請重試。';
       setSaving(false);
       const row = [...relations.children].find(row => e.personIds?.includes(row.querySelector('.relation-target').value));
-      if (row) { row.expandEditor(); row.scrollIntoView({block:'center'}); row.querySelector('.relation-cousin-seniority:not(:disabled), .relation-type')?.focus(); }
+      if (row) {
+        row.expandEditor(); row.scrollIntoView({block:'center'});
+        const control = row.querySelector('.relation-cousin-seniority:not(:disabled), .relation-type');
+        if (control) { showFieldError(control, error.textContent); control.focus(); }
+      }
       else {
         const field = e.field || (e.message.includes('姓名') ? 'name' : e.message.includes('師門次序') ? 'discipleOrder' : e.message.includes('手足次序') ? 'siblingOrder' : null);
         const control = field && form.elements.namedItem(field);
-        if (control) { control.scrollIntoView({block:'center'}); control.focus(); }
+        if (control) { showFieldError(control, error.textContent); control.scrollIntoView({block:'center'}); control.focus(); }
         else { error.tabIndex = -1; error.scrollIntoView({block:'center'}); error.focus(); }
       }
     }
@@ -658,11 +755,26 @@
     } catch (e) { showStatus('無法匯出：' + e.message, 'error'); }
     finally { button.disabled = false; }
   });
+  window.addEventListener('familylocationedit', event => {
+    const payload = event.detail.payload;
+    accept(payload);
+    showUndoStatus('已' + payload.undoLabel + '。', payload);
+  });
   window.addEventListener('familyrepositorychange', event => {
+    if (event.detail?.source === 'geocode' && event.detail.payload) {
+      const payload = event.detail.payload;
+      // Only rebase form versions when all user-editable data is unchanged.
+      if (!snapshot || FamilyModel.sameJsonData(FamilyLocation.content(snapshot.data), FamilyLocation.content(payload.data))) {
+        if (importVersion === snapshot?.version) importVersion = payload.version;
+        if (nameVersion === snapshot?.version) nameVersion = payload.version;
+        accept(payload);
+      }
+      return;
+    }
     if (event.detail?.source !== 'cloud' || !event.detail.payload) return;
     const editing = dialog.open || nameDialog.open || importDialog.open;
     if (editing) {
-      showStatus('Google Drive 已下載較新的族譜；目前表單仍保留原輸入。請按「更新資料」後再儲存，避免覆蓋雲端版本。', 'warning');
+      showStatus('Google Drive 已下載較新的族譜；表單仍保留原輸入。請「檢視最新資料」後確認變更。', 'warning');
       return;
     }
     accept(event.detail.payload);
@@ -671,13 +783,21 @@
     selectTreeMember(null);
     showStatus('已從 Google Drive 載入較新的族譜資料。', 'info');
   });
-  load().catch(e => {
-    const cached = FamilyRepository.isStatic ? null : backup.read();
-    if (cached) { accept(cached, true); return; }
-    const canvas = document.getElementById('tree-canvas');
-    canvas.replaceChildren();
-    const message = document.createElement('p'); message.className = 'tree__error';
-    message.textContent = location.protocol === 'file:' ? '請先執行 node server.cjs，再開啟 http://127.0.0.1:4173，才能讀取與儲存族譜。' : e.message;
-    canvas.appendChild(message);
-  });
+  async function loadInitial() {
+    try {
+      await load();
+      showStatus('');
+    } catch (e) {
+      const cached = FamilyRepository.isStatic ? null : backup.read();
+      if (cached) { accept(cached, true); return; }
+      const canvas = document.getElementById('tree-canvas');
+      canvas.replaceChildren();
+      const message = document.createElement('p'); message.className = 'tree__error';
+      message.textContent = location.protocol === 'file:' ? '請先執行 node dev/server.cjs，再開啟 http://127.0.0.1:4173，才能讀取與儲存族譜。' : FamilyRepository.isStatic ? '無法讀取此裝置的族譜資料，請稍後重試。' : e.message;
+      canvas.appendChild(message);
+      document.getElementById('local-save-state').textContent = '族譜讀取失敗';
+      showStatus(message.textContent, 'error', 0, { label: '重試載入', onClick: loadInitial });
+    }
+  }
+  loadInitial();
 })();

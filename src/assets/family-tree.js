@@ -57,7 +57,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
       sessionStorage.setItem(VIEW_STATE_KEY, JSON.stringify({
         scale: treeZoom.getScale(), scrollLeft: view.scrollLeft, scrollTop: view.scrollTop,
         filter: document.getElementById('family-filter')?.value || '',
-        hideCanvasNames, legendOpen: document.querySelector('.legend-panel')?.open ?? true, savedAt: Date.now()
+        hideCanvasNames, showInferredLines, legendOpen: document.querySelector('.legend-panel')?.open ?? true, savedAt: Date.now()
       }));
     } catch (_) {}
   }
@@ -86,12 +86,33 @@ let FAMILY = FamilyApp?.graph?.() || null;
     nameToggle.setAttribute('aria-pressed', String(hideCanvasNames));
     const label = hideCanvasNames ? '顯示族譜姓名' : '隱藏族譜姓名';
     nameToggle.setAttribute('aria-label', label); nameToggle.title = label;
+    const icon = nameToggle.querySelector('svg');
+    icon.dataset.icon = hideCanvasNames ? 'eye-off' : 'eye';
+    icon.innerHTML = hideCanvasNames
+      ? '<path d="m3 3 18 18M10.6 5.1A11 11 0 0 1 12 5c6 0 10 7 10 7a17.5 17.5 0 0 1-3.2 3.9M6.5 6.5C3.7 8.5 2 12 2 12s4 7 10 7a11 11 0 0 0 5.5-1.5M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'
+      : '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>';
+    nameToggle.querySelector('.canvas-name-label').textContent = hideCanvasNames ? '顯示姓名' : '隱藏姓名';
   }
   syncNameToggle();
   nameToggle.addEventListener('click', () => {
     hideCanvasNames = !hideCanvasNames;
     syncNameToggle();
     render();
+    scheduleCanvasViewStateSave();
+  });
+  let showInferredLines = initialViewState?.showInferredLines === true;
+  const inferredToggle = document.getElementById('toggle-inferred-lines');
+  function syncInferredToggle() {
+    inferredToggle.setAttribute('aria-pressed', String(showInferredLines));
+    const label = showInferredLines ? '隱藏自動辨別線段' : '顯示自動辨別線段';
+    inferredToggle.setAttribute('aria-label', label);
+    inferredToggle.querySelector('[data-label]').textContent = label;
+  }
+  syncInferredToggle();
+  inferredToggle.addEventListener('click', () => {
+    showInferredLines = !showInferredLines;
+    syncInferredToggle();
+    updateSelectedDetails?.();
     scheduleCanvasViewStateSave();
   });
   const memberTooltip = createMemberTooltip({ getHideNames: () => hideCanvasNames });
@@ -126,7 +147,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     applyResponsiveDefaults();
     bindPanning(canvas.parentElement, { viewportController: treeZoom, getSelectedId: () => selectedId, closeSelectedDetails });
     bindGlobalDismiss(closeSelectedDetails);
-    bindMobileBackNavigation(closeSelectedDetails);
+    bindMobileBackNavigation(closeSelectedDetails, () => relationshipDetails.leaveReading());
     memberTooltip.hide(null, true);
     updateSelectedDetails = null;
     canvas.replaceChildren();
@@ -213,7 +234,8 @@ let FAMILY = FamilyApp?.graph?.() || null;
           if (result?.outcome === 'error') document.getElementById('cloud-sync')?.click();
         } else document.getElementById('cloud-sync')?.click();
       });
-      const add = element('button', 'plain-button', '新增第一位成員'); add.type = 'button';
+      const add = element('button', 'plain-button member-add-button'); add.type = 'button';
+      add.append(document.querySelector('#add-member .member-add-icon').cloneNode(true), element('span', '', '新增第一位成員'));
       add.addEventListener('click', () => document.getElementById('add-member')?.click());
       const importButton = element('button', 'plain-button', '匯入族譜'); importButton.type = 'button';
       importButton.addEventListener('click', () => document.getElementById('import-json')?.click());
@@ -255,7 +277,13 @@ let FAMILY = FamilyApp?.graph?.() || null;
             node.appendChild(element('span', 'person__order', first.name + '：' + (member.order ?? '未填寫') + (rankGroups.length > 1 ? '（另 ' + (rankGroups.length - 1) + ' 組）' : '')));
           }
           memberTooltip.bind(node, p);
-          node.addEventListener('click', () => { memberTooltip.hide(node, true); selectedId = selectedId === p.id ? null : p.id; if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), matchMedia('(max-width:700px) and (orientation:portrait)').matches); showDetails(); });
+          node.addEventListener('click', () => {
+            memberTooltip.hide(node, true);
+            selectedId = selectedId === p.id ? null : p.id;
+            if (selectedId) relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false);
+            showDetails();
+            if (selectedId && treeZoom.isMobileLayout()) treeZoom.focusMember(selectedId);
+          });
           nodes.set(p.id, node);
           group.appendChild(node);
         });
@@ -277,19 +305,6 @@ let FAMILY = FamilyApp?.graph?.() || null;
     // Include room for endpoint symbols, crossing bridges and relation labels.
     const baseCanvasPaddingTop = Math.max(80, upperLanes(firstGeneration) + 40);
     let canvasPaddingTop = baseCanvasPaddingTop;
-    if (queryView.active) {
-      const resultSummary = document.getElementById('relationship-summary');
-      const mobileResultLayout = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)').matches;
-      if (mobileResultLayout) {
-        // Mobile uses a compact floating result bar. Reserve only its fixed top zone
-        // in landscape; portrait's normal routing gutter already clears the bar.
-        const landscapeResultLayout = matchMedia('(max-width:950px) and (max-height:520px) and (orientation:landscape)').matches;
-        if (landscapeResultLayout) {
-          const resultTop = parseFloat(getComputedStyle(resultSummary).top) || 0;
-          canvasPaddingTop = Math.max(canvasPaddingTop, resultTop + 62);
-        }
-      } else canvasPaddingTop += resultSummary.offsetHeight;
-    }
     canvas.style.paddingTop = canvasPaddingTop + 'px';
     canvas.appendChild(rows);
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
@@ -345,7 +360,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     }
     const otherSegments = group => connectorSegments.filter(segment => segment.group !== group);
     const route = (start, end, group) => FamilyConnectorRouting.route(start, end, cardBoxes, otherSegments(group));
-    function path(points, kind, ids, role, union, group, crossingSegments) {
+    function path(points, kind, ids, role, union, group, crossingSegments, inferred = false) {
       const connectorGroup = group || (union ? `union:${union}` : `edge:${connectorSerial++}`);
       const logicalPoints = FamilyConnectorRouting.simplify(points);
       const bridgePoints = FamilyConnectorRouting.crossings(logicalPoints, crossingSegments || otherSegments(connectorGroup), 2.5);
@@ -359,6 +374,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
       el.dataset.people = ids.join(' ');
       el.dataset.role = role;
       el.dataset.group = connectorGroup;
+      if (inferred) el.dataset.inferred = 'true';
       el.dataset.points = logicalPoints.map(p => p.join(',')).join(' ');
       if (bridgePoints.length) el.dataset.bridges = bridgePoints.map(p => `${p.x},${p.y}`).join(' ');
       if (union) el.dataset.union = union;
@@ -367,6 +383,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
         const inner = svgElement('path', { d, fill: 'none', stroke: '#fbf8f3', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' });
         inner.dataset.people = ids.join(' ');
         inner.dataset.group = connectorGroup;
+        if (inferred) inner.dataset.inferred = 'true';
         svg.appendChild(inner);
         pathDecorations.set(el, inner);
       }
@@ -374,10 +391,11 @@ let FAMILY = FamilyApp?.graph?.() || null;
       return el;
     }
     const lineLabels = [];
-    function label(x, y, text, kind, ids) {
+    function label(x, y, text, kind, ids, inferred = false) {
       const el = svgElement('text', { x, y, class: 'relation-label', fill: (STYLES[kind] || STYLES.unknown).color });
       el.textContent = text;
       el.dataset.people = ids.join(' ');
+      if (inferred) el.dataset.inferred = 'true';
       svg.appendChild(el);
       lineLabels.push(el);
     }
@@ -470,10 +488,10 @@ let FAMILY = FamilyApp?.graph?.() || null;
           };
           const start = endpoint(left, right), end = endpoint(right, left);
           const points = [[start.x, start.y], ...route([start.x, start.escape], [end.x, end.escape], groupKey), [end.x, end.y]];
-          path(points, r.kind, ids, 'auxiliary', null, groupKey);
+          path(points, r.kind, ids, 'auxiliary', null, groupKey, undefined, r.inferred);
         }
         const last = chain.at(-1);
-        label(last.x + 12, last.top - 12, r.planId ? '親生（補中間一代）' : r.kind + '（補親生父母）', r.kind, ids);
+        label(last.x + 12, last.top - 12, r.planId ? '親生（補中間一代）' : r.kind + '（補親生父母）', r.kind, ids, r.inferred);
         return;
       }
       const offset = 24 + auxiliaryLanes[index] * auxiliaryLaneStep;
@@ -482,15 +500,15 @@ let FAMILY = FamilyApp?.graph?.() || null;
       const fromX = memberPort(from, 'top', groupKey, -42), toX = memberPort(to, 'top', groupKey, -42);
       const points = [[fromX, a.top], ...route([fromX, fromY], [toX, toY], groupKey), [toX, b.top]];
       const routeIds = [...new Set([r.from, r.to, from, to])];
-      path(points, r.kind, routeIds, 'auxiliary', null, groupKey);
-      label(b.x - 135, toY - (plans.length ? 24 : 8), r.kind === '師徒' ? '師父 → 徒弟' : from !== r.from || to !== r.to ? r.kind + '（補親生父母）' : r.kind, r.kind, routeIds);
+      path(points, r.kind, routeIds, 'auxiliary', null, groupKey, undefined, r.inferred);
+      label(b.x - 135, toY - (plans.length ? 24 : 8), r.kind === '師徒' ? '師父 → 徒弟' : from !== r.from || to !== r.to ? r.kind + '（補親生父母）' : r.kind, r.kind, routeIds, r.inferred);
     });
     // Replace overlapping strokes with disjoint intervals, retaining exactly the
     // people represented by each interval for selection highlighting.
     for (const group of new Set(sharing.filter(s => s.root).map(s => s.group))) {
       const precedingSegments = connectorSegments.slice(0, connectorSegments.findIndex(s => s.group === group));
       const originals = [...svg.querySelectorAll('path[data-points]')].filter(el => el.dataset.group === group);
-      const records = originals.map(el => ({ points: el.dataset.points.split(' ').map(p => p.split(',').map(Number)), people: el.dataset.people.split(' ') }));
+      const records = originals.map(el => ({ points: el.dataset.points.split(' ').map(p => p.split(',').map(Number)), people: el.dataset.people.split(' '), inferred: el.dataset.inferred === 'true' }));
       const markers = new Map();
       originals.forEach((el, i) => {
         const points = records[i].points;
@@ -498,22 +516,23 @@ let FAMILY = FamilyApp?.graph?.() || null;
           if (el.hasAttribute(attribute)) {
             const key = `${point}:${Math.sign(point[0] - neighbor[0])},${Math.sign(point[1] - neighbor[1])}`;
             const prior = markers.get(key);
-            markers.set(key, { point, neighbor, marker: el.getAttribute(attribute), people: [...new Set([...(prior?.people || []), ...records[i].people])] });
+            markers.set(key, { point, neighbor, marker: el.getAttribute(attribute), people: [...new Set([...(prior?.people || []), ...records[i].people])], inferred: records[i].inferred && (!prior || prior.inferred) });
           }
         }
       });
       const kind = originals[0]?.dataset.kind;
       originals.forEach(el => el.remove());
       FamilyConnectorRouting.sharedSegments(records).forEach(segment => {
-        const el = path(segment.points, kind, segment.people, 'auxiliary', null, group, precedingSegments);
+        const el = path(segment.points, kind, segment.people, 'auxiliary', null, group, precedingSegments, segment.inferred);
         el.removeAttribute('marker-start'); el.removeAttribute('marker-end');
       });
       // Endpoint symbols belong to relationship endpoints, never split intervals.
-      for (const { point, neighbor, marker, people } of markers.values()) {
+      for (const { point, neighbor, marker, people, inferred } of markers.values()) {
         const dx = point[0] - neighbor[0], dy = point[1] - neighbor[1], length = Math.hypot(dx, dy);
         if (!length) continue;
         const el = svgElement('path', { d: `M ${point[0] - dx / length * .1} ${point[1] - dy / length * .1} L ${point[0]} ${point[1]}`, stroke: STYLES[kind].color, 'marker-end': marker, 'vector-effect': 'non-scaling-stroke' });
         el.dataset.people = people.join(' '); el.dataset.group = group;
+        if (inferred) el.dataset.inferred = 'true';
         svg.appendChild(el);
       }
     }
@@ -553,21 +572,26 @@ let FAMILY = FamilyApp?.graph?.() || null;
     const bridgeRecords = [...svg.querySelectorAll('path[data-points]')].map(el => ({
       el, original: el.getAttribute('d'), group: el.dataset.group,
       people: el.dataset.people.split(' '),
+      inferred: el.dataset.inferred === 'true',
       points: el.dataset.points.split(' ').map(p => p.split(',').map(Number)),
       bridges: (el.dataset.bridges || '').split(' ').filter(Boolean).map(p => { const [x, y] = p.split(',').map(Number); return { x, y }; })
     }));
     function showDetails() {
       const panel = document.getElementById('relationship-details');
       const visibleId = selectedId && byId.has(selectedId) ? selectedId : null;
+      // Selection and relationship queries reveal inferred paths without
+      // changing the user's overview preference or rebuilding the canvas.
+      const revealInferred = showInferredLines || !!visibleId || queryView.active;
       nodes.forEach((node, id) => node.setAttribute('aria-pressed', String(id === visibleId)));
       svg.querySelectorAll('[data-people]').forEach(line => {
+        line.style.display = line.dataset.inferred === 'true' && !revealInferred ? 'none' : '';
         line.style.opacity = visibleId && !line.dataset.people.split(' ').includes(visibleId) ? '0.12' : '1';
       });
-      const visibleSegments = visibleId ? bridgeRecords.filter(r => r.people.includes(visibleId))
-        .flatMap(r => FamilyConnectorRouting.segments(r.points, { group: r.group })) : [];
+      const visibleSegments = bridgeRecords.filter(r => (!r.inferred || revealInferred) && (!visibleId || r.people.includes(visibleId)))
+        .flatMap(r => FamilyConnectorRouting.segments(r.points, { group: r.group }));
       bridgeRecords.forEach(record => {
         let d = record.original;
-        if (visibleId && record.people.includes(visibleId) && record.bridges.length) {
+        if ((visibleId || !revealInferred) && (!record.inferred || revealInferred) && (!visibleId || record.people.includes(visibleId)) && record.bridges.length) {
           const crossings = FamilyConnectorRouting.crossings(record.points, visibleSegments.filter(s => s.group !== record.group), 2.5);
           const bridges = record.bridges.filter(p => crossings.some(c => Math.abs(c.x - p.x) < .1 && Math.abs(c.y - p.y) < .1));
           d = FamilyConnectorRouting.bridgePath(record.points, bridges, 7);
@@ -576,6 +600,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
         pathDecorations.get(record.el)?.setAttribute('d', d);
       });
       relationshipDetails.render(panel, FAMILY, visibleId, {
+        onReturnList: () => window.openFamilyMemberList?.({ restore:true }),
         onEdit: id => window.editFamilyMember(id),
         onSelect: id => selectFamilyMember(id, { preserveDetailsState: true }),
         onQuery: id => relationshipSearch.startWithMember(id),
@@ -651,11 +676,10 @@ let FAMILY = FamilyApp?.graph?.() || null;
       restoreCanvasViewStateOnce();
     }
   }
-  function selectFamilyMember(id, { preserveDetailsState = false, expandDetails = false } = {}) {
+  function selectFamilyMember(id, { preserveDetailsState = false } = {}) {
     selectedId = id;
     if (id && !preserveDetailsState) {
-      const collapse = expandDetails ? false : matchMedia('(max-width:700px) and (orientation:portrait)').matches;
-      relationshipDetails.setCollapsed(document.getElementById('relationship-details'), collapse);
+      relationshipDetails.setCollapsed(document.getElementById('relationship-details'), false);
     }
     memberTooltip.hide(null, true);
     if (updateSelectedDetails) updateSelectedDetails(); else render();
@@ -664,8 +688,24 @@ let FAMILY = FamilyApp?.graph?.() || null;
   }
 
   bindMobileOverlayAvoidance();
+  window.addEventListener('familydetailsreadingchange', event => {
+    if (event.detail?.reading || !selectedId) return;
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('relationship-details');
+      if (!panel.hidden && panel.dataset.collapsed !== 'true' && treeZoom.isMobileLayout()) {
+        treeZoom.refreshLayout(); treeZoom.focusMember(selectedId);
+      }
+    });
+  });
   window.addEventListener('familytreeselect', event => {
     const { id = null, options = {} } = event.detail || {};
+    // A map/list selection may target someone outside the current query or family.
+    // Reveal that member before asking the current diagram to render their details.
+    if (id && options.expandDetails && ![...document.querySelectorAll('.person[data-person-id]')].some(node => node.dataset.personId === id)) {
+      document.getElementById('family-filter').value = '';
+      if (queryScope !== null) document.getElementById('relationship-reset').click();
+      else render();
+    }
     selectFamilyMember(id, options);
   });
   window.addEventListener('familytreeclearview', () => clearCanvasViewState());
@@ -704,7 +744,12 @@ let FAMILY = FamilyApp?.graph?.() || null;
         queryViewportAction = 'fit';
       }
       render();
-      if (queryScope === null) requestAnimationFrame(() => treeZoom.restoreViewportAnchor(anchor));
+      if (queryScope === null) requestAnimationFrame(() => {
+        const panel = document.getElementById('relationship-details');
+        if (selectedId && !panel.hidden && panel.dataset.collapsed !== 'true' && panel.dataset.reading !== 'true' &&
+            treeZoom.isMobileLayout()) treeZoom.focusMember(selectedId);
+        else treeZoom.restoreViewportAnchor(anchor);
+      });
     }, 150);
   });
   window.addEventListener('pagehide', saveCanvasViewState);

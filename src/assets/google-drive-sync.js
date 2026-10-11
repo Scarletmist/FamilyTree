@@ -10,6 +10,13 @@
   const meta = document.getElementById('cloud-sync-meta');
   const alertButton = document.getElementById('cloud-sync-alert');
   const alertText = document.getElementById('cloud-sync-alert-text');
+  const resetSection = document.getElementById('cloud-sync-reset-section');
+  const resetButton = document.getElementById('cloud-sync-reset-device');
+  const resetDialog = document.getElementById('cloud-reset-device-dialog');
+  const resetConfirm = document.getElementById('cloud-reset-device-confirm');
+  const resetCancel = document.getElementById('cloud-reset-device-cancel');
+  const resetStatus = document.getElementById('cloud-reset-device-status');
+  const resetError = document.getElementById('cloud-reset-device-error');
   const authToast = document.getElementById('cloud-auth-toast');
   const authToastText = document.getElementById('cloud-auth-toast-text');
   const conflictDialog = document.getElementById('cloud-conflict-dialog');
@@ -19,6 +26,8 @@
   let accessToken = null;
   let tokenExpiresAt = 0;
   let syncConnected = false;
+  let syncStateUnavailable = false;
+  let deviceResetRequested = false, resetBusy = false;
   let tokenClient = null;
   let tokenClientPromise = null;
   let authInFlight = null;
@@ -56,7 +65,8 @@
         accessToken,
         tokenExpiresAt,
         scope,
-        clientId
+        clientId,
+        deviceResetVersion: repository.deviceResetVersion?.() || ''
       }));
     } catch {}
   }
@@ -67,7 +77,8 @@
       if (!raw) return false;
       const saved = JSON.parse(raw);
       const expiresAt = Number(saved?.tokenExpiresAt || 0);
-      const sameGrant = saved?.clientId === clientId && saved?.scope === scope;
+      const sameGrant = saved?.clientId === clientId && saved?.scope === scope
+        && (saved?.deviceResetVersion || '') === (repository.deviceResetVersion?.() || '');
       if (!sameGrant || !saved?.accessToken || expiresAt <= Date.now() + TOKEN_VALIDITY_MARGIN_MS) {
         clearStoredToken();
         return false;
@@ -142,21 +153,44 @@
     try { return new Intl.DateTimeFormat('zh-TW', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value)); }
     catch { return new Date(value).toLocaleString(); }
   }
+  function showSyncStateError(error, text = '無法讀取此瀏覽器的雲端同步狀態') {
+    syncStateUnavailable = true;
+    disconnect.disabled = true;
+    action.disabled = false;
+    action.textContent = '重試讀取同步狀態';
+    if (resetSection) resetSection.hidden = false;
+    setUi('error', text, '請稍後重試，或重新整理頁面。' + (error?.name ? `（${error.name}）` : ''));
+  }
+  async function readSyncState() {
+    if (deviceResetRequested) return null;
+    try {
+      const state = await repository.getSyncState();
+      syncStateUnavailable = false;
+      disconnect.disabled = false;
+      if (resetSection) resetSection.hidden = true;
+      return state;
+    } catch (error) {
+      showSyncStateError(error);
+      return null;
+    }
+  }
   async function refreshUiFromState() {
-    const state = await repository.getSyncState();
+    const state = await readSyncState();
+    if (!state) return false;
     syncConnected = Boolean(state.connected);
     disconnect.hidden = !state.connected;
     if (!clientId) {
       action.disabled = true;
-      action.textContent = '尚未設定 Google OAuth Client ID';
-      setUi('unconfigured', 'Google Drive 同步尚未設定', '請在 GitHub Actions 建置時提供 GOOGLE_OAUTH_CLIENT_ID。');
-      return;
+      action.textContent = '目前未啟用雲端同步';
+      setUi('unconfigured', '這個網站目前未啟用雲端同步', '可繼續在此裝置使用，並匯出族譜備份。');
+      return true;
     }
     action.disabled = false;
     action.textContent = accessToken ? '立即同步' : state.connected ? '重新授權並同步' : '連結 Google Drive';
     if (accessToken && Date.now() < tokenExpiresAt && !state.dirty) setUi('synced', 'Google Drive 已同步', state.lastSyncedAt ? '上次同步：' + formatTime(state.lastSyncedAt) : '已連結 Google Drive appDataFolder。');
     else if (state.connected) setUi(state.dirty ? 'pending' : 'connected', state.dirty ? '此裝置有尚未同步的變更；下次操作時會嘗試恢復同步' : 'Google Drive 已連結；下次操作時會自動嘗試恢復同步', state.lastSyncedAt ? '上次同步：' + formatTime(state.lastSyncedAt) : '族譜仍安全保存在 IndexedDB。');
-    else setUi('disconnected', '連結 Google Drive 以跨裝置同步', '族譜目前只儲存在此瀏覽器的 IndexedDB。');
+    else setUi('disconnected', '連結 Google Drive 以跨裝置同步', '族譜已儲存在此裝置。');
+    return true;
   }
   function loadGoogleIdentity() {
     if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -201,6 +235,7 @@
         scope,
         prompt: '',
         callback: result => {
+          if (deviceResetRequested) return;
           if (result.error || !result.access_token) {
             const error = new Error(result.error_description || result.error || 'Google 授權未完成。');
             completeAuthToast(false, error);
@@ -211,7 +246,7 @@
           tokenExpiresAt = Date.now() + Math.max(60, Number(result.expires_in) || 3600) * 1000;
           syncConnected = true;
           persistToken();
-          repository.setSyncState({ connected: true }).catch(() => {});
+          repository.setSyncState({ connected: true }).catch(error => showSyncStateError(error, '無法儲存此瀏覽器的雲端連線狀態'));
           startPolling();
           completeAuthToast(true);
           finishAuthorization(accessToken);
@@ -251,7 +286,7 @@
     return requestTokenFromPreparedClient({ purpose: syncConnected ? 'refresh' : 'connect' });
   }
   function prepareAuthorization() {
-    if (!clientId || !syncConnected || tokenClient) return;
+    if (deviceResetRequested || !clientId || !syncConnected || tokenClient) return;
     ensureTokenClient().catch(() => {});
   }
   function checkTokenRefreshAtStartup() {
@@ -269,7 +304,7 @@
     return true;
   }
   function opportunisticAuthorizeFromGesture() {
-    if (!clientId || !tokenNeedsGestureRefresh()) return;
+    if (deviceResetRequested || syncStateUnavailable || !clientId || !tokenNeedsGestureRefresh()) return;
     // requestAccessToken must be called from the user-driven event. If GIS has
     // not finished preloading yet, prepare it now and use the next normal click.
     if (!tokenClient) { prepareAuthorization(); return; }
@@ -294,9 +329,11 @@
   });
   function waitForConflictChoice(local, remote, remoteData) {
     if (!conflictDialog) return Promise.resolve('cloud');
-    document.getElementById('cloud-conflict-local-summary').textContent = `此裝置：${local.data.people.length} 位成員`;
-    document.getElementById('cloud-conflict-remote-summary').textContent = `Google Drive：更新時間 ${formatTime(remote.modifiedTime) || '未知'}`;
+    const relationCount = data => data.people.reduce((count, person) => count + (person.relationships?.length || 0), 0);
+    document.getElementById('cloud-conflict-local-summary').textContent = `${local.data.people.length} 位成員\n${relationCount(local.data)} 筆關係記錄\n更新時間：未提供`;
+    document.getElementById('cloud-conflict-remote-summary').textContent = `${remoteData.people.length} 位成員\n${relationCount(remoteData)} 筆關係記錄\n更新時間：${formatTime(remote.modifiedTime) || '未提供'}`;
     window.renderFamilyDifferences?.(document.getElementById('cloud-conflict-remote-summary').parentElement.parentElement, local.data, remoteData);
+    chooseConflictVersion(null);
     conflictDialog.showModal();
     return new Promise(resolve => { conflictResolver = resolve; });
   }
@@ -307,8 +344,18 @@
     conflictDialog.close();
     resolve(choice);
   }
-  document.getElementById('cloud-conflict-use-local')?.addEventListener('click', () => resolveConflict('local'));
-  document.getElementById('cloud-conflict-use-remote')?.addEventListener('click', () => resolveConflict('cloud'));
+  let conflictChoice = null;
+  function chooseConflictVersion(choice) {
+    conflictChoice = choice;
+    document.getElementById('cloud-conflict-use-local').setAttribute('aria-pressed', String(choice === 'local'));
+    document.getElementById('cloud-conflict-use-remote').setAttribute('aria-pressed', String(choice === 'cloud'));
+    const commit = document.getElementById('cloud-conflict-commit');
+    commit.disabled = !choice;
+    commit.textContent = choice === 'local' ? '保留此裝置，取代雲端' : choice === 'cloud' ? '使用雲端，取代此裝置' : '選擇要保留的版本';
+  }
+  document.getElementById('cloud-conflict-use-local')?.addEventListener('click', () => chooseConflictVersion('local'));
+  document.getElementById('cloud-conflict-use-remote')?.addEventListener('click', () => chooseConflictVersion('cloud'));
+  document.getElementById('cloud-conflict-commit')?.addEventListener('click', () => { if (conflictChoice) resolveConflict(conflictChoice); });
   document.getElementById('cloud-conflict-cancel')?.addEventListener('click', () => resolveConflict('cancel'));
   document.getElementById('close-cloud-conflict-dialog')?.addEventListener('click', () => resolveConflict('cancel'));
   conflictDialog?.addEventListener('cancel', event => { event.preventDefault(); resolveConflict('cancel'); });
@@ -333,6 +380,7 @@
     return syncEngine.sync({ interactive });
   }
   async function syncNow({ interactive = true } = {}) {
+    if (deviceResetRequested) return { outcome: 'cancelled' };
     if (syncInFlight) return syncInFlight;
     syncInFlight = (async () => {
       try {
@@ -343,9 +391,8 @@
         }
         return result;
       } catch (error) {
-        const state = await repository.getSyncState().catch(() => ({ dirty: true }));
-        setUi(state.dirty ? 'pending' : 'error', error.message || 'Google Drive 同步失敗。', '本機 IndexedDB 資料不受影響。');
-        if (interactive && message) message.textContent = error.message || 'Google Drive 同步失敗。';
+        const state = await readSyncState();
+        if (state) setUi(state.dirty ? 'pending' : 'error', error.message || 'Google Drive 同步失敗。', '本次同步未完成，請稍後重試。');
         return { outcome: 'error', error };
       } finally {
         syncInFlight = null;
@@ -355,7 +402,8 @@
     return syncInFlight;
   }
   async function refreshActionOnly() {
-    const state = await repository.getSyncState().catch(() => ({ connected: false }));
+    const state = await readSyncState();
+    if (!state) return;
     syncConnected = Boolean(state.connected);
     disconnect.hidden = !state.connected;
     if (syncConnected) prepareAuthorization();
@@ -364,7 +412,7 @@
     action.textContent = accessToken ? '立即同步' : state.connected ? '重新授權並同步' : '連結 Google Drive';
   }
   function scheduleAutoSync() {
-    if (!accessToken) return;
+    if (deviceResetRequested || !accessToken) return;
     clearTimeout(autoTimer);
     autoTimer = setTimeout(() => syncNow({ interactive: false }), 1800);
   }
@@ -379,6 +427,61 @@
     pollTimer = null;
   }
 
+  function stopForDeviceReset() {
+    deviceResetRequested = true;
+    accessToken = null;
+    tokenExpiresAt = 0;
+    syncConnected = false;
+    clearStoredToken();
+    clearTimeout(autoTimer);
+    autoTimer = null;
+    stopPolling();
+    hideAuthToast();
+    finishAuthorization(null, new Error('此裝置資料正在重置，已停止 Google 授權。'));
+    driveClient.cancelPending();
+    resolveConflict('cancel');
+    action.disabled = true;
+    disconnect.disabled = true;
+  }
+  window.addEventListener('familydevicereset', event => {
+    if (event.detail?.phase === 'start') {
+      stopForDeviceReset();
+      setUi('resetting', '此裝置資料正在重置…');
+    } else if (event.detail?.phase === 'complete') location.reload();
+    else if (event.detail?.phase === 'failed') {
+      setUi('error', '此裝置資料重置未完成', '可重試重置，或重新整理頁面後確認目前資料。');
+      if (resetSection) resetSection.hidden = false;
+    }
+  });
+  resetButton?.addEventListener('click', () => {
+    resetStatus.textContent = '';
+    resetError.textContent = '';
+    resetDialog.showModal();
+    resetCancel.focus();
+  });
+  resetCancel?.addEventListener('click', () => { if (!resetBusy) resetDialog.close(); });
+  resetDialog?.addEventListener('cancel', event => { if (resetBusy) event.preventDefault(); });
+  resetConfirm?.addEventListener('click', async () => {
+    if (resetBusy) return;
+    resetBusy = true;
+    resetConfirm.disabled = resetCancel.disabled = true;
+    resetStatus.textContent = '正在清除此裝置資料…';
+    resetError.textContent = '';
+    try {
+      stopForDeviceReset();
+      if (syncInFlight) await syncInFlight;
+      await repository.resetDevice({ onBlocked: () => {
+        resetStatus.textContent = '請關閉此瀏覽器中其他族譜分頁，讓重置繼續完成。';
+      } });
+    } catch (error) {
+      resetStatus.textContent = '';
+      resetError.textContent = '重置未完成：' + (error.message || '瀏覽器無法清除本機資料，請稍後重試。');
+    } finally {
+      resetBusy = false;
+      resetConfirm.disabled = resetCancel.disabled = false;
+    }
+  });
+
   button.addEventListener('click', async () => {
     await refreshUiFromState();
     dialog.showModal();
@@ -388,6 +491,7 @@
   document.getElementById('close-cloud-sync-dialog')?.addEventListener('click', () => dialog.close());
   dialog.addEventListener('cancel', () => {});
   action.addEventListener('click', async () => {
+    if (syncStateUnavailable) { await refreshUiFromState(); return; }
     await syncNow({ interactive: true });
   });
   disconnect.addEventListener('click', async () => {
@@ -397,13 +501,17 @@
     clearStoredToken();
     stopPolling();
     hideAuthToast();
-    await repository.setSyncState({ connected: false });
-    setUi('disconnected', '已停止此裝置的 Google Drive 同步', '本程式不會刪除 Google Drive 上既有的 appDataFolder 資料；若要撤銷帳號授權，請至 Google 帳戶的第三方應用程式設定。');
-    await refreshActionOnly();
+    try {
+      await repository.setSyncState({ connected: false });
+      setUi('disconnected', '已停止此裝置的 Google Drive 同步', '本程式不會刪除 Google Drive 上既有的 appDataFolder 資料；若要撤銷帳號授權，請至 Google 帳戶的第三方應用程式設定。');
+      await refreshActionOnly();
+    } catch (error) {
+      showSyncStateError(error, '無法儲存此瀏覽器的中斷連結狀態');
+    }
   });
 
   window.addEventListener('familyrepositorychange', event => {
-    if (event.detail?.source === 'local') scheduleAutoSync();
+    if (['local', 'geocode'].includes(event.detail?.source) || event.detail?.kinshipEnriched) scheduleAutoSync();
   });
   window.addEventListener('familyreposyncstate', event => {
     syncConnected = Boolean(event.detail?.connected);
@@ -423,7 +531,7 @@
   (async () => {
     const restoredSessionToken = restoreStoredToken();
     try {
-      await refreshUiFromState();
+      if (!await refreshUiFromState()) return;
       if (syncConnected) {
         prepareAuthorization();
         checkTokenRefreshAtStartup();

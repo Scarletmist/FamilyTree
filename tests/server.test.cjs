@@ -92,7 +92,10 @@ test('edit reconciles inverse relationships; import/export round trips with back
     assert.equal(oldHome.status, 301); assert.equal(oldHome.headers.get('location'), '/');
     const exportResponse = await fetch(base + '/api/family/export');
     assert.match(exportResponse.headers.get('content-disposition'), /attachment/);
-    const exported = await exportResponse.json(); assert.deepEqual(exported, demo);
+    const exported = await exportResponse.json();
+    const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelationships, ...person }) => person) });
+    assert.deepEqual(sourceData(exported), sourceData(demo));
+    assert(exported.people.some(p => p.inferredRelationships?.length), 'existing family gains automatic kinship records');
     const first = await read();
     const incoming = Model.relationshipsFor(first.data, 'p11');
     assert(incoming.some(r => r.type === 'swornSibling' && r.personId === 'p24'));
@@ -109,7 +112,7 @@ test('edit reconciles inverse relationships; import/export round trips with back
     assert(!Model.relationshipsFor(saved.data, 'p16').some(r => r.personId === 'p11'));
     assert(Model.relationshipsFor(saved.data, 'p17').some(r => r.type === 'parent' && r.personId === 'p11'));
     assert(!Model.relationshipsFor(saved.data, 'p17').some(r => r.type === 'teacher' && r.personId === 'p11'));
-    assert.deepEqual(saved.data.people.find(p => p.id === 'p3'), demo.people.find(p => p.id === 'p3'));
+    assert.deepEqual(sourceData(saved.data).people.find(p => p.id === 'p3'), sourceData(demo).people.find(p => p.id === 'p3'));
     assert.equal((await send('/api/members/p11', 'PUT', { member, version: first.version })).status, 409);
     assert.equal((await send('/api/members/missing', 'PUT', { member, version: saved.version })).status, 404);
     assert.equal((await send('/api/members/p11', 'PUT', { member: { ...member, relationships: [{ type: 'spouse', personId: 'p11' }] }, version: saved.version })).status, 400);

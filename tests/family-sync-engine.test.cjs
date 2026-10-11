@@ -87,6 +87,17 @@ test('uploads local dirty data when the known remote version is unchanged', asyn
   assert.deepEqual(h.calls.map(call => call[0]), ['update', 'mark']);
 });
 
+test('manual location corrections survive both upload and download without being projected into auto geocodes', async () => {
+  const override = { source:'map', location:'關帝廟', lat:24.8, lon:120.96, displayName:'地圖指定位置', updatedAt:1 };
+  const data = { ...filled, people:[{ ...filled.people[0], location:'關帝廟', locationOverride:override }] };
+  const upload = harness({ local:{ data, version:'manual-edit' }, state:{ fileId:'drive-1', remoteVersion:'7', dirty:true }, remoteMeta:{ id:'drive-1', version:'7' } });
+  await upload.engine.sync();
+  assert.deepEqual(upload.calls.find(call=>call[0]==='update')[2],data);
+  const download = harness({ local:{ data:empty, version:'empty' }, state:{ fileId:null, remoteVersion:null, dirty:false }, remoteMeta:{ id:'drive-1', version:'8' }, remoteData:data });
+  await download.engine.sync();
+  assert.deepEqual(download.calls.find(call=>call[0]==='replace')[1],data);
+});
+
 test('non-interactive sync reports a conflict without choosing a winner', async () => {
   const h = harness({
     local: { data: filled, version: 'local-3' },

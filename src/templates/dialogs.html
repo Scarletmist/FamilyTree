@@ -55,18 +55,19 @@
   <dialog id="member-dialog" aria-labelledby="member-dialog-title">
     <div class="dialog-header">
       <h2 id="member-dialog-title">新增成員</h2>
+      <button type="button" id="member-form-more" class="details-icon" aria-label="更多表單操作" aria-expanded="false" popovertarget="member-form-menu"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
       <button type="button" id="close-member-dialog" class="details-icon" aria-label="關閉成員表單" title="關閉成員表單"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button>
     </div>
     <form id="member-form">
       <div class="form-scroll">
         <fieldset class="form-fields" id="member-fields">
         <div class="field-grid member-primary-fields">
-          <label>姓名（必填）<input id="member-name" name="name" required maxlength="80" autocomplete="off" /></label>
-          <label>性別（用於兄姊弟妹稱呼）<select id="member-gender" name="gender"><option value="U">未填寫</option><option value="M">男</option><option value="F">女</option></select></label>
+          <label>姓名<input id="member-name" name="name" required maxlength="80" autocomplete="off" aria-describedby="member-name-error" /><span id="member-name-error" class="field-error" aria-live="polite"></span></label>
+          <label>性別<select id="member-gender" name="gender"><option value="U">未知／尚未確認</option><option value="M">男</option><option value="F">女</option></select><small class="field-help">用於兄姊弟妹稱呼</small></label>
         </div>
         <section class="member-relations-section" aria-labelledby="member-relations-title">
           <h3 id="member-relations-title">與現有成員的關係</h3>
-          <p class="form-note">先設定主要親屬關係；可新增、修改或移除多筆。僅新增手足不會自動推定父母，父母請另行填寫。</p>
+          <p class="form-note">先記錄主要親屬。只新增手足時，父母需另外填寫。</p>
           <div id="member-relations"></div>
           <button type="button" id="add-relation" class="plain-button">＋ 新增一筆關係</button>
         </section>
@@ -74,9 +75,11 @@
           <summary><span>選填資料</span><small>所在地、職位、排行與備註</small></summary>
           <div class="member-optional-fields__body">
             <div class="field-grid">
-              <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：臺中市" /></label>
+              <label>所在地<input id="member-location" name="location" maxlength="120" placeholder="例如：新竹天公壇、臺中市" aria-describedby="member-location-help" /></label>
               <label>職位<input id="member-position" name="position" maxlength="120" placeholder="例如：教師、工程師" /></label>
             </div>
+            <label class="map-privacy-field"><input type="checkbox" id="member-map-hidden" name="mapHidden" />私人住址／不在地圖顯示</label>
+            <p id="member-location-help" class="form-note">公開地名會在儲存後自動定位。私人住址請勾選不顯示；疑似完整住址也會停止查詢。只查詢所在地，不傳送姓名或關係。</p>
             <details class="member-ranking-fields">
               <summary>排行與師門（選填）</summary>
               <div class="member-ranking-fields__body">
@@ -95,20 +98,22 @@
         <p id="member-error" class="form-error" role="alert"></p>
       </div>
       <div class="form-actions">
-        <button type="button" id="refresh-family" class="plain-button">更新資料</button>
+        <span class="member-draft-status">草稿保留在此分頁</span>
         <button type="button" id="cancel-member" class="plain-button">取消</button>
         <button type="submit" id="save-member" class="primary-button">儲存成員</button>
       </div>
     </form>
+    <div id="member-form-menu" class="member-form-menu" popover><button type="button" id="refresh-family" class="plain-button">檢視最新資料</button><p class="form-note">先保留目前草稿，再決定是否重新載入。</p></div>
   </dialog>
+  <dialog id="member-refresh-dialog" class="member-refresh-dialog" aria-labelledby="member-refresh-title"><div class="dialog-header"><h2 id="member-refresh-title">已保留目前草稿</h2></div><div class="dialog-scroll"><p>最新資料已讀取。你可以保留草稿繼續編輯，或捨棄修改並載入最新資料。</p><div id="member-refresh-differences"></div><p id="member-refresh-error" class="form-error" role="alert"></p></div><div class="form-actions"><button type="button" id="member-refresh-replace" class="destructive-button">捨棄修改並重新載入</button><button type="button" id="member-refresh-keep" class="primary-button">保留草稿</button></div></dialog>
   <dialog id="unsaved-changes-dialog" class="unsaved-changes-dialog" aria-labelledby="unsaved-changes-title">
     <div class="dialog-header"><h2 id="unsaved-changes-title">捨棄未儲存的修改？</h2></div>
     <div class="dialog-scroll">
       <p>目前表單還有尚未儲存的內容。若現在離開，這些修改將不會保留。</p>
     </div>
     <div class="form-actions">
-      <button type="button" id="keep-editing-member" class="plain-button">繼續編輯</button>
-      <button type="button" id="discard-member-changes" class="primary-button">捨棄修改</button>
+      <button type="button" id="discard-member-changes" class="destructive-button">捨棄修改</button>
+      <button type="button" id="keep-editing-member" class="primary-button">繼續編輯</button>
     </div>
   </dialog>
   <dialog id="member-draft-dialog" class="member-draft-dialog" aria-labelledby="member-draft-title">
@@ -133,25 +138,41 @@
         <p id="cloud-sync-meta"></p>
       </div>
       <p class="cloud-sync-help">跨裝置同步的雲端資料只會儲存在您授權的 Google 帳號中；本網站不會在伺服端留存或集中保存您的族譜資料。使用同一 Google 帳號即可在不同裝置同步同一份族譜。</p>
+      <div id="cloud-sync-reset-section" hidden>
+        <p>若持續無法讀取同步狀態，可清除此裝置在本網站儲存的資料，再重新連結 Google Drive。</p>
+        <button type="button" id="cloud-sync-reset-device" class="destructive-button">強制重置此裝置資料</button>
+      </div>
     </div>
     <div class="form-actions">
       <button type="button" id="cloud-sync-disconnect" class="plain-button" hidden>中斷連結</button>
       <button type="button" id="cloud-sync-action" class="primary-button">連結 Google Drive</button>
     </div>
   </dialog>
+  <dialog id="cloud-reset-device-dialog" class="cloud-sync-dialog" aria-labelledby="cloud-reset-device-title" aria-describedby="cloud-reset-device-description">
+    <div class="dialog-header"><h2 id="cloud-reset-device-title">重置此裝置資料？</h2></div>
+    <div class="dialog-scroll">
+      <p id="cloud-reset-device-description">這會清除此瀏覽器在本網站儲存的族譜、未同步變更、復原紀錄、備份、地點快取與編輯草稿，並中斷此裝置的 Google Drive 連線。此操作無法復原。</p>
+      <p>Google Drive 的雲端族譜及其他裝置資料不會被修改。重置完成後，可重新連結同一 Google 帳號，下載雲端族譜。</p>
+      <p id="cloud-reset-device-status" role="status"></p>
+      <p id="cloud-reset-device-error" class="form-error" role="alert"></p>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="cloud-reset-device-cancel" class="plain-button">取消</button>
+      <button type="button" id="cloud-reset-device-confirm" class="destructive-button">確認重置此裝置</button>
+    </div>
+  </dialog>
   <dialog id="cloud-conflict-dialog" aria-labelledby="cloud-conflict-title">
-    <div class="dialog-header"><h2 id="cloud-conflict-title">偵測到同步衝突</h2><button type="button" id="close-cloud-conflict-dialog" class="details-icon" aria-label="關閉同步衝突處理" title="關閉同步衝突處理"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
+    <div class="dialog-header"><h2 id="cloud-conflict-title">兩份族譜有不同變更</h2><button type="button" id="close-cloud-conflict-dialog" class="details-icon" aria-label="關閉同步衝突處理" title="關閉同步衝突處理"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
     <div class="dialog-scroll">
       <p>此裝置與 Google Drive 都有不同變更。為避免誤覆蓋，請選擇要保留的版本。</p>
       <div class="cloud-conflict-grid">
-        <div class="cloud-conflict-option"><strong>此裝置版本</strong><span id="cloud-conflict-local-summary"></span></div>
-        <div class="cloud-conflict-option"><strong>Google Drive 版本</strong><span id="cloud-conflict-remote-summary"></span></div>
+        <button type="button" class="cloud-conflict-option" id="cloud-conflict-use-local" aria-pressed="false"><strong>此裝置版本</strong><span id="cloud-conflict-local-summary"></span></button>
+        <button type="button" class="cloud-conflict-option" id="cloud-conflict-use-remote" aria-pressed="false"><strong>Google Drive 版本</strong><span id="cloud-conflict-remote-summary"></span></button>
       </div>
     </div>
     <div class="form-actions">
       <button type="button" id="cloud-conflict-cancel" class="plain-button">稍後處理</button>
-      <button type="button" id="cloud-conflict-use-remote" class="plain-button">下載 Google Drive 版本</button>
-      <button type="button" id="cloud-conflict-use-local" class="primary-button">以此裝置版本覆蓋雲端</button>
+      <button type="button" id="cloud-conflict-commit" class="destructive-button" disabled>選擇要保留的版本</button>
     </div>
   </dialog>
   <dialog id="import-dialog" aria-labelledby="import-title">
@@ -164,6 +185,6 @@
     <div class="form-actions">
       <button type="button" id="refresh-import" class="plain-button">更新目前資料</button>
       <button type="button" id="cancel-import" class="plain-button">取消</button>
-      <button type="button" id="confirm-import" class="primary-button">取代並匯入</button>
+      <button type="button" id="confirm-import" class="destructive-button">取代此裝置族譜並匯入</button>
     </div>
   </dialog>

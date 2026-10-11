@@ -38,6 +38,7 @@
     }
 
     const levels = new Map();
+    const ancestryAnchors = new Set();
     const familyComponents = [];
     const componentOf = new Map();
     for (const person of people) {
@@ -65,6 +66,7 @@
       const generationKnown = component.some(id => levels.get(id) !== min);
       component.forEach(id => {
         byId.get(id).gen = levels.get(id) - min + 1;
+        if (levels.get(id) > min) ancestryAnchors.add(id);
         Object.defineProperty(byId.get(id), 'generationKnown', {
           value: generationKnown,
           enumerable: false,
@@ -147,13 +149,24 @@
       placeContacts();
     }
 
+    // Moving a root with no known ancestors must move its relatives and
+    // mentors too, preserving the hierarchy already established above.
+    const placementLinks = new Map(people.map(person => [person.id, adjacency.get(person.id).map(([id]) => id)]));
+    const anchoredPeers = new Set(ancestryAnchors);
+    for (const mentorship of graph.mentorships || []) {
+      placementLinks.get(mentorship.teacher).push(mentorship.student);
+      placementLinks.get(mentorship.student).push(mentorship.teacher);
+      anchoredPeers.add(mentorship.teacher);
+      anchoredPeers.add(mentorship.student);
+    }
+    const placementComponents = [], placementComponentOf = new Map();
     const visited = new Set();
     for (const person of people) {
       if (visited.has(person.id)) continue;
       const component = [person.id];
       visited.add(person.id);
       for (let index = 0; index < component.length; index++) {
-        for (const [next] of [...adjacency.get(component[index]), ...contacts.get(component[index])]) {
+        for (const next of placementLinks.get(component[index])) {
           if (visited.has(next)) continue;
           visited.add(next);
           component.push(next);
@@ -161,42 +174,62 @@
       }
       const shift = Math.max(0, 1 - Math.min(...component.map(id => byId.get(id).gen)));
       if (shift) component.forEach(id => { byId.get(id).gen += shift; });
+      component.forEach(id => placementComponentOf.set(id, placementComponents.length));
+      placementComponents.push(component);
     }
 
-    const anchoredPeers = new Set();
-    for (const person of people) {
-      for (const relation of person.relationships || []) {
-        if (relation.type === 'fellowDisciple' || Model.isCousin(relation.type)) continue;
-        anchoredPeers.add(person.id);
-        anchoredPeers.add(relation.personId);
+    const peerLinks = placementComponents.map(() => []);
+    const peerSources = new Map();
+    const peerRoots = placementComponents.map((_, index) => index);
+    function peerRoot(index) {
+      while (peerRoots[index] !== index) {
+        peerRoots[index] = peerRoots[peerRoots[index]];
+        index = peerRoots[index];
       }
+      return index;
     }
-    const peerLinks = new Map(people.map(person => [person.id, []]));
+    const incomingPeers = [];
     for (const bond of graph.bonds || []) {
       if (bond.kind !== '師兄弟姊妹' && !COUSIN_KINDS.has(bond.kind)) continue;
       const [a, b] = bond.members;
-      peerLinks.get(a).push(b);
-      peerLinks.get(b).push(a);
+      const componentA = placementComponentOf.get(a), componentB = placementComponentOf.get(b);
+      if (componentA === componentB) continue;
+      const anchorA = anchoredPeers.has(a), anchorB = anchoredPeers.has(b);
+      if (!anchorB) peerLinks[componentA].push({ next: componentB, from: a, to: b });
+      if (!anchorA) peerLinks[componentB].push({ next: componentA, from: b, to: a });
+      if (!anchorA && !anchorB) peerRoots[peerRoot(componentB)] = peerRoot(componentA);
+      if (anchorA !== anchorB) {
+        const source = anchorA ? componentA : componentB, target = anchorA ? componentB : componentA;
+        peerSources.set(source, Math.min(peerSources.get(source) ?? Infinity, byId.get(anchorA ? a : b).gen));
+        incomingPeers.push([source, target]);
+      }
     }
-    const peerPlaced = new Set(anchoredPeers);
-    const peerQueue = [...anchoredPeers].sort((a, b) => byId.get(a).gen - byId.get(b).gen || a.localeCompare(b));
-    function placePeers() {
+    // Place the known side first, including through chains of unanchored peers.
+    // A descendant's own peer link must not pin its ancestor to generation one.
+    peerLinks.forEach(links => links.sort((a, b) => byId.get(a.from).gen - byId.get(b.from).gen
+      || a.from.localeCompare(b.from) || a.to.localeCompare(b.to)));
+    const peerTargets = new Set(incomingPeers.filter(([source, target]) => peerRoot(source) !== peerRoot(target)).map(([, target]) => peerRoot(target)));
+    const peerOrder = placementComponents.map((ids, index) => ({ ids, index }))
+      .sort((a, b) => Number(peerTargets.has(peerRoot(a.index))) - Number(peerTargets.has(peerRoot(b.index)))
+        || (peerSources.get(a.index) ?? Infinity) - (peerSources.get(b.index) ?? Infinity)
+        || b.ids.length - a.ids.length || [...a.ids].sort()[0].localeCompare([...b.ids].sort()[0]));
+    const peerPlaced = new Set();
+    for (const { index } of peerOrder) {
+      if (peerPlaced.has(index)) continue;
+      const peerQueue = [index];
+      peerPlaced.add(index);
       for (let cursor = 0; cursor < peerQueue.length; cursor++) {
-        for (const next of peerLinks.get(peerQueue[cursor])) {
-          if (peerPlaced.has(next)) continue;
-          byId.get(next).gen = byId.get(peerQueue[cursor]).gen;
-          peerPlaced.add(next);
-          peerQueue.push(next);
+        for (const peerLink of peerLinks[peerQueue[cursor]]) {
+          if (peerPlaced.has(peerLink.next)) continue;
+          const shift = byId.get(peerLink.from).gen - byId.get(peerLink.to).gen;
+          placementComponents[peerLink.next].forEach(id => { byId.get(id).gen += shift; });
+          peerPlaced.add(peerLink.next);
+          peerQueue.push(peerLink.next);
         }
       }
-      peerQueue.length = 0;
-    }
-    placePeers();
-    for (const person of people) {
-      if (peerPlaced.has(person.id)) continue;
-      peerPlaced.add(person.id);
-      peerQueue.push(person.id);
-      placePeers();
+      const ids = peerQueue.flatMap(componentIndex => placementComponents[componentIndex]);
+      const shift = Math.max(0, 1 - Math.min(...ids.map(id => byId.get(id).gen)));
+      if (shift) ids.forEach(id => { byId.get(id).gen += shift; });
     }
 
     return graph;

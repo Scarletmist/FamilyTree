@@ -1,0 +1,432 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"project\":\"D-FamilyTree\",\"signal\":\"best_effort\",\"indexed_at\":\"2026-10-11T09:30:44Z\",\"metadata\":{\"generation\":\"2026-10-11T09:30:44Z\",\"index_mode\":\"full\",\"recorded_at\":\"2026-10-11T09:30:44Z\",\"recording_status\":\"complete\",\"ignored_files_stored\":42,\"ignored_files_total\":42,\"hash_records_complete\":true,\"coverage_version\":3,\"generation_matches\":true},\"paths\":[{\"requested_path\":\"src/assets/family-app.js\",\"path\":\"src/assets/family-app.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-repository.js\",\"path\":\"src/assets/family-repository.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-commands.js\",\"path\":\"src/assets/family-commands.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-model.js\",\"path\":\"src/assets/family-model.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-inference.js\",\"path\":\"src/assets/family-inference.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-management.js\",\"path\":\"src/assets/family-management.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/member-form.js\",\"path\":\"src/assets/member-form.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/member-tools.js\",\"path\":\"src/assets/member-tools.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/relationship-details.js\",\"path\":\"src/assets/relationship-details.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/relationship-search.js\",\"path\":\"src/assets/relationship-search.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree.js\",\"path\":\"src/assets/family-tree.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-layout.mjs\",\"path\":\"src/assets/family-tree-layout.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-renderer.mjs\",\"path\":\"src/assets/family-tree-renderer.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-viewport.mjs\",\"path\":\"src/assets/family-tree-viewport.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/member-detail-layout.js\",\"path\":\"src/assets/member-detail-layout.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/member-map.mjs\",\"path\":\"src/assets/member-map.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/member-locations.js\",\"path\":\"src/assets/member-locations.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-sync-engine.js\",\"path\":\"src/assets/family-sync-engine.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/google-drive-sync.js\",\"path\":\"src/assets/google-drive-sync.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-workspace.css\",\"path\":\"src/assets/family-workspace.css\",\"status\":\"partial\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[{\"path\":\"src/assets/family-workspace.css\",\"kind\":\"parse_partial\",\"match\":\"exact\",\"ranges\":[{\"start\":91,\"end\":91},{\"start\":92,\"end\":92},{\"start\":158,\"end\":158}]}]},{\"requested_path\":\"src/assets/member-detail-layout.css\",\"path\":\"src/assets/member-detail-layout.css\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/templates/dialogs.html\",\"path\":\"src/templates/dialogs.html\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"dev/server.cjs\",\"path\":\"dev/server.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"dev/build.cjs\",\"path\":\"dev/build.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]}],\"path_total\":24,\"path_returned\":24,\"path_has_more\":false,\"scopes\":[{\"requested_scope\":\"src\",\"scope\":\"src\",\"total\":3,\"returned\":3,\"truncated\":false,\"entries\":[{\"path\":\"src/assets/family-workspace.css\",\"kind\":\"parse_partial\",\"ranges\":[{\"start\":91,\"end\":91},{\"start\":92,\"end\":92},{\"start\":158,\"end\":158}]},{\"path\":\"src/assets/favicon.svg\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"src/assets/vendor\",\"kind\":\"not_indexed_dir\",\"detail\":\"excluded subtree\"}],\"status\":\"known_gaps\"},{\"requested_scope\":\"tests\",\"scope\":\"tests\",\"total\":1,\"returned\":1,\"truncated\":false,\"entries\":[{\"path\":\"tests/__pycache__\",\"kind\":\"not_indexed_dir\",\"detail\":\"excluded subtree\"}],\"status\":\"known_gaps\"},{\"requested_scope\":\"dev\",\"scope\":\"dev\",\"total\":24,\"returned\":24,\"truncated\":false,\"entries\":[{\"path\":\"dev/map-layout-preview/screenshots/desktop-browse.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/desktop-cluster.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/desktop-edit.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/desktop-scope.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/landscape-browse.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/landscape-pending.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/layout-desktop.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/layout-phone-browse.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/layout-phone-edit.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/mobile-viewport.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/phone-browse.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/phone-cluster.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/phone-edit.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/phone-layers.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-layout-preview/screenshots/phone-list-expanded.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/map-runtime/node_modules\",\"kind\":\"not_indexed_dir\",\"detail\":\"excluded subtree\"},{\"path\":\"dev/uiux-audit-20260929/desktop-detail.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/uiux-audit-20260929/desktop-list.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/uiux-audit-20260929/desktop.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/uiux-audit-20260929/landscape-form.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/uiux-audit-20260929/landscape-pointer-fine.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/uiux-audit-20260929/p1-portrait-after.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/uiux-audit-20260929/portrait-form.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"},{\"path\":\"dev/uiux-audit-20260929/portrait-query.png\",\"kind\":\"not_indexed_file\",\"detail\":\"ignored-suffix\"}],\"status\":\"known_gaps\"}],\"scope_total\":28,\"scope_returned\":28,\"scope_truncated\":false,\"has_more\":false,\"caveat\":\"Best-effort signal only. No recorded issue does not prove graph or source completeness; read flagged source and qualify claims when metadata is changed or unavailable.\"}"
+    }
+  ],
+  "structuredContent": {
+    "project": "D-FamilyTree",
+    "signal": "best_effort",
+    "indexed_at": "2026-10-11T09:30:44Z",
+    "metadata": {
+      "generation": "2026-10-11T09:30:44Z",
+      "index_mode": "full",
+      "recorded_at": "2026-10-11T09:30:44Z",
+      "recording_status": "complete",
+      "ignored_files_stored": 42,
+      "ignored_files_total": 42,
+      "hash_records_complete": true,
+      "coverage_version": 3,
+      "generation_matches": true
+    },
+    "paths": [
+      {
+        "requested_path": "src/assets/family-app.js",
+        "path": "src/assets/family-app.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-repository.js",
+        "path": "src/assets/family-repository.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-commands.js",
+        "path": "src/assets/family-commands.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-model.js",
+        "path": "src/assets/family-model.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-inference.js",
+        "path": "src/assets/family-inference.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-management.js",
+        "path": "src/assets/family-management.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/member-form.js",
+        "path": "src/assets/member-form.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/member-tools.js",
+        "path": "src/assets/member-tools.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/relationship-details.js",
+        "path": "src/assets/relationship-details.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/relationship-search.js",
+        "path": "src/assets/relationship-search.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree.js",
+        "path": "src/assets/family-tree.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-layout.mjs",
+        "path": "src/assets/family-tree-layout.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-renderer.mjs",
+        "path": "src/assets/family-tree-renderer.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-viewport.mjs",
+        "path": "src/assets/family-tree-viewport.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/member-detail-layout.js",
+        "path": "src/assets/member-detail-layout.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/member-map.mjs",
+        "path": "src/assets/member-map.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/member-locations.js",
+        "path": "src/assets/member-locations.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-sync-engine.js",
+        "path": "src/assets/family-sync-engine.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/google-drive-sync.js",
+        "path": "src/assets/google-drive-sync.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-workspace.css",
+        "path": "src/assets/family-workspace.css",
+        "status": "partial",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": [
+          {
+            "path": "src/assets/family-workspace.css",
+            "kind": "parse_partial",
+            "match": "exact",
+            "ranges": [
+              {
+                "start": 91,
+                "end": 91
+              },
+              {
+                "start": 92,
+                "end": 92
+              },
+              {
+                "start": 158,
+                "end": 158
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "requested_path": "src/assets/member-detail-layout.css",
+        "path": "src/assets/member-detail-layout.css",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/templates/dialogs.html",
+        "path": "src/templates/dialogs.html",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "dev/server.cjs",
+        "path": "dev/server.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "dev/build.cjs",
+        "path": "dev/build.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      }
+    ],
+    "path_total": 24,
+    "path_returned": 24,
+    "path_has_more": false,
+    "scopes": [
+      {
+        "requested_scope": "src",
+        "scope": "src",
+        "total": 3,
+        "returned": 3,
+        "truncated": false,
+        "entries": [
+          {
+            "path": "src/assets/family-workspace.css",
+            "kind": "parse_partial",
+            "ranges": [
+              {
+                "start": 91,
+                "end": 91
+              },
+              {
+                "start": 92,
+                "end": 92
+              },
+              {
+                "start": 158,
+                "end": 158
+              }
+            ]
+          },
+          {
+            "path": "src/assets/favicon.svg",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "src/assets/vendor",
+            "kind": "not_indexed_dir",
+            "detail": "excluded subtree"
+          }
+        ],
+        "status": "known_gaps"
+      },
+      {
+        "requested_scope": "tests",
+        "scope": "tests",
+        "total": 1,
+        "returned": 1,
+        "truncated": false,
+        "entries": [
+          {
+            "path": "tests/__pycache__",
+            "kind": "not_indexed_dir",
+            "detail": "excluded subtree"
+          }
+        ],
+        "status": "known_gaps"
+      },
+      {
+        "requested_scope": "dev",
+        "scope": "dev",
+        "total": 24,
+        "returned": 24,
+        "truncated": false,
+        "entries": [
+          {
+            "path": "dev/map-layout-preview/screenshots/desktop-browse.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/desktop-cluster.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/desktop-edit.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/desktop-scope.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/landscape-browse.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/landscape-pending.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/layout-desktop.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/layout-phone-browse.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/layout-phone-edit.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/mobile-viewport.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/phone-browse.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/phone-cluster.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/phone-edit.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/phone-layers.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-layout-preview/screenshots/phone-list-expanded.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/map-runtime/node_modules",
+            "kind": "not_indexed_dir",
+            "detail": "excluded subtree"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/desktop-detail.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/desktop-list.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/desktop.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/landscape-form.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/landscape-pointer-fine.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/p1-portrait-after.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/portrait-form.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          },
+          {
+            "path": "dev/uiux-audit-20260929/portrait-query.png",
+            "kind": "not_indexed_file",
+            "detail": "ignored-suffix"
+          }
+        ],
+        "status": "known_gaps"
+      }
+    ],
+    "scope_total": 28,
+    "scope_returned": 28,
+    "scope_truncated": false,
+    "has_more": false,
+    "caveat": "Best-effort signal only. No recorded issue does not prove graph or source completeness; read flagged source and qualify claims when metadata is changed or unavailable."
+  },
+  "isError": false
+}

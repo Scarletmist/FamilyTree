@@ -716,7 +716,31 @@ export function createViewportController({
   }
 
   bind();
+  function visibleWorldRect() {
+    const view = viewport(),root = canvas();
+    if (!view || !root) return null;
+    const b = view.getBoundingClientRect(),r = root.getBoundingClientRect();
+    let left = b.left,top = b.top,right = b.left + view.clientWidth,bottom = b.top + view.clientHeight;
+    const summary = document.getElementById('relationship-summary');
+    if (summary && !summary.hidden) top = Math.max(top,summary.getBoundingClientRect().bottom + 8);
+    const inspector = document.getElementById('relationship-details');
+    if (inspector && !inspector.hidden) {
+      const bounds = inspector.getBoundingClientRect();
+      if (isMobileLayout()) bottom = Math.min(bottom,bounds.top - 8);
+      else right = Math.min(right,bounds.left - 8);
+    }
+    return {x:(left - r.left) / scale,y:(top - r.top) / scale,width:Math.max(0,right - left) / scale,height:Math.max(0,bottom - top) / scale,
+      screen:{left,top,right,bottom}};
+  }
+  function centerOnWorld(x,y) {
+    const visible = visibleWorldRect(),view = viewport();
+    if (!visible || !view) return;
+    restoreScrollPosition({left:view.scrollLeft + (x - visible.x - visible.width / 2) * scale,
+      top:view.scrollTop + (y - visible.y - visible.height / 2) * scale});
+  }
   return {
+    visibleWorldRect,
+    centerOnWorld,
     beforeRender,
     afterRender,
     setScale,

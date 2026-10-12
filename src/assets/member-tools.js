@@ -6,7 +6,7 @@
   const normalized = text => text.normalize('NFKC').toLocaleLowerCase();
   // These are fixed enums, unlike member/family/rank-group lists populated
   // from user data. Larger enums keep search if their choices grow later.
-  const fixedChoices = '#member-gender, .relation-kind, .relation-cousin-seniority, .relation-status';
+  const fixedChoices = '#member-gender, .relation-kind, .relation-cousin-seniority';
   const needsSearch = select => !select.matches(fixedChoices) || select.options.length > 8;
   function close(restore = false) {
     if (!active) return;
@@ -158,7 +158,10 @@
     } catch (_) { return []; }
   }
   function writeRecentMembers(ids) {
-    try { localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, RECENT_LIMIT))); } catch (_) {}
+    try {
+      if (ids.length) localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, RECENT_LIMIT)));
+      else localStorage.removeItem(RECENT_KEY);
+    } catch (_) {}
   }
   window.clearRecentFamilyMembers = () => {
     try { localStorage.removeItem(RECENT_KEY); } catch (_) {}
@@ -167,7 +170,7 @@
   function rememberRecentMember(id) {
     if (!id) return;
     const people = FamilyApp.graph()?.people || [];
-    if (!people.some(person => person.id === id)) return;
+    if (!people.some(person => person.id === id && !person.archive)) return;
     writeRecentMembers([id, ...readRecentMembers().filter(value => value !== id)]);
     if (dialog.open) renderMemberList();
   }
@@ -211,7 +214,7 @@
   function renderMemberList() {
     const previousScroll = listScroll.scrollTop;
     const graph = FamilyApp.graph();
-    const people = graph?.people || [], linked = FamilyModel.relationshipMemberIds(people);
+    const allPeople = graph?.people || [], people = allPeople.filter(p => memberFilter === 'archived' ? p.archive : !p.archive), linked = FamilyModel.relationshipMemberIds(allPeople);
     const generationOffset = graph ? FamilyDisplayProjection.generationOffset(graph) : 0;
     const keyword = normalized(searchMembers?.value.trim() || '');
     const visible = people.filter(person => {
@@ -221,7 +224,7 @@
       return normalized([person.name, person.location, person.position, connected ? `第 ${person.gen + generationOffset} 代` : '未設定關係'].join(' ')).includes(keyword);
     });
     if (recentSection && recentItems) {
-      const byId = new Map(people.map(person => [person.id, person]));
+      const byId = new Map(allPeople.filter(p => !p.archive).map(person => [person.id, person]));
       const recentIds = readRecentMembers().filter(id => byId.has(id));
       if (recentIds.length !== readRecentMembers().length) writeRecentMembers(recentIds);
       recentItems.replaceChildren();
@@ -250,6 +253,7 @@
           button.textContent = value; button.setAttribute('aria-label', `查看${person.name}並定位到族譜圖`);
           button.addEventListener('click', event => { event.stopPropagation(); navigateToMember(person.id); });
           cell.appendChild(button);
+          if (person.archive) { const badge = document.createElement('span'); badge.className = 'member-archive-badge'; badge.textContent = '已封存'; cell.append(badge); }
           const meta = document.createElement('small'); meta.className = 'member-list-row-meta';
           meta.textContent = [person.location,person.position].filter(Boolean).join(' · ');
           if (meta.textContent) cell.append(meta);
@@ -270,9 +274,10 @@
     refreshIgnoredCount();
     listScroll.scrollTop = previousScroll;
   }
-  function openMemberList({ restore = false } = {}) {
+  function openMemberList({ restore = false,filter = null } = {}) {
     if (dialog.open) { searchMembers?.focus(); return; }
     if (!restore) { searchMembers.value = ''; memberFilter = 'all'; listScrollTop = 0; }
+    if (filter) memberFilter = filter;
     renderMemberList();
     if (listCompact.matches) dialog.showModal(); else dialog.show();
     listScroll.scrollTop = listScrollTop;
@@ -292,8 +297,19 @@
   });
   document.getElementById('close-member-list').addEventListener('click', () => { listScrollTop = listScroll.scrollTop; dialog.close(); document.getElementById('show-member-list').focus(); });
   dialog.addEventListener('cancel', () => { listScrollTop = listScroll.scrollTop; });
+  dialog.addEventListener('keydown', event => {
+    // Desktop uses a nonmodal list, which does not receive native Escape cancel.
+    if (event.key !== 'Escape' || event.defaultPrevented || !dialog.open || dialog.matches(':modal')) return;
+    event.preventDefault();listScrollTop = listScroll.scrollTop;dialog.close();
+    document.getElementById('show-member-list').focus();
+  });
   listCompact.addEventListener('change', () => { if (dialog.open) { listScrollTop = listScroll.scrollTop; dialog.close(); openMemberList({restore:true}); } });
   window.addEventListener('familyintermediatechange', () => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); });
+  window.addEventListener('familyappchange',() => {
+    const active = new Set((FamilyApp.graph()?.people || []).filter(p => !p.archive).map(p => p.id));
+    writeRecentMembers(readRecentMembers().filter(id => active.has(id)));
+    if (dialog.open) renderMemberList();
+  });
   window.addEventListener('familyrepositorychange', () => { queueMicrotask(() => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); }); });
   window.addEventListener('familymemberviewed', event => rememberRecentMember(event.detail?.id));
   refreshIgnoredCount();

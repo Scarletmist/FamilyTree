@@ -1,3 +1,4 @@
+from browser_assets import launch_browser_options
 """Regression for mobile document-level scrolling.
 The page shell must stay exactly one visual viewport high while Canvas handles its own scrolling.
 """
@@ -84,7 +85,7 @@ with tempfile.TemporaryDirectory(prefix='family-mobile-shell-') as temp:
             })""")
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 for name, viewport in [('portrait', {'width':390, 'height':844}), ('landscape', {'width':844, 'height':390})]:
                     context, page, errors = load_page(browser, viewport)

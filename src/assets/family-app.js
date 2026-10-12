@@ -38,6 +38,9 @@
       return result;
     },
     exportData: () => repository.exportData(),
+    previewLifecycle: command => repository.previewLifecycle({ ...command,version:command.version ?? snapshot?.version }),
+    lifecycleCommand: command => run('lifecycleCommand',{ ...command,version:command.version ?? snapshot?.version }),
+    getSchemaBackup: kind => repository.getSchemaBackup(kind),
     async correctLocation(command) {
       const result = await repository.locationCommand(command);
       adopt(result, 'local');

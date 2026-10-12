@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { createFamilyServer } = require('../dev/server.cjs');
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = require('./browser-runtime.cjs');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 (async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'family-sharing-'));

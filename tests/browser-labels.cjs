@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { createFamilyServer } = require('../dev/server.cjs');
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = require('./browser-runtime.cjs');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 const kinds = ['親生', '過繼', '養子女', '義子女', '契子女'];
 const data = { schemaVersion: 2, people: [person('P'), ...['A', 'B', 'C'].map(id => person(id, kinds.map(kind => ({ type: 'parent', personId: 'P', kind }))))] };

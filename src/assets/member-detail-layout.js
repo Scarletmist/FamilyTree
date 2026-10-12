@@ -92,7 +92,12 @@
       if (!body || panel.hidden) return;
       const memberId = panel.dataset.memberId;
       body.scrollTop = scrollPositions.get(memberId) || 0;
-      body.addEventListener('scroll', () => scrollPositions.set(memberId, body.scrollTop), { passive: true });
+      body.addEventListener('scroll', () => {
+        // A detached scroll area can emit a final zero-offset event during redraw.
+        // It must not overwrite the position restored for the same member.
+        if (body.isConnected === false || panel.dataset.memberId !== memberId) return;
+        scrollPositions.set(memberId, body.scrollTop);
+      }, { passive: true });
       const top = panel.querySelector('.relationship-details__top');
       top.addEventListener('pointerdown', event => {
         if (!mobile.matches || landscape.matches || event.button !== 0 || drag || event.target.closest('button,summary')) return;

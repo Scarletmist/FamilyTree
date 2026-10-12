@@ -60,7 +60,7 @@
 .relationship-details__more>summary.relationship-details__more-summary::after{content:none;margin:0}.relationship-details__more-summary>svg{display:block;width:20px;height:20px}
 .relationship-details__more-body{position:absolute;right:0;top:calc(100% + 6px);z-index:8;display:grid;gap:4px;width:176px;max-width:calc(100vw - 36px);background:#fff;padding:6px;border:1px solid var(--color-line);border-radius:10px;box-shadow:0 5px 20px #28322018}
 .relationship-details__more:not([open])>.relationship-details__more-body{display:none}
-.relationship-details__more-body .details-action.details-locate{display:flex;align-items:center;justify-content:flex-start;gap:8px;flex:none;width:100%;height:auto;min-height:44px;padding:10px 12px;border:0;border-radius:7px;text-align:left}.relationship-details__more-body .details-locate .details-action__label{display:inline}
+.relationship-details__more-body .details-action:is(.details-locate,.add-relative){display:flex;align-items:center;justify-content:flex-start;gap:8px;flex:none;width:100%;height:auto;min-height:44px;padding:10px 12px;border:0;border-radius:7px;text-align:left}.relationship-details__more-body :is(.details-locate,.add-relative) .details-action__label{display:inline}
 .relationship-details__profile{padding:0 0 10px;border:0;background:none;border-radius:0;font-size:13px;color:var(--color-ink-soft)}
 .relationship-details__profile p{margin:5px 0;white-space:normal;overflow-wrap:anywhere}.relationship-details__location{min-height:32px;white-space:normal;font-size:13px}
 .relationship-group{border:0;border-bottom:1px solid var(--color-line);border-radius:0;background:none;padding:12px 0 8px;margin:0}

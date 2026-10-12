@@ -1,3 +1,4 @@
+from browser_assets import launch_browser_options
 import json, re, subprocess, tempfile, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -54,6 +55,7 @@ with tempfile.TemporaryDirectory(prefix='ux4679-') as temp:
       if name=='portrait':
         # 4. Portrait selection opens a useful peek rather than a near-empty 50px tab.
         page.evaluate("window.selectFamilyMember('p11')")
+        page.locator(".details-collapse").click()
         panel=page.locator('#relationship-details'); page.wait_for_function("document.querySelector('#relationship-details').dataset.collapsed==='true'")
         summary=panel.locator('.relationship-details__tab-summary'); assert summary.is_visible(); assert summary.inner_text().strip()
         metrics=panel.evaluate("el=>({height:el.getBoundingClientRect().height,summary:getComputedStyle(el.querySelector('.relationship-details__tab-summary')).display})")
@@ -75,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix='ux4679-') as temp:
       print(name,'PASS',{'emptyActions':labels})
       ctx.close()
     with sync_playwright() as p:
-      b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
+      b=p.chromium.launch(**launch_browser_options(),headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
       try:
         load(b,'desktop',{'width':1440,'height':900},False)
         load(b,'portrait',{'width':390,'height':844},True)

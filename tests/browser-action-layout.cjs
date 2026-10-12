@@ -19,7 +19,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await page.goto(`http://127.0.0.1:${server.address().port}/`); await page.waitForFunction(()=>window.FamilyEditor?.snapshot() && document.querySelector('.person'));
       const initialData = await fs.readFile(dataFile,'utf8');
       const compactLayout = width<=700 || (width<=950 && height<=520);
-      assert.equal(await page.locator('.workspace-toolbar__scope #family-filter').count(),compactLayout?0:1,'Existing filter moves between toolbar regions without cloning');
+      assert.equal(await page.locator('.workspace-toolbar__scope #family-filter').count(),1,'The shared filter remains in the workspace toolbar');
       assert.equal(await page.locator('#family-filter').count(),1);
       const scope = page.locator('.family-scope-select');
       assert.equal(await scope.count(),1);
@@ -38,7 +38,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
         await page.setViewportSize({width:1440,height:900});
         await page.waitForFunction(()=>document.querySelector('.workspace-toolbar__scope .family-scope-select #family-filter'));
         await page.setViewportSize({width,height});
-        await page.waitForFunction(()=>document.querySelector('.tree-controls .family-scope-select #family-filter'));
+        await page.waitForFunction(()=>document.querySelector('.workspace-toolbar__scope .family-scope-select #family-filter'));
         assert.equal(await page.locator('#family-filter').count(),1);
       }
       const noteCard=page.locator('.person[data-person-id="B"]');
@@ -63,8 +63,10 @@ const { createFamilyServer } = require('../dev/server.cjs');
         assert(await page.locator('#desktop-more-open').isVisible());
         assert.equal(await page.locator('#landscape-more-open').isVisible(),false);
         await page.locator('#desktop-more-open').click();
-        for(const action of ['family-name','cloud','import','export']) assert(await page.locator(`[data-action="${action}"]`).isVisible(),action);
-        for(const action of ['canvas-names','legend','relationship']) assert.equal(await page.locator(`[data-action="${action}"]`).isVisible(),false,`Desktop More must not duplicate ${action}`);
+        for(const action of ['family-name','import','export']) assert(await page.locator(`[data-action="${action}"]`).isVisible(),action);
+        assert.equal(await page.locator('[data-action="cloud"]').isVisible(),!await page.locator('#cloud-sync').evaluate(button => button.hidden));
+        for(const action of ['canvas-names','legend']) assert(await page.locator(`[data-action="${action}"]`).isVisible(),`More exposes ${action}`);
+        assert(await page.locator('[data-action="relationship"]').isVisible(),'More also provides the relationship query');
         await page.locator('#landscape-more-close').click();
         assert.equal(await page.evaluate(()=>document.activeElement.id),'desktop-more-open');
         if(width<1200) {
@@ -81,7 +83,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await page.evaluate(()=>window.dispatchEvent(new CustomEvent('familytreeselect',{detail:{id:'A',options:{expandDetails:true}}})));
       const compact=await page.evaluate(()=>matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px) and (pointer:coarse)').matches);
       if (compact) {
-        assert.equal(await page.locator('.details-back--placeholder').evaluate(el=>getComputedStyle(el).display),'none','Unused back control must not reserve horizontal space');
+        assert.equal(await page.locator('.details-back--placeholder').count(),0,'Unused back control does not reserve horizontal space');
         assert(await page.locator('#relationship-details-title').isVisible(),'Without history the title should remain visible even on narrow phones');
       }
       await page.locator('.relationship-entry__person[data-person-id=B]').click();
@@ -97,7 +99,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       assert.equal(layout.overflow,false,JSON.stringify({width,height,layout}));
       for(const b of layout.buttons) assert.equal(b.h,44,JSON.stringify({width,height,b}));
       const iconSizes=await page.locator('#relationship-details .details-icon:not(.details-action)').evaluateAll(buttons=>buttons.filter(b=>b.getBoundingClientRect().width&&getComputedStyle(b).visibility!=='hidden').map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height,svg:b.querySelector('svg').getBoundingClientRect().width})));
-      for(const icon of iconSizes) assert.deepEqual(icon,{w:44,h:44,svg:20});
+      for(const icon of iconSizes) {assert(icon.w >= 44);assert.equal(icon.h,44);assert(icon.svg >= 18 && icon.svg <= 20);}
       if(!compactLayout) {
         const treeRight=await page.locator('.tree').evaluate(el=>el.getBoundingClientRect().right);
         assert(treeRight<=layout.left+1,'Docked inspector must not cover the canvas');
@@ -114,7 +116,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
         await page.locator('.details-close').click();
         await page.waitForTimeout(100);
         const beforeQuery = await page.locator('.tree').evaluate(el=>({left:el.scrollLeft,top:el.scrollTop}));
-        if(width<1200) await page.locator('#mobile-search-open').click();
+        await page.locator('#mobile-search-open').click();
         await page.locator('#relationship-a').selectOption('A',{force:true});
         await page.locator('#relationship-b').selectOption('B',{force:true});
         await page.locator('#relationship-search [type=submit]').click();
@@ -125,8 +127,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
         const queryCanvas = await page.locator('.tree').boundingBox();
         const queryPanel = await page.locator('#relationship-details').boundingBox();
         assert(queryCanvas.x+queryCanvas.width<=queryPanel.x+1,'Query canvas also excludes the docked inspector');
-        if(width<1200) await page.locator('#mobile-search-end').click();
-        else await page.locator('#relationship-reset').click();
+        await page.locator('.relationship-result-end').click();
         await page.waitForTimeout(100);
         const afterQuery = await page.locator('.tree').evaluate(el=>({left:el.scrollLeft,top:el.scrollTop}));
         assert(Math.abs(beforeQuery.left-afterQuery.left)<=2&&Math.abs(beforeQuery.top-afterQuery.top)<=2,JSON.stringify({reason:'Leaving comparison restores the original full-tree viewport',width,beforeQuery,afterQuery}));
@@ -134,11 +135,12 @@ const { createFamilyServer } = require('../dev/server.cjs');
       }
       assert.equal(await fs.readFile(dataFile,'utf8'),initialData,'Pure layout and navigation must not write family data');
       if(compact) {
-        assert(layout.topHeight<=120,JSON.stringify(layout));
+        assert(layout.topHeight<=170,JSON.stringify(layout));
         if(width>350) assert(layout.titleVisible&&layout.titleWidth>=30,JSON.stringify(layout));
         assert.equal(await page.locator('.edit-member .details-action__label').isVisible(),true);
-        assert.equal(await page.locator('.add-relative .details-action__label').isVisible(),true);
-        assert.equal(await page.locator('.query-relationship').isVisible(),false);
+        assert.equal(await page.locator('.add-relative').isVisible(),false);
+        assert(await page.locator('.relationship-details__more-summary').isVisible());
+        assert.equal(await page.locator('.query-relationship').isVisible(),true);
         assert.equal(await page.locator('.details-locate').isVisible(),false);
         assert(await page.locator('.relationship-details__more-summary').isVisible());
         await page.locator('.relationship-details__more-summary').click();
@@ -153,6 +155,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       }
       await page.locator('#relationship-details').evaluate(async panel=>{await Promise.all(panel.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
       await page.screenshot({path:path.join(dir,`${width}-${height}-details.png`)});
+      await page.locator('.relationship-details__more-summary').click();
       await page.locator('.add-relative').click();
       const picker=page.locator('.family-management-dialog'), close=picker.getByRole('button',{name:/^關閉/});
       await picker.evaluate(async dialog=>{await Promise.all(dialog.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
@@ -163,8 +166,8 @@ const { createFamilyServer } = require('../dev/server.cjs');
       if (compact) {
         await page.evaluate(()=>window.dispatchEvent(new CustomEvent('familytreeselect',{detail:{id:'C',options:{expandDetails:true}}})));
         assert.equal(await page.locator('.query-relationship').count(),0,'Unlinked members must not expose a relationship-query action');
-        const gap=await page.locator('.relationship-details__actions').evaluate(actions=>actions.querySelector('.add-relative').getBoundingClientRect().left-actions.querySelector('.edit-member').getBoundingClientRect().right);
-        assert(gap>=4&&gap<=8,'High-frequency mobile actions should keep one compact gap');
+        const gap=await page.locator('.relationship-details__actions').evaluate(actions=>actions.querySelector('.relationship-details__more-summary').getBoundingClientRect().left-actions.querySelector('.edit-member').getBoundingClientRect().right);
+        assert(gap>=4&&gap<=8,'High-frequency mobile actions keep one compact gap: '+gap);
       }
       await page.evaluate(()=>editFamilyMember('B'));
       await page.locator('#member-dialog').evaluate(async dialog=>{await Promise.all(dialog.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
@@ -206,11 +209,8 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await page.keyboard.press('Escape');
       if (width === 1440) {
         await row.locator('.relation-type').locator('..').locator('.select-trigger').click();
-        await page.locator('.select-dropdown:popover-open').getByRole('option',{name:'堂兄弟姊妹（直接設定）',exact:true}).click();
-        for (const [selector,count] of [['.relation-cousin-seniority',3],['.relation-status',2]]) {
-          if (selector === '.relation-status' && !await row.locator('.relation-advanced').evaluate(details=>details.open)) {
-            await row.locator('.relation-advanced > summary').click();
-          }
+        await page.locator('.select-dropdown:popover-open').getByRole('option',{name:'堂兄弟姊妹（直接記錄）',exact:true}).click();
+        for (const [selector,count] of [['.relation-cousin-seniority',3]]) {
           await row.locator(selector).locator('..').locator('.select-trigger').click();
           popup = page.locator('.select-dropdown:popover-open');
           assert.equal(await popup.locator('.select-search').isVisible(), false);

@@ -113,7 +113,15 @@
       container.append(el('p', '查詢成員：' + nameA + '　稱呼基準：' + nameB));
       if (path) {
         container.append(el('p', '關係路徑：' + path.nodes.map(id => byId.get(id).name).join(' → ')));
-        path.notes.forEach(note => container.append(el('p', note)));
+        const proof = RelationshipEvidence.create(graph).path(path.edges);
+        if (path.edges.length) {
+          container.append(RelationshipEvidenceView.badge(proof));
+          const records = el('div'); records.className = 'relationship-path-evidence';
+          const resolver = RelationshipEvidence.create(graph);
+          RelationshipEvidenceView.render(records,graph,path.edges.map(edge => ({ from:edge.from,relation:edge,evidence:resolver.describe(edge.from,edge) })),{onEdit:id => { closeResultDetails(); globalThis.editFamilyMember?.(id); }});
+          container.append(records);
+        }
+        path.notes.filter(note => !/^來源：|^關係說明：/.test(note)).forEach(note => container.append(el('p', note)));
       } else container.append(el('p', '目前僅顯示這兩位成員；可編輯成員補上已知關係。'));
       if (result.paths.length > 1) {
         if (mobile.matches) {
@@ -151,14 +159,14 @@
       graph = fullGraph;
       const names = FamilyModel.memberOptionLabels(fullGraph.people);
       const relationshipMemberIds = FamilyModel.relationshipMemberIds(fullGraph.people);
-      const relationshipPeople = fullGraph.people.filter(person => relationshipMemberIds.has(person.id));
+      const relationshipPeople = fullGraph.people.filter(person => !person.archive && relationshipMemberIds.has(person.id));
       const generationOffset = FamilyDisplayProjection.generationOffset(fullGraph);
       const optionLabels = new Map(relationshipPeople.map(person => [person.id, `${names.get(person.id)} · 第 ${person.gen + generationOffset} 代`]));
       for (const select of [a, b]) {
         const previous = select.value;
         select.replaceChildren(el('option', '請選擇成員')); select.options[0].value = '';
         relationshipPeople.forEach(p => { const option = el('option', optionLabels.get(p.id)); option.value = p.id; select.append(option); });
-        select.value = relationshipMemberIds.has(previous) ? previous : '';
+        select.value = relationshipPeople.some(p => p.id === previous) ? previous : '';
       }
       submit.disabled = !engine || !a.value || !b.value;
       const peopleById = new Map(relationshipPeople.map(person => [person.id, person]));
@@ -189,7 +197,9 @@
         const details = button('路徑'); details.className = 'plain-button relationship-result-details'; details.setAttribute('aria-label', '查看完整關係路徑'); details.addEventListener('click', openResultDetails);
         const modify = button('更換成員', 'relationship-result-edit'); modify.className = 'plain-button mobile-result-edit'; modify.addEventListener('click', openSheet);
         const finish = iconButton('結束比較，顯示全部', undefined, 'plain-button relationship-result-end'); finish.addEventListener('click', () => document.getElementById('relationship-reset').click());
-        actions.append(details, modify, finish); summary.append(compactTitle, actions);
+        const titleBody = el('div'); titleBody.className = 'relationship-summary__identity'; titleBody.append(compactTitle);
+        if (path?.edges.length) titleBody.append(RelationshipEvidenceView.badge(RelationshipEvidence.create(graph).path(path.edges)));
+        actions.append(details, modify, finish); summary.append(titleBody, actions);
         resultTitle.textContent = nameA + ' 與 ' + nameB + ' 的關係詳情';
         appendFullDetails(resultBody, result, path, byId, nameA, nameB);
       }
@@ -197,7 +207,7 @@
       return { active: true, graph: engine.project(fullGraph, path, [a.value, b.value]), scope: [a.value, b.value, pathIndex].join('|'), aId: a.value, bId: b.value };
     }
     function startWithMember(personId) {
-      if (!graph?.people.some(person => person.id === personId) || !FamilyModel.relationshipMemberIds(graph.people).has(personId)) return false;
+      if (!graph?.people.some(person => person.id === personId && !person.archive) || !FamilyModel.relationshipMemberIds(graph.people).has(personId)) return false;
       a.value = '';
       b.value = personId;
       active = false;

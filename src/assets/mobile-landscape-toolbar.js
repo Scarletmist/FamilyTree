@@ -40,9 +40,10 @@
     dialog.setAttribute('aria-labelledby','landscape-more-title');
     dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;
     const sections = [
-      ['檢視',[['relationship','查關係','query'],['map','成員地圖','map'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','query'],['legend','關係圖例','legend']]],
-      ['成員管理',[['groups','排行群組','list'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','list'],['undo','復原','undo']]],
+      ['檢視',[['relationship','查關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','map'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','query'],['legend','關係圖例','legend']]],
+      ['成員管理',[['workbench','待整理資料','list'],['archived','封存成員','list'],['recycle','回收區','list'],['groups','排行群組','list'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','list'],['undo','復原','undo']]],
       ['備份與同步',[['cloud','Google Drive 同步','cloud'],['import','匯入族譜','import'],['export','匯出族譜','export']]],
+      ['輸出',[['diagram-export','族譜輸出（SVG／PDF）','export']]],
       ['族譜設定',[['family-name','編輯家族名稱','edit']]]
     ];
     for (const [title, items] of sections) {
@@ -67,10 +68,14 @@
     searchOpen.prepend(action('relationship').querySelector('svg').cloneNode(true));
     let opener;
     function syncState() {
+      action('minimap').setAttribute('aria-pressed',get('toggle-tree-minimap').getAttribute('aria-pressed'));
+      action('minimap').querySelector('[data-label]').textContent = get('toggle-tree-minimap').getAttribute('aria-pressed') === 'true' ? '收合全圖導覽' : '開啟全圖導覽';
+      action('diagram-export').disabled = !window.FamilyApp?.snapshot()?.data.people.length;
       action('family-name').disabled = get('edit-family-name').disabled;
       action('import').disabled = get('import-json').disabled; action('export').disabled = get('export-json').disabled;
       action('cloud').hidden = get('cloud-sync').hidden;
       action('groups').disabled = action('merge').disabled = !window.FamilyEditor?.snapshot();
+      for (const name of ['workbench','archived','recycle']) action(name).disabled = !window.FamilyApp?.snapshot();
       const undo = window.FamilyEditor?.snapshot()?.undoLabel;
       action('undo').disabled = !undo; action('undo').querySelector('[data-label]').textContent = undo ? '復原：' + undo : '復原（目前沒有修改）';
       const ignored = window.getIgnoredIntermediateCount?.() || 0; action('ignored').hidden = !ignored;
@@ -111,8 +116,10 @@
     run('map', () => get('show-member-map').click()); run('relationship', () => searchOpen.click());
     run('family-name', () => get('edit-family-name').click()); run('groups', () => window.FamilyManagement?.openGroups());
     run('merge', () => window.FamilyManagement?.openMerge()); run('ignored', () => window.openIgnoredIntermediatePlans?.());
+    run('workbench',() => window.FamilyMaintenanceUI?.openWorkbench()); run('archived',() => window.FamilyMaintenanceUI?.openArchived()); run('recycle',() => window.FamilyMaintenanceUI?.openRecycle());
     run('undo', () => window.FamilyEditor?.undo()); run('cloud', () => get('cloud-sync').click());
     run('import', () => get('import-json').click()); run('export', () => get('export-json').click());
+    run('minimap',() => get('toggle-tree-minimap').click());run('diagram-export',() => get('export-diagram').click());
     action('canvas-names').addEventListener('click', () => { get('toggle-canvas-names').click(); syncState(); });
     action('legend').addEventListener('click', () => {
       legendPanel.replaceChildren(...[...get('relationship-legend').children].map(node => node.cloneNode(true))); legendPanel.hidden = !legendPanel.hidden;
@@ -120,7 +127,7 @@
     compact.addEventListener('change', () => closeMore({focus:false})); window.addEventListener('resize',position);
     window.addEventListener('familyintermediatechange',syncState); window.addEventListener('cloudsyncuichange',syncState);
     const observer = new MutationObserver(syncState);
-    for (const id of ['edit-family-name','import-json','export-json','cloud-sync','toggle-canvas-names']) observer.observe(get(id), {attributes:true,attributeFilter:['disabled','hidden','aria-pressed','data-sync-state']});
+    for (const id of ['edit-family-name','import-json','export-json','cloud-sync','toggle-canvas-names','toggle-tree-minimap']) observer.observe(get(id), {attributes:true,attributeFilter:['disabled','hidden','aria-pressed','data-sync-state']});
     syncState();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',initialize,{once:true}); else initialize();

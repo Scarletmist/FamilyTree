@@ -285,7 +285,7 @@ export function bindPanning(viewport, {
   function proximityTouchTarget(clientX, clientY) {
     if (!viewportController.isMobileLayout()) return null;
     let best = null;
-    viewport.querySelectorAll('.person,.intermediate-node').forEach(node => {
+    viewport.querySelectorAll('.person,.intermediate-node,.canvas-evidence').forEach(node => {
       const rect = node.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
       const expandX = Math.max(0, (MIN_SCREEN_TOUCH_TARGET - rect.width) / 2);
@@ -502,7 +502,7 @@ export function bindPanning(viewport, {
       suppressClick = false;
       return;
     }
-    if (!viewportController.isMobileLayout() || event.target.closest?.('.person,.intermediate-node')) return;
+    if (!viewportController.isMobileLayout() || event.target.closest?.('.person,.intermediate-node,.canvas-evidence')) return;
     const target = proximityTouchTarget(event.clientX, event.clientY);
     if (!target) return;
     event.preventDefault();
@@ -512,7 +512,7 @@ export function bindPanning(viewport, {
   }, true);
   viewport.addEventListener('click', event => {
     if (!getSelectedId() || event.defaultPrevented) return;
-    if (event.target.closest?.('.person,.intermediate-node')) return;
+    if (event.target.closest?.('.person,.intermediate-node,.canvas-evidence')) return;
     closeSelectedDetails();
   });
   viewport.addEventListener('dragstart', event => event.preventDefault());

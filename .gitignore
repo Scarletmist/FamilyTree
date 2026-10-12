@@ -2,3 +2,6 @@
 openspec/.vector-search.db*
 
 dist/
+.codebase-memory/phase5-python/
+.codebase-memory/phase5-results/
+tests/__pycache__/

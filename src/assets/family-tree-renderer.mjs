@@ -89,4 +89,5 @@ export function buildLegend() {
     item.append(svg, element('span', '', style.label));
     legend.appendChild(item);
   });
+  globalThis.RelationshipEvidenceView?.appendLegend(legend);
 }

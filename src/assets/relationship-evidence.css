@@ -1,0 +1,35 @@
+/* Optional sources remain readable without a separate confirmation state. */
+.relationship-origin{display:inline-flex;align-items:center;max-width:100%;min-height:26px;padding:3px 7px;border:1px solid #dce3d1;border-radius:6px;background:#f4f6ef;color:#566547;font:500 12px/1.5 var(--font-sans);white-space:normal;overflow-wrap:anywhere}
+.relationship-entry__actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
+.relationship-entry__actions .plain-button{max-width:100%;min-height:44px;white-space:normal;overflow-wrap:anywhere}
+.relationship-details .relationship-entry__badges{align-items:center}
+button.relationship-entry__badge--inferred{display:inline-flex;align-items:center;min-height:28px;padding:3px 7px;border:0;font-family:inherit;line-height:1.5;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.relationship-entry__actions .plain-button:focus-visible,.relationship-entry__badge--inferred:focus-visible,.canvas-evidence:focus-visible{outline:3px solid #286e86;outline-offset:3px}
+.relationship-source-legend{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--color-line);padding-top:12px;margin-top:4px;max-width:480px}.relationship-source-legend>strong,.relationship-source-legend>p{width:100%;margin:0;font-size:12px}
+.relationship-proof-dialog{width:min(660px,calc(100vw - 24px));max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:0;border:1px solid var(--color-line);border-radius:16px;background:#fff;overflow:hidden}
+.relationship-proof-dialog[open]{display:flex;flex-direction:column}.relationship-proof-dialog .dialog-header{flex:none;padding:14px 20px}.relationship-proof-dialog h2{margin:0;font-size:20px}
+.relationship-proof-body{padding:0 20px 20px;overflow:auto;overscroll-behavior:contain}
+.evidence-record{padding:14px 0;border-bottom:1px solid var(--color-line);overflow-wrap:anywhere}.evidence-record h3{margin:0 0 8px;font-size:15px;line-height:1.6}.evidence-record p{margin:5px 0;white-space:pre-wrap;line-height:1.6}.evidence-premise{margin-top:10px;padding:10px 12px;background:#f8f9f5;border-radius:8px;font-size:13px}.evidence-premise__title{font-weight:550}.evidence-source{padding:4px 0}.evidence-source+.evidence-source{border-top:1px solid var(--color-line)}.evidence-source button{min-height:36px;font-size:13px}.evidence-missing{color:#7c6744;font-size:13px}
+.relationship-summary__identity{min-width:0}.relationship-summary__identity h2{margin:0 0 3px}.relationship-summary__identity .relationship-origin{padding:1px 5px;min-height:22px;font-size:11px}
+.relation-direction-field,.relation-quick-options{grid-column:1/-1}.relation-direction{overflow-wrap:anywhere;line-height:1.6;font-weight:550}.relation-quick-options{display:flex;flex-wrap:wrap;gap:6px}.relation-quick-options button{min-height:40px;padding:6px 14px}.relation-quick-options button[aria-pressed=true]{background:#edf3e4;border-color:#8fa674;color:#3c5729}
+.relation-row__summary-title{white-space:normal;overflow-wrap:anywhere}
+.canvas-evidence{position:absolute;z-index:3;width:36px;height:36px;min-height:36px;padding:0;border:1px solid #c3ceba;border-radius:50%;background:#fff;color:#536348;font:600 16px/1 var(--font-sans);display:grid;place-items:center;transform:translateY(-50%);cursor:pointer;touch-action:none}
+.tree__canvas:is([data-zoom-level=overview],[data-zoom-level=compact]) .canvas-evidence:not([data-selected=true]){display:none}
+.canvas-evidence-description{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(hover:hover) and (pointer:fine){.relationship-entry__actions .plain-button:hover{background:#faf9f6}.relationship-entry__badge--inferred:hover{background:#e7eddf}.canvas-evidence:hover{background:#eaf0e1}}
+.relationship-details .relationship-details__more-body .details-action{display:flex;align-items:center;justify-content:flex-start;gap:8px;flex:none;width:100%;height:auto;min-height:44px;padding:10px 12px;border:0;border-radius:7px;background:none;text-align:left}
+.relationship-details__more-body .details-action .details-action__label{display:inline}
+.relationship-details__more-body .details-action svg{flex:none}
+@media(max-width:700px),(max-width:950px) and (max-height:520px){
+ .relationship-details .relationship-entry{display:block;padding:6px 0}.relationship-details .relationship-entry__main{justify-content:space-between;gap:8px}.relationship-details .relationship-entry__badges{display:flex;gap:4px;margin-top:5px}
+ .relationship-details button.relationship-entry__badge--inferred{min-height:32px}
+ .relationship-details .relationship-details__navigation{grid-template-columns:44px minmax(0,1fr) repeat(3,44px);align-items:start;touch-action:none}
+ .detail-nav-identity{min-width:0;align-self:center;padding:4px 2px}.detail-nav-identity .profile-eyebrow{display:none}
+ #relationship-details .detail-nav-identity #relationship-details-title{font-size:17px;line-height:1.35;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:left}
+ .detail-nav-identity .profile-generation{font-size:11px;margin:2px 0 0}.detail-nav-identity .member-archive-badge{font-size:10px;margin:2px 0 0;display:inline-block}
+ .relationship-details .relationship-details__top{padding-bottom:6px}.relationship-details .relationship-details__actions{padding:4px 6px 0;margin:0;border:0;gap:6px}
+ .relationship-details .relationship-details__body{padding-top:0}.relationship-details .relationship-group{padding-top:4px}.relationship-details .relationship-group__summary{min-height:40px}
+ .relationship-details .member-information{margin-top:12px;padding-top:8px}.member-information .relationship-details__profile{padding-top:8px}
+ .relationship-proof-dialog{max-height:calc(var(--visual-viewport-height,100dvh) - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}.evidence-source button{min-height:44px}
+}
+@media(prefers-contrast:more){.relationship-origin,.relationship-entry__actions .plain-button,.relationship-entry__badge--inferred,.canvas-evidence{border-color:currentColor;color:#344323}}

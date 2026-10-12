@@ -1,71 +1,62 @@
 """Shared browser-test asset loader for the browser-first FamilyTree runtime.
 
 The production tree coordinator is an ES module. Tests use set_content(), whose
-about:blank base cannot resolve relative module imports, so the four dependency
-modules are embedded as data URLs while all classic scripts retain production order.
+about:blank base cannot resolve relative module imports, so dependencies are
+embedded as data URLs while classic scripts retain production order. Geocoding
+uses real script URLs and is covered by the separate static-site browser suites.
 """
 import base64
 import json
 import re
-
-CLASSIC_ASSETS = [
-    'family-motion.js',
-    'family-location.js',
-    'family-inference.js',
-    'family-model.js',
-    'family-display-projection.js',
-    'family-commands.js',
-    'relationship-details.js',
-    'generation-bands.js',
-    'kinship.js',
-    'relationship-search.js',
-    'connector-routing.js',
-    'label-layout.js',
-    'family-storage.js',
-    'family-repository.js',
-    'family-app.js',
-    'member-form.js',
-    'family-management.js',
-    'google-drive-client.js',
-    'family-sync-engine.js',
-    'google-drive-sync.js',
-    'member-tools.js',
-    'mobile-gesture-policy.js',
-    'mobile-landscape-toolbar.js',
-]
-
-MODULE_ASSETS = [
-    'family-tree-renderer.mjs',
-    'family-tree-layout.mjs',
-    'family-tree-viewport.mjs',
-    'family-tree-interaction.mjs',
-]
+import os
+from functools import lru_cache
 
 SCRIPT_RE = re.compile(r'<script\b[^>]*\bsrc="assets/[^"\n]+"[^>]*></script>')
 
 
+def launch_browser_options():
+    if os.environ.get('PLAYWRIGHT_EXECUTABLE'):
+        return {'executable_path': os.environ['PLAYWRIGHT_EXECUTABLE']}
+    channel = os.environ.get('PLAYWRIGHT_CHANNEL', 'msedge' if os.name == 'nt' else 'chromium')
+    return {'channel': channel}
+
+
 def html_without_asset_scripts(root):
-    html = (root / 'src' / 'family-tree.html').read_text()
-    dialogs = (root / 'src' / 'templates' / 'dialogs.html').read_text().rstrip()
-    css = (root / 'src' / 'assets' / 'family-tree.css').read_text()
+    html = (root / 'src' / 'family-tree.html').read_text(encoding='utf-8')
+    dialogs = (root / 'src' / 'templates' / 'dialogs.html').read_text(encoding='utf-8').rstrip()
     html = html.replace('  <!-- @include templates/dialogs.html -->', dialogs)
-    html = html.replace('  <link rel="stylesheet" href="assets/family-tree.css" />', '<style>\n' + css + '</style>')
+    html = re.sub(r'<link rel="stylesheet" href="assets/([^"\n]+)"\s*/>',
+                  lambda match: '<style>\n' + (root / 'src' / 'assets' / match[1]).read_text(encoding='utf-8') + '</style>', html)
     return SCRIPT_RE.sub('', html)
 
 
 def family_tree_module_source(root):
-    source = (root / 'src' / 'assets' / 'family-tree.js').read_text()
-    for name in MODULE_ASSETS:
-        module_source = (root / 'src' / 'assets' / name).read_text().encode()
-        module_url = 'data:text/javascript;base64,' + base64.b64encode(module_source).decode()
-        source = source.replace(json.dumps('./' + name), json.dumps(module_url))
-        source = source.replace("'" + './' + name + "'", json.dumps(module_url))
-    return source
+    assets = (root / 'src' / 'assets').resolve()
+    @lru_cache(maxsize=None)
+    def module_source(file):
+        file = file.resolve()
+        if not file.is_relative_to(assets):
+            raise ValueError('Test module dependency outside production assets')
+        source = file.read_text(encoding='utf-8')
+        def replace(match):
+            dependency = (file.parent / match[2]).resolve()
+            data = module_source(dependency).encode('utf-8')
+            return match[0].replace(match[1] + match[2] + match[1], json.dumps('data:text/javascript;base64,' + base64.b64encode(data).decode()))
+        return re.sub(r"from\s*(['\"])(\./[^'\"]+)\1", replace, source)
+    return module_source(assets / 'family-tree.js')
 
 
 def install_family_assets(page, root):
-    for asset in CLASSIC_ASSETS:
-        page.add_script_tag(content=(root / 'src' / 'assets' / asset).read_text())
+    shell = (root / 'src' / 'family-tree.html').read_text(encoding='utf-8')
+    # Follow the real shell's classic-script order, including schema, lifecycle,
+    # evidence and detail layout added by phases 1–4.
+    for script in SCRIPT_RE.finditer(shell):
+        if 'type="module"' in script[0]:
+            continue
+        asset = re.search(r'src="assets/([^"\n]+)"', script[0])[1]
+        if asset == 'member-locations.js':
+            continue
+        page.add_script_tag(content=(root / 'src' / 'assets' / asset).read_text(encoding='utf-8'))
     page.add_script_tag(type='module', content=family_tree_module_source(root))
     # Production intentionally no longer exports the old tree globals. Keep this
     # compatibility surface inside browser tests only while the UX suites migrate
@@ -90,3 +81,9 @@ def install_family_assets(page, root):
       }));
       window.clearFamilyViewState = () => window.dispatchEvent(new CustomEvent('familytreeclearview'));
     })();''')
+
+
+def hidden(locator):
+    """Wait for native exit transitions before asserting the final state."""
+    locator.wait_for(state='hidden', timeout=5000)
+    return locator.is_hidden()

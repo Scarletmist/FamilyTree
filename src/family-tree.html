@@ -11,6 +11,10 @@
   <link rel="stylesheet" href="assets/family-workspace.css" />
   <link rel="stylesheet" href="assets/member-detail-layout.css" />
   <link rel="stylesheet" href="assets/member-map.css" />
+  <link rel="stylesheet" href="assets/family-diff.css" />
+  <link rel="stylesheet" href="assets/family-maintenance.css" />
+  <link rel="stylesheet" href="assets/relationship-evidence.css" />
+  <link rel="stylesheet" href="assets/family-tree-navigation.css" />
 </head>
 <body>
   <header class="page-header">
@@ -54,6 +58,8 @@
           <span class="tree-control-text" id="cloud-sync-button-text">雲端</span>
         </button>
         <input type="file" id="import-file" accept=".json,application/json" hidden />
+        <button type="button" id="toggle-tree-minimap" aria-pressed="false" hidden>全圖導覽</button>
+        <button type="button" id="export-diagram" hidden>族譜輸出</button>
       </div>
     </div>
   </header>
@@ -124,7 +130,13 @@
   <script src="assets/family-motion.js"></script>
   <script src="assets/family-location.js"></script>
   <script src="assets/family-inference.js"></script>
+  <script src="assets/family-schema.js"></script>
+  <script src="assets/relationship-evidence.js"></script>
+  <script src="assets/family-diff.js"></script>
+  <script src="assets/family-lifecycle.js"></script>
   <script src="assets/family-model.js"></script>
+  <script src="assets/relationship-evidence-view.js"></script>
+  <script src="assets/family-maintenance.js"></script>
   <script src="assets/family-display-projection.js"></script>
   <script src="assets/family-commands.js"></script>
   <script src="assets/member-detail-layout.js"></script>
@@ -138,11 +150,13 @@
   <script src="assets/family-repository.js"></script>
   <script src="assets/family-app.js"></script>
   <script src="assets/member-form.js"></script>
+  <script src="assets/family-diff-view.js"></script>
   <script src="assets/family-management.js"></script>
   <script src="assets/google-drive-client.js"></script>
   <script src="assets/family-sync-engine.js"></script>
   <script src="assets/google-drive-sync.js"></script>
   <script src="assets/member-tools.js"></script>
+  <script src="assets/family-maintenance-ui.js"></script>
   <script src="assets/member-locations.js"></script>
   <script type="module" src="assets/member-map.mjs"></script>
   <script src="assets/mobile-gesture-policy.js"></script>

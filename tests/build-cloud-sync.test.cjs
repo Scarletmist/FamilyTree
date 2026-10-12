@@ -31,11 +31,17 @@ test('static build injects Google OAuth client ID and includes cloud sync code',
       'family-tree-renderer.mjs',
       'family-tree-layout.mjs',
       'family-tree-viewport.mjs',
-      'family-tree-interaction.mjs'
+      'family-tree-interaction.mjs',
+      'family-tree-diagram.mjs',
+      'family-tree-scene.mjs',
+      'family-tree-minimap.mjs',
+      'family-tree-output-ui.mjs'
     ]) {
       assert.match(treeModule, new RegExp(`from ['"]\\./${name.replace('.', '\\.')}`));
       await fs.access(path.join(output, 'assets', name));
     }
+    assert.match(html,/assets\/family-tree-navigation\.css/);
+    await fs.access(path.join(output,'assets','family-tree-output.mjs'));
     await assert.rejects(fs.access(path.join(output, 'data', 'family.json')));
   } finally {
     if (previous === undefined) delete process.env.GOOGLE_OAUTH_CLIENT_ID;

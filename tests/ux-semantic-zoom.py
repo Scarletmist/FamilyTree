@@ -1,3 +1,4 @@
+from browser_assets import launch_browser_options
 """Regression for profile-aware Phase 1 semantic zoom.
 Zoom gestures remain transform-based while active. After the gesture/debounce commits,
 Desktop uses 7 levels, Tablet 5, Mobile Portrait 4 and Mobile Landscape 5.
@@ -13,6 +14,7 @@ from browser_assets import html_without_asset_scripts, install_family_assets
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = json.loads((ROOT / 'fixtures/family.json').read_text())
+DEMO['people'][0].update(location='測試地名', position='測試職位', siblingOrder=1)
 HTML = html_without_asset_scripts(ROOT)
 ASSETS = [
     'family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js',
@@ -91,12 +93,12 @@ with tempfile.TemporaryDirectory(prefix='family-semantic-zoom-') as temp:
         def metrics(page):
             return page.evaluate("""() => {
                 const canvas = document.getElementById('tree-canvas');
-                const card = canvas.querySelector('.person');
+                const card = [...canvas.querySelectorAll('.person')].find(card => card.querySelector('.person__location') && card.querySelector('.person__position') && card.querySelector('.person__order')) || canvas.querySelector('.person');
                 const label = canvas.querySelector('.relation-label');
                 const path = canvas.querySelector('#tree-connectors path[data-points]');
                 const style = getComputedStyle(card);
                 const matrix = new DOMMatrix(getComputedStyle(canvas).transform);
-                const visible = selector => getComputedStyle(card.querySelector(selector)).display !== 'none';
+                const visible = selector => {const el = card.querySelector(selector);return !!el && getComputedStyle(el).display !== 'none';};
                 return {
                     profile: canvas.dataset.zoomProfile,
                     level: canvas.dataset.zoomLevel,
@@ -136,7 +138,7 @@ with tempfile.TemporaryDirectory(prefix='family-semantic-zoom-') as temp:
             assert observed['vectorEffect'] == 'non-scaling-stroke', (name, expected_level, observed)
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 for name, viewport, mobile, levels in PROFILES:
                     context, page, errors = load_page(browser, viewport, mobile=mobile)

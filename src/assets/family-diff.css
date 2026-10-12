@@ -1,0 +1,20 @@
+.family-differences{margin:14px 0;padding:14px;border:1px solid var(--color-line,#dce2d5);border-radius:12px;background:#fff;min-width:0}
+.family-differences>summary{cursor:pointer;font-weight:600;line-height:1.6;overflow-wrap:anywhere}
+.family-diff-summary,.family-diff-count{font-size:13px;line-height:1.7;color:var(--color-ink-soft,#65705b)}
+.family-diff-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:14px 0}
+.family-diff-controls>label{display:flex;flex-direction:column;gap:6px;font-size:13px;flex:1;min-width:150px}
+.family-diff-controls input[type=search],.family-diff-controls select{width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:8px;border:1px solid var(--color-line,#dce2d5);border-radius:8px;background:#fff;color:inherit}
+.family-diff-controls>.family-diff-system-toggle{flex-direction:row;align-items:center;min-height:44px;flex:0 1 auto}
+.family-diff-system-toggle input{flex:none}
+.family-diff-group{border-top:1px solid var(--color-line,#dce2d5);padding:12px 0;min-width:0}
+.family-diff-group h3{font-size:14px;line-height:1.6;margin:0 0 10px;overflow-wrap:anywhere}
+.family-diff-row{display:grid;grid-template-columns:minmax(80px,.6fr) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:10px 0;align-items:start;min-width:0}
+.family-diff-field{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.family-diff-value{padding:10px;border:1px solid #e3e7df;border-radius:8px;background:#f8faf5;min-width:0;overflow-wrap:anywhere}
+.family-diff-value:last-child{background:#eff5e8}
+.family-diff-row[data-change=removed] .family-diff-value:first-of-type{background:#fff2ed}
+.family-diff-value__label{display:block;font-size:12px;color:var(--color-ink-soft,#65705b);margin-bottom:5px}
+.family-diff-value__text,.family-diff-long{font-size:14px;line-height:1.7;white-space:pre-wrap}
+.family-diff-long summary{cursor:pointer;overflow-wrap:anywhere}
+.family-diff-long pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:8px 0 0}
+@media(max-width:700px){.family-differences{padding:12px}.family-diff-row{grid-template-columns:minmax(0,1fr);gap:8px}.family-diff-controls{align-items:stretch}.family-diff-controls>label{min-width:100%;box-sizing:border-box}.family-diff-field{margin-top:4px}.family-diff-group h3{font-size:16px}}

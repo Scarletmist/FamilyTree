@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "people": [
     {
       "id": "p2",
@@ -1816,7 +1816,18 @@
       "relationships": [
         {
           "type": "swornSibling",
-          "personId": "p11"
+          "personId": "p11",
+          "status": "confirmed"
+        },
+        {
+          "type": "biaoCousin",
+          "personId": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+          "seniority": "younger"
+        },
+        {
+          "type": "parent",
+          "personId": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+          "kind": "親生"
         }
       ],
       "inferredRelationships": [
@@ -1839,7 +1850,9 @@
             }
           ]
         }
-      ]
+      ],
+      "discipleOrder": null,
+      "notes": ""
     },
     {
       "id": "p16",
@@ -2872,13 +2885,7 @@
       "position": "測試",
       "gender": "M",
       "siblingOrder": null,
-      "relationships": [
-        {
-          "type": "biaoCousin",
-          "personId": "p24",
-          "seniority": "older"
-        }
-      ],
+      "relationships": [],
       "discipleOrder": null,
       "notes": "",
       "geocode": {
@@ -3020,13 +3027,7 @@
       "position": "",
       "gender": "M",
       "siblingOrder": null,
-      "relationships": [
-        {
-          "type": "child",
-          "personId": "p24",
-          "kind": "親生"
-        }
-      ],
+      "relationships": [],
       "discipleOrder": null,
       "notes": "",
       "inferredRelationships": [

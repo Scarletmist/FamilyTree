@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 """Browser regression using the actual local API and an isolated JSON copy.
 Run with python tests/family-ui.py; requires the existing Playwright/Chromium test environment.
 The browser's local navigation is restricted here, so HTML and scripts are loaded
@@ -55,12 +57,12 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
             return page, errors
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 for device, viewport in [('desktop', {'width':1440,'height':900}), ('mobile', {'width':390,'height':844})]:
                     page, errors = load_page(browser, viewport)
                     initial = request('/api/family')['payload']['data'].get('familyName', '陳氏家族')
-                    assert page.locator('#family-title').inner_text() == initial + '族譜圖'
+                    assert page.locator('#family-title').inner_text() == initial
                     assert page.title() == '族譜圖 — ' + initial
                     if device == 'mobile':
                         page.wait_for_function("document.querySelector('#kinship-status').textContent === ''")
@@ -74,19 +76,21 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                         assert page.locator('#relationship-summary').evaluate("el => getComputedStyle(el).display") != 'none'
                         page.locator('.relationship-result-end').click()
                         page.wait_for_function("document.querySelector('#relationship-summary').hidden")
-                        assert page.locator('#relationship-summary').evaluate("el => getComputedStyle(el).display") == 'none'
+                        assert hidden(page.locator('#relationship-summary'))
                         assert page.locator('#relationship-summary').get_attribute('class') == 'relationship-summary'
-                    page.locator('#edit-family-name').click()
+                    page.locator('.tree-controls button[aria-label="更多功能"]:visible').click()
+                    page.locator('[data-action="family-name"]').click()
                     assert page.locator('#family-name-input').input_value() == initial
                     new_name = '林氏宗親' if device == 'desktop' else '王氏家族'
                     page.locator('#family-name-input').fill('  ' + new_name + '  ')
                     page.locator('#save-family-name').click()
-                    page.wait_for_function('(name) => document.querySelector("#family-title").textContent === name + "族譜圖"', arg=new_name)
+                    page.wait_for_function('(name) => document.querySelector("#family-title").textContent === name', arg=new_name)
                     assert page.title() == '族譜圖 — ' + new_name
                     assert json.loads(data_file.read_text())['familyName'] == new_name
                     assert json.loads(data_file.read_text())['people'] == DEMO['people']
                     # A stale save must preserve the user's draft and allow a deliberate refresh.
-                    page.locator('#edit-family-name').click()
+                    page.locator('.tree-controls button[aria-label="更多功能"]:visible').click()
+                    page.locator('[data-action="family-name"]').click()
                     page.locator('#family-name-input').fill('保留輸入')
                     current = request('/api/family')['payload']
                     external = request('/api/family/name', 'PUT', {'familyName':'外部更新','version':current['version']})
@@ -96,11 +100,12 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     assert page.locator('#family-name-input').input_value() == '保留輸入'
                     page.wait_for_function('document.querySelector("#family-name-error").textContent.includes("更新")')
                     page.locator('#refresh-family-name').click()
-                    page.wait_for_function('document.querySelector("#family-title").textContent === "外部更新族譜圖"')
+                    page.wait_for_function('document.querySelector("#family-title").textContent === "外部更新"')
                     assert page.locator('#family-name-input').input_value() == '保留輸入'
                     page.locator('#save-family-name').click()
-                    page.wait_for_function('document.querySelector("#family-title").textContent === "保留輸入族譜圖"')
-                    page.locator('#edit-family-name').click()
+                    page.wait_for_function('document.querySelector("#family-title").textContent === "保留輸入"')
+                    page.locator('.tree-controls button[aria-label="更多功能"]:visible').click()
+                    page.locator('[data-action="family-name"]').click()
                     page.locator('#family-name-input').fill('不應儲存')
                     page.locator('#cancel-family-name').click()
                     assert json.loads(data_file.read_text())['familyName'] == '保留輸入'
@@ -117,7 +122,7 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     page.locator('.details-collapse').focus()
                     page.keyboard.press('Enter')
                     assert panel.get_attribute('data-collapsed') == 'true'
-                    assert panel.locator('.relationship-details__content').is_hidden()
+                    assert hidden(panel.locator('.relationship-details__content'))
                     assert panel.locator('.relationship-details__content').evaluate('(el) => el.inert === true')
                     tab = panel.locator('.relationship-details__tab')
                     assert tab.is_visible()
@@ -147,6 +152,7 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     assert panel.get_attribute('data-collapsed') == 'true'
                     page.evaluate("window.selectFamilyMember('p17')")
                     if device == 'mobile':
+                        panel.locator('.details-collapse').click()
                         assert panel.get_attribute('data-collapsed') == 'true'
                         panel.locator('.relationship-details__tab').click()
                     else:
@@ -156,10 +162,10 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     assert page.locator('#member-dialog').is_visible()
                     page.locator('#cancel-member').click()
                     page.locator('.details-close').click()
-                    assert panel.is_hidden()
+                    assert hidden(panel)
                     # Loading a new page must read the persisted title, not the initial HTML constant.
                     reloaded, reload_errors = load_page(browser, viewport)
-                    assert reloaded.locator('#family-title').inner_text() == '保留輸入族譜圖'
+                    assert reloaded.locator('#family-title').inner_text() == '保留輸入'
                     assert not reload_errors, reload_errors
                     reloaded.close()
                     assert not errors, errors

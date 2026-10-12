@@ -5,6 +5,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const Model = require('../src/assets/family-model.js');
 const Commands = require('../src/assets/family-commands.js');
+const Lifecycle = require('../src/assets/family-lifecycle.js');
+const Diff = require('../src/assets/family-diff.js');
 const { renderFamilyTreeHtml, resolvePublicFile, mimeTypeFor } = require('./site-source.cjs');
 
 function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/family.json') } = {}) {
@@ -30,12 +32,13 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     } finally { await fs.rm(temporary, { force: true }); }
   }
   async function persist(data) {
-    data = Model.completeKinship(data);
+    data = Model.completeKinship(Model.upgradeSchema(data));
     const text = JSON.stringify(data, null, 2) + '\n';
     await atomicWrite(dataFile, text);
     return { data, version: hash(text) };
   }
   async function persistChange(current, data, label = '修改族譜') {
+    if (current.data.schemaVersion === 2) await preserveSchemaBackup(current.data);
     const saved = await persist(data);
     history.unshift({ data: current.data, version: current.version, savedAt: Date.now(), label });
     history = history.slice(0, HISTORY_LIMIT);
@@ -43,11 +46,31 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
   }
   async function readForClient() {
     const operation = writes.then(async () => {
-      const current = await read(), completed = Model.completeKinship(current.data);
+      const current = await read();
+      if (current.data.schemaVersion === 2) await preserveSchemaBackup(current.data);
+      const completed = Model.completeKinship(Model.upgradeSchema(current.data));
       return completed === current.data ? current : { ...await persist(completed), undoLabel: current.undoLabel };
     });
     writes = operation.catch(() => {});
     return operation;
+  }
+  async function preserveSchemaBackup(data) {
+    try { await fs.writeFile(dataFile + '.schema-v2.backup.json',JSON.stringify(data,null,2) + '\n',{ flag:'wx' }); }
+    catch (error) { if (error.code !== 'EEXIST') throw error; }
+  }
+  async function lifecycle(body) {
+    if (!['archiveMember','unarchiveMember','deleteMember','restoreMember'].includes(body?.type)) return [400,{error:'不支援的成員操作。'}];
+    const current = await read();
+    if (body.version !== current.version) return [409,{error:'資料已更新，請重新預覽成員操作。'}];
+    if (body.preview) {
+      try {
+        const result = Lifecycle.preview(current.data,body,Model);
+        return [200,{...result,version:current.version,differences:result.data ? Diff.compare(current.data,result.data) : null}];
+      } catch (error) { return [error.status || 400,{error:error.message}]; }
+    }
+    const {change,error,status} = applyCommand(current.data,body);
+    if (error) return [status,{error:error.message}];
+    return [200,change.unchanged ? current : await persistChange(current,change.data,change.label)];
   }
   function applyCommand(data, command) {
     try { return { change: Commands.apply(data, command) }; }
@@ -100,6 +123,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
     if (body?.version !== current.version) return [409, { error: '目前資料已更新，請按「更新目前資料」確認後再匯入。' }];
     const { change, error, status } = applyCommand(current.data, { type: 'importFamily', data: body?.data });
     if (error) return [status, { error: error.message }];
+    if (change.migrationImport) await atomicWrite(dataFile + '.schema-v2.import.backup.json',JSON.stringify(change.migrationImport,null,2) + '\n');
     await atomicWrite(dataFile + '.backup.json', JSON.stringify(current.data, null, 2) + '\n');
     return [200, { ...await persistChange(current, change.data, change.label), backupCreated: true }];
   }
@@ -128,6 +152,14 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
       if (req.method === 'GET' && url.pathname === '/api/family') return reply(res, 200, await readForClient());
+      if (req.method === 'GET' && url.pathname === '/api/family/schema-backup') {
+        const kind = url.searchParams.get('kind') || 'local';
+        if (!['local','import','cloud'].includes(kind)) return reply(res,400,{error:'不支援的升級備份類型。'});
+        if (kind === 'cloud') return reply(res,200,null);
+        const suffix = kind === 'import' ? '.schema-v2.import.backup.json' : '.schema-v2.backup.json';
+        try { return reply(res,200,{data:JSON.parse(await fs.readFile(dataFile + suffix,'utf8'))}); }
+        catch (error) { if (error.code === 'ENOENT') return reply(res,200,null); throw error; }
+      }
       if (req.method === 'GET' && url.pathname === '/index.html') {
         res.writeHead(301, { Location: '/' }); return res.end();
       }
@@ -143,7 +175,8 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
       const isUndo = req.method === 'POST' && url.pathname === '/api/family/undo';
       const isManage = req.method === 'POST' && url.pathname === '/api/family/manage';
       const isLocation = req.method === 'POST' && url.pathname === '/api/family/locations';
-      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo || isManage || isLocation) {
+      const isLifecycle = req.method === 'POST' && url.pathname === '/api/family/lifecycle';
+      if ((req.method === 'POST' && url.pathname === '/api/members') || (req.method === 'PUT' && editMatch) || isImport || isNameUpdate || isIntermediateIgnore || isUndo || isManage || isLocation || isLifecycle) {
         if (req.headers.origin !== `http://${req.headers.host}` || req.headers['content-type']?.split(';')[0] !== 'application/json') return reply(res, 403, { error: '只允許從本網站提交表單。' });
         const chunks = []; let bytes = 0;
         for await (const chunk of req) {
@@ -154,6 +187,7 @@ function createFamilyServer({ dataFile = path.join(__dirname, '../fixtures/famil
         let body;
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return reply(res, 400, { error: 'JSON 格式不正確。' }); }
         const operation = writes.then(async () => {
+          if (isLifecycle) return lifecycle(body);
           if (isLocation) {
             if (!['updateLocations','claimLocationLookup','resetLocation','setLocationOverride','clearLocationOverride'].includes(body.type)) return [400, { error: '不支援的定位操作。' }];
             const current = await read();

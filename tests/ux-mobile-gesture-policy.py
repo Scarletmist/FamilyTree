@@ -1,3 +1,4 @@
+from browser_assets import launch_browser_options
 """Regression for mobile gesture policy.
 Canvas owns pinch; toolbar owns horizontal pan; sheets/forms own vertical pan;
 Safari native page pinch is suppressed outside the canvas without using user-scalable=no.
@@ -69,7 +70,7 @@ with tempfile.TemporaryDirectory(prefix='family-mobile-gesture-') as temp:
             return context, page, errors
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 for name, viewport in [('portrait', {'width':390, 'height':844}), ('landscape', {'width':844, 'height':390})]:
                     context, page, errors = load_page(browser, viewport)

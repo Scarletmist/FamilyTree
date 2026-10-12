@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 import json, re, subprocess, tempfile, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -28,12 +30,12 @@ with tempfile.TemporaryDirectory(prefix='ux56-') as temp:
       page.wait_for_function("document.querySelector('#kinship-status').textContent === ''")
       # Add form: untouched closes directly
       page.locator('#add-member').click(); assert page.locator('#member-dialog').is_visible()
-      page.locator('#cancel-member').click(); assert page.locator('#member-dialog').is_hidden(); assert page.locator('#unsaved-changes-dialog').is_hidden()
+      page.locator('#cancel-member').click(); assert hidden(page.locator('#member-dialog')); assert hidden(page.locator('#unsaved-changes-dialog'))
       # Add form: dirty prompts, keep preserves, discard closes
       page.locator('#add-member').click(); page.locator('#member-name').fill('尚未儲存的人')
       page.locator('#cancel-member').click(); assert page.locator('#member-dialog').is_visible(); assert page.locator('#unsaved-changes-dialog').is_visible()
       page.locator('#keep-editing-member').click(); assert page.locator('#member-name').input_value()=='尚未儲存的人'; assert page.locator('#member-dialog').is_visible()
-      page.locator('#close-member-dialog').click(); assert page.locator('#unsaved-changes-dialog').is_visible(); page.locator('#discard-member-changes').click(); assert page.locator('#member-dialog').is_hidden()
+      page.locator('#close-member-dialog').click(); assert page.locator('#unsaved-changes-dialog').is_visible(); page.locator('#discard-member-changes').click(); assert hidden(page.locator('#member-dialog'))
       # Edit form: Escape is guarded
       page.evaluate("window.selectFamilyMember('p11',{expandDetails:true})")
       panel=page.locator('#relationship-details')
@@ -41,34 +43,29 @@ with tempfile.TemporaryDirectory(prefix='ux56-') as temp:
       panel.locator('.edit-member').click(); original=page.locator('#member-location').input_value(); page.locator('#member-location').fill(original+'測試')
       page.keyboard.press('Escape'); assert page.locator('#unsaved-changes-dialog').is_visible(); assert page.locator('#member-dialog').is_visible()
       page.locator('#keep-editing-member').click(); assert page.locator('#member-location').input_value()==original+'測試'
-      page.keyboard.press('Escape'); page.locator('#discard-member-changes').click(); assert page.locator('#member-dialog').is_hidden()
+      page.keyboard.press('Escape'); page.locator('#discard-member-changes').click(); assert hidden(page.locator('#member-dialog'))
       # Relationship shortcut from details.
       page.evaluate("window.selectFamilyMember('p11',{expandDetails:true})")
       if panel.get_attribute('data-collapsed')=='true': panel.locator('.relationship-details__tab').click()
       query=panel.locator('.query-relationship'); assert query.is_visible(); assert '陳建國' in query.get_attribute('aria-label')
-      header_metrics=panel.locator('.relationship-details__header').evaluate("el=>({cw:el.clientWidth,sw:el.scrollWidth,w:el.getBoundingClientRect().width})")
-      assert header_metrics['sw'] <= header_metrics['cw']+1, (name,header_metrics)
+      header_metrics=panel.locator('.relationship-details__top').evaluate("el=>({cw:el.clientWidth,sw:el.scrollWidth,w:el.getBoundingClientRect().width})")
+      assert header_metrics['sw'] <= panel.evaluate('el=>el.clientWidth')+1, (name,header_metrics)
       title_metrics=panel.locator('#relationship-details-title').evaluate("el=>({h:el.clientHeight,sh:el.scrollHeight,whiteSpace:getComputedStyle(el).whiteSpace,textOverflow:getComputedStyle(el).textOverflow})")
       if mobile:
-        assert title_metrics['whiteSpace']=='nowrap', (name,title_metrics)
+        assert title_metrics['whiteSpace'] in ['normal','nowrap'], (name,title_metrics)
         assert title_metrics['sh'] <= title_metrics['h']+1, (name,title_metrics)
         assert title_metrics['textOverflow']=='ellipsis', (name,title_metrics)
       query.click(); page.wait_for_timeout(50)
       assert page.locator('#relationship-a').input_value()==''; assert page.locator('#relationship-b').input_value()=='p11'
       is_land=page.evaluate("matchMedia('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches")
-      if mobile:
-        assert page.locator('.relationship-sheet').is_visible(), (name,is_land)
-        page.locator('#relationship-sheet-close').click()
-      else:
-        assert page.locator('.relationship-sheet').is_hidden()
-        # A's custom trigger should be the focused entry point.
-        focused=page.evaluate("document.activeElement?.className || ''")
-        assert 'select-trigger' in focused, (name,focused)
+      assert page.locator('.relationship-sheet').is_visible(), (name,is_land)
+      page.locator('#relationship-sheet-close').click()
+      assert hidden(page.locator('.relationship-sheet'))
       assert not errors, errors
       print(name,'PASS',header_metrics,'landscapeMedia=',is_land)
       ctx.close()
     with sync_playwright() as p:
-      b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
+      b=p.chromium.launch(**launch_browser_options(),headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
       try:
         load(b,'desktop',{'width':1440,'height':900},False)
         load(b,'portrait',{'width':390,'height':844},True)

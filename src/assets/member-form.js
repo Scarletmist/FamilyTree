@@ -82,7 +82,7 @@
   const COMPACT_LAYOUT_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px)';
   let memberBaseline = '', pendingMemberClose = null, currentPlanId = null, pendingDraft = null, draftTimer = null;
   let nameVersion = null, savingName = false;
-  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接設定）', biaoCousin: '表兄弟姊妹（直接設定）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
+  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接記錄）', biaoCousin: '表兄弟姊妹（直接記錄）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
   function syncProgressiveFields({ draft = null } = {}) {
@@ -110,7 +110,7 @@
         kind: row.querySelector('.relation-kind')?.value || '',
         seniority: row.querySelector('.relation-cousin-seniority')?.value || '',
         note: row.querySelector('.relation-note')?.value || '', source: row.querySelector('.relation-source')?.value || '',
-        status: row.querySelector('.relation-status')?.value || 'confirmed', groupId: row.querySelector('.relation-group')?.value || ''
+        status: row.legacyRelationshipStatus || '', groupId: row.querySelector('.relation-group')?.value || ''
       }))
     };
   }
@@ -185,11 +185,11 @@
     if (!unsavedDialog.open) unsavedDialog.showModal();
     keepEditingButton.focus();
   }
-  function updateTargets(select) {
+  function updateTargets(select, retainedId = select.value) {
     const previous = select.value;
     select.replaceChildren(option('', '選擇現有成員'));
     const names = FamilyModel.memberOptionLabels(snapshot.data.people);
-    snapshot.data.people.filter(p => p.id !== editingId).forEach(p => select.appendChild(option(p.id, names.get(p.id))));
+    snapshot.data.people.filter(p => p.id !== editingId && (!p.archive || p.id === retainedId)).forEach(p => select.appendChild(option(p.id, names.get(p.id) + (p.archive ? '（已封存）' : ''))));
     select.value = [...select.options].some(o => o.value === previous) ? previous : '';
   }
   function accept(payload, restored = false) {
@@ -281,9 +281,17 @@
       const select = document.createElement('select'); select.className = className; select.required = true;
       label.appendChild(select); editor.appendChild(label); return select;
     }
-    const target = field('現有成員', 'relation-target'); updateTargets(target);
-    const type = field('是這位成員的', 'relation-type'); type.appendChild(option('', '選擇關係'));
+    const target = field('現有成員', 'relation-target'); updateTargets(target,initial?.personId);
+    const type = field('', 'relation-type'); type.appendChild(option('', '選擇關係'));
+    const direction = document.createElement('span'); direction.className = 'relation-direction'; type.before(direction);
+    type.parentElement.className = 'relation-direction-field';
     Object.entries(labels).forEach(([value, text]) => type.appendChild(option(value, text)));
+    const quick = document.createElement('div'); quick.className = 'relation-quick-options'; quick.setAttribute('role','group'); quick.setAttribute('aria-label','常用關係');
+    for (const value of ['parent','child','spouse']) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'plain-button'; button.dataset.type = value; button.textContent = labels[value];
+      button.addEventListener('click',() => { type.value = value; type.dispatchEvent(new Event('change',{bubbles:true})); }); quick.append(button);
+    }
+    editor.append(quick);
     const kind = field('親子／祖孫類型', 'relation-kind'); FamilyModel.KINDS.forEach(value => kind.appendChild(option(value, value)));
     kind.parentElement.className = 'relation-kind-field';
     const seniority = field('對方的長幼', 'relation-cousin-seniority'); seniority.parentElement.className = 'relation-cousin-field';
@@ -291,7 +299,7 @@
     const rankGroup = field('使用的排行群組', 'relation-group'); rankGroup.required = false;
     const advanced = document.createElement('details'); advanced.className = 'relation-advanced';
     advanced.open = !matchMedia(COMPACT_LAYOUT_QUERY).matches;
-    const advancedSummary = document.createElement('summary'); advancedSummary.textContent = '進階設定：確認狀態、來源與說明';
+    const advancedSummary = document.createElement('summary'); advancedSummary.textContent = '關係來源與說明（選填）';
     const advancedBody = document.createElement('div'); advancedBody.className = 'relation-advanced__body';
     advanced.append(advancedSummary, advancedBody); editor.appendChild(advanced);
     const advancedField = (title, className, tag = 'select') => {
@@ -300,7 +308,6 @@
       if (tag === 'textarea') { input.rows = 2; input.maxLength = 2000; }
       label.append(input); advancedBody.append(label); return input;
     };
-    const state = advancedField('確認狀態', 'relation-status'); state.append(option('confirmed', '已確認'), option('pending', '待確認'));
     const source = advancedField('關係來源（選填）', 'relation-source', 'textarea');
     const note = advancedField('關係說明（選填）', 'relation-note', 'textarea');
     remove.addEventListener('click', () => {
@@ -318,7 +325,7 @@
       kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
       seniority.closest('label').hidden = !FamilyModel.hasSeniority(type.value); seniority.disabled = !FamilyModel.hasSeniority(type.value);
       const person = snapshot.data.people.find(p => p.id === target.value);
-      const base = { id: editingId || 'p-' + requestId, name: document.getElementById('member-name').value.trim() || '這位成員', gender: form.elements.namedItem('gender').value,
+      const base = { id: editingId || 'p-' + requestId, name: document.getElementById('member-name').value.trim() || '新成員', gender: form.elements.namedItem('gender').value,
         siblingOrder: Number(form.elements.namedItem('siblingOrder').value) || null, discipleOrder: Number(form.elements.namedItem('discipleOrder').value) || null };
       const selectedGroup = rankGroup.value || initial?.groupId || '';
       const availableGroups = (snapshot.data.rankGroups || []).filter(g => g.type === type.value && g.members.some(m => m.personId === target.value) && g.members.some(m => m.personId === base.id));
@@ -337,8 +344,11 @@
       }
       const inverse = {parent:'child',child:'parent',grandparent:'grandchild',grandchild:'grandparent',teacher:'student',student:'teacher'};
       const reverseRole = person && peerType ? FamilyModel.peerPresentation(snapshot.data, base, person, type.value, { ...relation, seniority: FamilyModel.inverseSeniority(seniority.value) }).role : labels[inverse[type.value] || type.value];
+      direction.textContent = `${person?.name || '現有成員'}是${base.name}的`;
+      type.setAttribute('aria-label',direction.textContent + '關係');
+      for (const button of quick.children) button.setAttribute('aria-pressed',String(button.dataset.type === type.value));
       preview.textContent = person && type.value ? `${person.name}是${base.name}的${role}${isParent ? '（' + kind.value + '）' : ''}；${base.name}是${person.name}的${reverseRole}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
-      summaryTitle.textContent = person && type.value ? `${person.name} · ${role || labels[type.value] || type.value}` : '尚未完成的關係';
+      summaryTitle.textContent = direction.textContent + (role || '［選擇關係］');
       summaryHint.textContent = person && type.value && isParent ? kind.value : person && type.value && FamilyModel.hasSeniority(type.value) && seniority.value !== 'unknown' ? (seniority.value === 'older' ? '對方年長' : '對方年幼') : '';
       updateActionLabels();
     }
@@ -348,8 +358,8 @@
     row.expandEditor = () => setExpanded(true);
     if (initial) {
       target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind;
-      seniority.value = initial.seniority || 'unknown'; source.value = initial.source || ''; note.value = initial.note || ''; state.value = initial.status || 'confirmed';
-      advanced.open = Boolean(initial.source || initial.note || initial.status === 'pending');
+      seniority.value = initial.seniority || 'unknown'; source.value = initial.source || ''; note.value = initial.note || ''; row.legacyRelationshipStatus = initial.status;
+      advanced.open = Boolean(initial.source || initial.note);
     }
     relations.appendChild(row); update(); setExpanded(expanded); scheduleMemberDraft();
     if (!initial) { window.FamilyMotion?.reveal(row, 'motion-relation-reveal'); target.focus(); }
@@ -508,6 +518,19 @@
   addButton.addEventListener('click', () => openMember());
   window.editFamilyMember = openMember;
   window.FamilyEditor = {
+    reload: load,
+    async lifecycle(command) {
+      if (restoredBackup) throw new Error('目前為備份檢視，請重新載入後再操作。');
+      const payload = await FamilyApp.lifecycleCommand(command);
+      accept(payload);
+      if (command.type === 'deleteMember') {
+        selectTreeMember(null);
+        try { if (readMemberDraft()?.context === 'edit:' + command.id) sessionStorage.removeItem(MEMBER_DRAFT_KEY); } catch {}
+      }
+      showUndoStatus('已完成成員操作，可復原上一項修改。',payload);
+      return payload;
+    },
+    ignoreIntermediate: planId => updateIntermediateIgnored(planId,true),
     snapshot: () => snapshot,
     editingId: () => editingId,
     async manage(body) {
@@ -576,7 +599,7 @@
     try {
       accept(pendingRefresh);
       if (editingId) populateMember();
-      else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); }
+      else { relations.querySelectorAll('.relation-target').forEach(select => updateTargets(select)); [...relations.children].forEach(row => row.updatePreview()); }
       resetMemberBaseline(); clearMemberDraft(); finishRefresh();
       showStatus('已載入最新資料。', 'info');
     } catch (e) { document.getElementById('member-refresh-error').textContent = e.message; }
@@ -587,6 +610,12 @@
     const previous = snapshot;
     try {
       const latest = await FamilyApp.load();
+      if (editingId && !latest.data.people.some(person => person.id === editingId)) {
+        accept(latest);
+        error.textContent = '此成員已不在族譜內，可能已移至回收區或合併。輸入仍保留；請關閉表單後查看回收區。';
+        document.getElementById('save-member').disabled = true;
+        return;
+      }
       if (memberFormDirty() && editingId) {
         pendingRefresh = latest;
         document.getElementById('member-refresh-error').textContent = '';
@@ -595,7 +624,7 @@
       } else {
         accept(latest);
         if (editingId) { populateMember(); resetMemberBaseline(); clearMemberDraft(); }
-        else { relations.querySelectorAll('.relation-target').forEach(updateTargets); [...relations.children].forEach(row => row.updatePreview()); }
+        else { relations.querySelectorAll('.relation-target').forEach(select => updateTargets(select)); [...relations.children].forEach(row => row.updatePreview()); }
         showStatus('已更新資料，表單內容已保留。', 'info');
       }
     } catch (e) { error.textContent = e.message; }
@@ -644,6 +673,10 @@
   });
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (saving) return;
+    if (editingId && !snapshot.data.people.some(person => person.id === editingId)) {
+      error.textContent = '此成員已不在族譜內，輸入仍保留，請關閉表單後查看回收區。';
+      document.getElementById('save-member').disabled = true; return;
+    }
     if (!validateName()) { document.getElementById('member-name').focus(); return; }
     if (!form.reportValidity()) return;
     error.textContent = '';
@@ -657,7 +690,8 @@
         const type = row.querySelector('.relation-type').value;
         const r = { type, personId: row.querySelector('.relation-target').value };
         if (FamilyModel.hasSeniority(type) && row.querySelector('.relation-cousin-seniority').value !== 'unknown') r.seniority = row.querySelector('.relation-cousin-seniority').value;
-        for (const key of ['note','source','status']) { const value = row.querySelector('.relation-' + key).value.trim(); if (value && (key !== 'status' || value === 'pending')) r[key] = value; }
+        for (const key of ['note','source']) { const value = row.querySelector('.relation-' + key).value.trim(); if (value) r[key] = value; }
+        if (row.legacyRelationshipStatus) r.status = row.legacyRelationshipStatus;
         if (row.querySelector('.relation-group').value) r.groupId = row.querySelector('.relation-group').value;
         if (FamilyModel.isDescent(type)) r.kind = row.querySelector('.relation-kind').value;
         return r;

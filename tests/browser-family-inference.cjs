@@ -41,7 +41,7 @@ const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelati
       await page.goto(base);
       await page.waitForFunction(() => FamilyApp?.snapshot?.()?.data.people.find(p => p.id === 'C')?.inferredRelationships?.some(r => r.personId === 'B' && r.type === 'tangCousin'));
       const migrated = await page.evaluate(() => FamilyApp.snapshot());
-      assert.deepEqual(sourceData(migrated.data), initial, 'automatic backfill preserves source relationships');
+      assert.deepEqual(sourceData(migrated.data), { ...initial,schemaVersion:3 }, 'automatic backfill and schema migration preserve source relationships');
       assert(migrated.data.people.find(p => p.id === 'B').inferredRelationships.some(r => r.personId === 'C'));
       assert.equal((await page.evaluate(() => FamilyRepository.read())).version, migrated.version, 'repeated reads do not create new versions');
       const inferred = page.locator('#tree-connectors [data-inferred="true"]');

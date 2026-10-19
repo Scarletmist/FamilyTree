@@ -100,7 +100,6 @@
     let confidence = 3;
     let title = steps.length === 1 ? term(steps[0], byId) : rule ? evaluate(rule.label, context) : '';
     for (const edge of original) {
-      if (edge.status === 'pending') notes.push('此路徑包含待確認關係');
       if (edge.source) notes.push('來源：' + edge.source);
       if (edge.note) notes.push('關係說明：' + edge.note);
     }
@@ -191,7 +190,7 @@
       const description = describe(inferredPath, byId);
       const title = description.confidence === 3 ? description.title : Model.isCousin(relation.type)
         ? term({ from: bId, to: aId, type: relation.type }, byId) : Model.inferredRole(relation, byId.get(aId));
-      const notes = [...description.notes.filter(note => note !== config.notes.fallback), '此關係由已確認的親屬關係自動辨別'];
+      const notes = [...description.notes.filter(note => note !== config.notes.fallback), '此關係由既有親屬關係自動辨別'];
       if (Model.isCousin(relation.type) && !notes.includes(config.notes.cousinAge)) notes.push(config.notes.cousinAge);
       const existing = paths.find(path => path.edges.map(edge => edge.key).join(';') === edges.map(edge => edge.key).join(';'));
       const value = { ...inferredPath, title, notes, confidence: 3 };
@@ -220,7 +219,7 @@
     }
     const people = graph.people.filter(p => ids.has(p.id)).map(p => ({ ...p, relationships: relations.get(p.id) }));
     const rankGroups = (graph.rankGroups || []).map(({anchorId,...g}) => ({...g,...(ids.has(anchorId) ? {anchorId} : {}),members:g.members.filter(m => ids.has(m.personId))}));
-    const focused = Model.build({ schemaVersion: 2, familyName: graph.familyName, rankGroups, people });
+    const focused = Model.build({ schemaVersion: graph.schemaVersion || 3, familyName: graph.familyName, rankGroups, people });
     // Display original generations, including gaps for explicit grandparent edges.
     const original = new Map(people.map(p => [p.id, p.gen]));
     focused.people.forEach(p => { p.gen = original.get(p.id); });

@@ -1,9 +1,10 @@
+from browser_assets import launch_browser_options
 """Google Drive token refresh should reuse an existing grant from normal user actions."""
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-SYNC_JS = (ROOT / 'assets/google-drive-sync.js').read_text()
+SYNC_JS = (ROOT / 'src/assets/google-drive-sync.js').read_text()
 
 HTML = '''<!doctype html><html><head>
 <meta name="google-oauth-client-id" content="123456789-test.apps.googleusercontent.com">
@@ -18,7 +19,7 @@ HTML = '''<!doctype html><html><head>
 </body></html>'''
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+    browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
     page = browser.new_page(viewport={'width': 1000, 'height': 700})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
@@ -55,6 +56,8 @@ with sync_playwright() as p:
         return new Response('{}', {status:200, headers:{'Content-Type':'application/json'}});
       };
     }''')
+    for asset in ['family-diff.js','family-diff-view.js','google-drive-client.js','family-sync-engine.js']:
+        page.add_script_tag(content=(ROOT / 'src/assets' / asset).read_text(encoding='utf-8'))
     page.add_script_tag(content=SYNC_JS)
     page.wait_for_function('window.__tokenConfig !== null')
 

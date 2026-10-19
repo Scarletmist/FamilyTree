@@ -41,11 +41,12 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       const a=ids['阿明'],b=ids['阿華'],duplicate=ids['重複資料'];
       await page.evaluate(id=>editFamilyMember(id),b);
       await page.click('#add-relation'); await choose('.relation-target',a); await choose('.relation-type','sibling'); await choose('.relation-cousin-seniority','older');
-      await page.fill('.relation-source','口述訪談'); await page.fill('.relation-note','排行尚待確認'); await choose('.relation-status','pending');
+      await page.fill('.relation-source','口述訪談'); await page.fill('.relation-note','排行尚待補填'); assert.equal(await page.locator('.relation-status').count(),0);
       assert.match(await page.locator('.relation-preview').textContent(),/阿明是阿華的兄；阿華是阿明的妹/);
       await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
-      assert.match(await page.locator('[data-group=siblings]').textContent(),/待確認/);
-      assert.match(await page.locator('[data-group=evidence]').textContent(),/直接設定/);
+      assert.equal(await page.locator('[data-group=siblings] .relationship-source-button').count(),0);
+      assert.equal(await page.locator('[data-group=siblings] .relationship-entry__badge--inferred').count(),0);
+      assert.match(await page.locator('[data-group=evidence]').textContent(),/直接記錄/);
       assert.match(await page.locator('[data-group=evidence]').textContent(),/口述訪談/);
       await page.evaluate(id=>editFamilyMember(id),a); await page.fill('#member-order','2'); await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
       await page.evaluate(id=>editFamilyMember(id),b); await page.fill('#member-order','3'); await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);

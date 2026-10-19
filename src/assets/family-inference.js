@@ -22,11 +22,6 @@
     const siblingLinks = new Map(data.people.map(person => [person.id, new Map()]));
     const directSiblings = new Set(), seeds = [], grandparents = [], recorded = new Set();
     const relations = new Map(), lineages = new Map(), classifiedProof = new Map();
-    const premiseKey = edge => edge.from < edge.to ? edgeKey(edge) : edgeKey(flip(edge));
-    const pending = new Set();
-    for (const person of data.people) for (const relation of person.relationships) if (relation.status === 'pending' && inverse[relation.type]) {
-      pending.add(premiseKey({ from: person.id, to: relation.personId, type: relation.type, kind: relation.kind }));
-    }
     function addSibling(a, b, path) {
       if (a === b) return;
       for (const [from, to, evidence] of [[a, b, path], [b, a, reverse(path)]]) {
@@ -40,7 +35,6 @@
       for (const key of ['kind', 'seniority', 'groupId']) if (relation[key] !== undefined) edge[key] = relation[key];
       recorded.add(edgeKey(edge));
       recorded.add(edgeKey(flip(edge)));
-      if (relation.status === 'pending' || pending.has(premiseKey(edge))) continue;
       if (['parent', 'child'].includes(edge.type) && edge.kind === '親生') {
         const upwards = edge.type === 'parent' ? edge : flip(edge);
         parents.get(upwards.from).set(upwards.to, upwards);

@@ -1,0 +1,3699 @@
+{
+  "schemaVersion": 2,
+  "people": [
+    {
+      "id": "p2",
+      "name": "林氏",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "child",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p4",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p6",
+          "kind": "過繼"
+        },
+        {
+          "type": "child",
+          "personId": "p21",
+          "kind": "養子女"
+        },
+        {
+          "type": "child",
+          "personId": "p22",
+          "kind": "義子女"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p11",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p2",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p2",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p13",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p2",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p13",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p2",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p1",
+      "name": "陳阿土",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p2"
+        },
+        {
+          "type": "spouse",
+          "personId": "p8",
+          "status": "pending"
+        },
+        {
+          "type": "child",
+          "personId": "p3",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p4",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p5",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p6",
+          "kind": "過繼"
+        },
+        {
+          "type": "child",
+          "personId": "p21",
+          "kind": "養子女"
+        },
+        {
+          "type": "child",
+          "personId": "p22",
+          "kind": "義子女"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p11",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p13",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p13",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p8",
+      "name": "黃阿葉",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "child",
+          "personId": "p5",
+          "kind": "親生"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "TESTESTESTEST"
+    },
+    {
+      "id": "p3",
+      "name": "陳文彬",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [],
+      "inferredRelationships": [
+        {
+          "personId": "p14",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p14",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p16",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p16",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p17",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p17",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p18",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p18",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p19",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p20",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p20",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p13",
+          "type": "nephewNiece",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p13",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p-508ad246-7bea-492a-9fac-85cf962a76ab",
+          "type": "uncleAunt",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p3",
+              "to": "p2",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p2",
+              "to": "p-508ad246-7bea-492a-9fac-85cf962a76ab",
+              "type": "sibling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p9",
+      "name": "王美雲",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p3"
+        },
+        {
+          "type": "child",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p12",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p7",
+          "kind": "親生"
+        },
+        {
+          "type": "child",
+          "personId": "p23",
+          "kind": "契子女"
+        },
+        {
+          "type": "student",
+          "personId": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p14",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p9",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p14",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p16",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p9",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p16",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p17",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p9",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p17",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p18",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p9",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p18",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p19",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p9",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p20",
+          "type": "grandchild",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p9",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p20",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p4",
+      "name": "陳秀琴",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 2,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p10"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p11",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p-508ad246-7bea-492a-9fac-85cf962a76ab",
+          "type": "uncleAunt",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p4",
+              "to": "p2",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p2",
+              "to": "p-508ad246-7bea-492a-9fac-85cf962a76ab",
+              "type": "sibling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p10",
+      "name": "張水木",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": []
+    },
+    {
+      "id": "p5",
+      "name": "陳文山",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [],
+      "inferredRelationships": [
+        {
+          "personId": "p11",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p5",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p5",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p13",
+          "type": "nephewNiece",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p5",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p13",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p5",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p6",
+      "name": "陳文德",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 3,
+      "relationships": []
+    },
+    {
+      "id": "p21",
+      "name": "陳阿海",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 4,
+      "relationships": []
+    },
+    {
+      "id": "p22",
+      "name": "劉金水",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": []
+    },
+    {
+      "id": "p11",
+      "name": "陳建國",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "spouse",
+          "personId": "p15"
+        },
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p13",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p13",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p1",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p2",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p2",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p4",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p5",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p5",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p15",
+      "name": "吳雅婷",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": []
+    },
+    {
+      "id": "p12",
+      "name": "陳建民",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 3,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p13",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p13",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p1",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p2",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p2",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p14",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p14",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p16",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p16",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p17",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p17",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p18",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p18",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p19",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p20",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p20",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p4",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p5",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p12",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p5",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p7",
+      "name": "陳淑芬",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 2,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p13",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p13",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p1",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p2",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p2",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p14",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p14",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p16",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p16",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p17",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p17",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p18",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p18",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p19",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p20",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p20",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p4",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p5",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p7",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p5",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p13",
+      "name": "張家豪",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p4",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p10",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p11",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p13",
+              "to": "p4",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p11",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p13",
+              "to": "p4",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p13",
+              "to": "p4",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p1",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p13",
+              "to": "p4",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p2",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p13",
+              "to": "p4",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p2",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p3",
+          "type": "uncleAunt",
+          "lineage": "maternal",
+          "seniority": "older",
+          "path": [
+            {
+              "from": "p13",
+              "to": "p4",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p5",
+          "type": "uncleAunt",
+          "lineage": "maternal",
+          "seniority": "older",
+          "path": [
+            {
+              "from": "p13",
+              "to": "p4",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p4",
+              "to": "p1",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p1",
+              "to": "p5",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p23",
+      "name": "何秀娟",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p3",
+          "kind": "契子女"
+        }
+      ]
+    },
+    {
+      "id": "p24",
+      "name": "周文彥",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "swornSibling",
+          "personId": "p11"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "older",
+          "path": [
+            {
+              "from": "p24",
+              "to": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+              "to": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+              "type": "sibling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p16",
+      "name": "陳志明",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p16",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p16",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p3",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p16",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p9",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p16",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p9",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p16",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "type": "tangCousin",
+              "seniority": "older"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p16",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p16",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p17",
+      "name": "陳志偉",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 2,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        },
+        {
+          "type": "teacher",
+          "personId": "p11"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p17",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p17",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p3",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p17",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p9",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p17",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p9",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p17",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "type": "tangCousin",
+              "seniority": "older"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p17",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p17",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p18",
+      "name": "陳雅雯",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 3,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p18",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p18",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p3",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p18",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p9",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p18",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p9",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p18",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "type": "tangCousin",
+              "seniority": "older"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p18",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p18",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p19",
+      "name": "陳雅琪",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 4,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p3",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p9",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p9",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p20",
+      "name": "陳冠廷",
+      "gender": "M",
+      "location": "",
+      "position": "",
+      "siblingOrder": 5,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p20",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p20",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p3",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p20",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p9",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p20",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p9",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p20",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p20",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p14",
+      "name": "陳思妤",
+      "gender": "F",
+      "location": "",
+      "position": "",
+      "siblingOrder": 6,
+      "relationships": [
+        {
+          "type": "parent",
+          "personId": "p11",
+          "kind": "親生"
+        },
+        {
+          "type": "parent",
+          "personId": "p15",
+          "kind": "親生"
+        }
+      ],
+      "inferredRelationships": [
+        {
+          "personId": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p14",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p14",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "type": "biaoCousin",
+              "seniority": "younger"
+            }
+          ]
+        },
+        {
+          "personId": "p3",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p14",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p9",
+          "type": "grandparent",
+          "kind": "親生",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p14",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p9",
+              "type": "parent",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p14",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p19",
+              "type": "child",
+              "kind": "親生"
+            },
+            {
+              "from": "p19",
+              "to": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "type": "tangCousin",
+              "seniority": "older"
+            }
+          ]
+        },
+        {
+          "personId": "p12",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p14",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p12",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p7",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p14",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p3",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p3",
+              "to": "p7",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+      "name": "測試",
+      "location": "測試",
+      "position": "測試",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "biaoCousin",
+          "personId": "p24",
+          "seniority": "older"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "geocode": {
+        "provider": "nominatim",
+        "query": "測試",
+        "checkedAt": 1790999963494,
+        "status": "ambiguous"
+      },
+      "locationOverride": {
+        "location": "測試",
+        "source": "nominatim",
+        "lat": 24.1430555,
+        "lon": 120.69537,
+        "displayName": "南天宮, 309, 自由路三段, 旱溪里, 東區, 臺中市, 40141, 臺灣",
+        "updatedAt": 1791006242739,
+        "query": "台中南天宮",
+        "osmType": "way",
+        "osmId": "398289502"
+      },
+      "inferredRelationships": [
+        {
+          "personId": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+          "type": "uncleAunt",
+          "lineage": "maternal",
+          "seniority": "younger",
+          "path": [
+            {
+              "from": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+              "to": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+              "to": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+              "type": "sibling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+      "name": "測試B1",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "student",
+          "personId": "p16"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+              "to": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "to": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "type": "sibling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-15db0d6b-44e1-48f2-a81f-3c76e1134fbe",
+      "name": "測試C",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "fellowDisciple",
+          "personId": "p16"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": ""
+    },
+    {
+      "id": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+      "name": "測試A",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "child",
+          "personId": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+          "kind": "親生"
+        },
+        {
+          "type": "sibling",
+          "personId": "p-d34b1223-a363-4e40-a631-ed05f6b62a97"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p24",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+              "to": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+              "type": "sibling"
+            },
+            {
+              "from": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+              "to": "p24",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+      "name": "測試B",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "child",
+          "personId": "p24",
+          "kind": "親生"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+          "type": "nephewNiece",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p-d34b1223-a363-4e40-a631-ed05f6b62a97",
+              "to": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+              "type": "sibling"
+            },
+            {
+              "from": "p-7e4481b1-148e-48fd-9735-7c39a20b3764",
+              "to": "p-fd9fcaf7-6a13-4507-9a88-c8ff10e268f6",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-baccb399-853d-45db-a58b-139d04bce9c6",
+      "name": "TEST_D1",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": 1,
+      "relationships": [
+        {
+          "type": "tangCousin",
+          "personId": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+          "seniority": "older"
+        },
+        {
+          "type": "parent",
+          "personId": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+          "kind": "親生"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p-baccb399-853d-45db-a58b-139d04bce9c6",
+              "to": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "to": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "type": "sibling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-950b08ad-0ee2-4999-b3a1-041862fbac4e",
+      "name": "TEST_D2",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "tangCousin",
+          "personId": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+          "seniority": "younger"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+          "type": "uncleAunt",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p-950b08ad-0ee2-4999-b3a1-041862fbac4e",
+              "to": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "to": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "type": "sibling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+      "name": "TEST_B0",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "child",
+          "personId": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+          "kind": "親生"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p-950b08ad-0ee2-4999-b3a1-041862fbac4e",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "to": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "type": "sibling"
+            },
+            {
+              "from": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "to": "p-950b08ad-0ee2-4999-b3a1-041862fbac4e",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p-baccb399-853d-45db-a58b-139d04bce9c6",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "to": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "type": "sibling"
+            },
+            {
+              "from": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "to": "p-baccb399-853d-45db-a58b-139d04bce9c6",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+      "name": "TEST_D0",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "sibling",
+          "personId": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14"
+        },
+        {
+          "type": "child",
+          "personId": "p-950b08ad-0ee2-4999-b3a1-041862fbac4e",
+          "kind": "親生"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+          "type": "nephewNiece",
+          "lineage": "paternal",
+          "path": [
+            {
+              "from": "p-508e2c66-b511-463d-b0d8-075bce303de5",
+              "to": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "type": "sibling"
+            },
+            {
+              "from": "p-bfad456c-c4f3-41be-86b2-fdf337b83e14",
+              "to": "p-bd59d6a2-d7af-4aec-9919-615e4e9e02bd",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+      "name": "測試E",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "tangCousin",
+          "personId": "p19",
+          "seniority": "younger"
+        },
+        {
+          "type": "tangCousin",
+          "personId": "p20",
+          "seniority": "younger"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p14",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "to": "p19",
+              "type": "tangCousin",
+              "seniority": "younger"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p14",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p16",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "to": "p19",
+              "type": "tangCousin",
+              "seniority": "younger"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p16",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p17",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "to": "p19",
+              "type": "tangCousin",
+              "seniority": "younger"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p17",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p18",
+          "type": "tangCousin",
+          "path": [
+            {
+              "from": "p-0a5b32a0-829b-4134-acfb-69929be8ac3d",
+              "to": "p19",
+              "type": "tangCousin",
+              "seniority": "younger"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p18",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+      "name": "測試F",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "biaoCousin",
+          "personId": "p19",
+          "seniority": "older"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p14",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p14",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p16",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p16",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p17",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p17",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p18",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p18",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p20",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-ae2a0827-5de7-4821-b6d3-516e05984634",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p20",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+      "name": "測試G",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "biaoCousin",
+          "personId": "p19",
+          "seniority": "older"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p14",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p14",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p16",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p16",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p17",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p17",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p18",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p18",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p20",
+          "type": "biaoCousin",
+          "path": [
+            {
+              "from": "p-351b40d2-6c6f-4183-af7c-d8e0ceddd63d",
+              "to": "p19",
+              "type": "biaoCousin",
+              "seniority": "older"
+            },
+            {
+              "from": "p19",
+              "to": "p11",
+              "type": "parent",
+              "kind": "親生"
+            },
+            {
+              "from": "p11",
+              "to": "p20",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-508ad246-7bea-492a-9fac-85cf962a76ab",
+      "name": "測試H",
+      "location": "",
+      "position": "",
+      "gender": "F",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "sibling",
+          "personId": "p2"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": "",
+      "inferredRelationships": [
+        {
+          "personId": "p3",
+          "type": "nephewNiece",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p-508ad246-7bea-492a-9fac-85cf962a76ab",
+              "to": "p2",
+              "type": "sibling"
+            },
+            {
+              "from": "p2",
+              "to": "p3",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        },
+        {
+          "personId": "p4",
+          "type": "nephewNiece",
+          "lineage": "maternal",
+          "path": [
+            {
+              "from": "p-508ad246-7bea-492a-9fac-85cf962a76ab",
+              "to": "p2",
+              "type": "sibling"
+            },
+            {
+              "from": "p2",
+              "to": "p4",
+              "type": "child",
+              "kind": "親生"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p-212b4a5a-b8fc-458d-b728-b09f9db4d346",
+      "name": "TEST_J",
+      "location": "",
+      "position": "",
+      "gender": "M",
+      "siblingOrder": null,
+      "relationships": [
+        {
+          "type": "grandparent",
+          "personId": "p17",
+          "kind": "親生"
+        }
+      ],
+      "discipleOrder": null,
+      "notes": ""
+    }
+  ],
+  "locationLookupDeviceId": "f654425f-a698-4cf9-8005-0cffb0d03651"
+}

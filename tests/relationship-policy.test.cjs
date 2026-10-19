@@ -19,7 +19,7 @@ test('relative sibling seniority survives reverse editing, later ranks take prio
   edited.people[1].siblingOrder=3; graph=Model.build(edited);
   assert.equal(role(graph,'B','A').role,'二兄');
   assert.equal(Kinship.query(graph,'A','B').paths[0].title,'二兄');
-  assert(Kinship.query(graph,'A','B').paths[0].notes.includes('此路徑包含待確認關係'));
+  assert(!Kinship.query(graph,'A','B').paths[0].notes.includes('此路徑包含待確認關係'));
   assert.throws(()=>Model.replaceMember(edited,{...edited.people[1],siblingOrder:1,relationships:Model.relationshipsFor(edited,'B')}),/排行和相對長幼矛盾/);
   assert.equal(edited.people[1].siblingOrder,3);
 });

@@ -81,14 +81,14 @@ test('removing a premise retracts automatic relations, including cached inverse 
   assert.deepEqual(change.data.people[1].relationships, completed.people[1].relationships);
 });
 
-test('cousins are not transitive and social or pending relations do not establish biological kinship', () => {
+test('cousins are not transitive and social or adoptive relations do not establish biological kinship', () => {
   const cousinChain = family([p('A', 'M', [{ type: 'tangCousin', personId: 'B' }]), p('B', 'M', [{ type: 'tangCousin', personId: 'C' }]), p('C')]);
   assert.equal(automatic(cousinChain, 'A', 'C', 'tangCousin'), undefined);
   for (const type of ['swornSibling', 'fellowDisciple', 'spouse']) {
     const data = family([p('A'), p('B', 'M', [{ type: 'tangCousin', personId: 'A' }]), p('C', 'M', [{ type, personId: 'A' }])]);
     assert.equal(automatic(data, 'C', 'B', 'tangCousin'), undefined);
   }
-  for (const relation of [{ ...sibling('A'), status: 'pending' }, { ...parent('A'), kind: '養子女' }]) {
+  for (const relation of [{ type:'swornSibling',personId:'A' }, { ...parent('A'), kind: '養子女' }]) {
     const data = family([p('A'), p('B', 'M', [{ type: 'tangCousin', personId: 'A' }]), p('C', 'M', [relation])]);
     assert.equal(automatic(data, 'C', 'B', 'tangCousin'), undefined);
   }
@@ -128,10 +128,11 @@ test('a full sibling inherits a proven maternal grandparent and aunt even withou
   assert.equal(completed.people.find(p => p.id === 'C').relationships.length, 1, 'no missing parent is invented');
 });
 
-test('a confirmed duplicate cannot turn a pending source relation into automatic evidence', () => {
+test('legacy confirmation flags do not change automatic evidence and remain in original records', () => {
   const data = family([p('A', 'M', [{ ...sibling('C'), status: 'pending' }]),
     p('B', 'M', [{ type: 'tangCousin', personId: 'A' }]), p('C', 'M', [sibling('A')])]);
-  assert.equal(automatic(data, 'C', 'B', 'tangCousin'), undefined);
+  assert(automatic(data, 'C', 'B', 'tangCousin'));
+  assert.equal(data.people[0].relationships[0].status,'pending');
 });
 
 test('confirming an automatic cousin retains the manual relation after the original premise is removed', () => {

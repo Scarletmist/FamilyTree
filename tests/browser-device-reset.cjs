@@ -175,7 +175,7 @@ const data = { schemaVersion: 2, familyName: '保留的雲端族譜', people: [
       await openCloud();
       await page.locator('#cloud-sync-action').click();
       await page.waitForFunction(() => FamilyApp?.snapshot?.()?.data.people.length === 1);
-      assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), data);
+      assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), { ...data,schemaVersion:3 });
       assert(cloudRequests.every(request => request.method === 'GET'), 'no cloud create, update or delete is permitted');
       assert.deepEqual(errors, []);
       await context.close();

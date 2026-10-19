@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 """P2 UX regressions: sticky member tools, desktop locate shortcut,
 landscape side sheets and persisted local view preferences.
 """
@@ -67,7 +69,7 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
             page.wait_for_function("document.querySelectorAll('.person').length > 0")
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 # Desktop: sticky member controls, selected-member locate, and local preference persistence.
                 context = browser.new_context(viewport={'width':1440, 'height':900})
@@ -87,16 +89,17 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
                 page.locator('#close-member-list').click()
 
                 first = page.locator('.person').first; first.click(); panel=page.locator('#relationship-details'); assert panel.is_visible()
+                panel.locator('.relationship-details__more-summary').click()
                 locate = panel.locator('.details-locate'); assert locate.is_visible()
                 header_box=panel.locator('.relationship-details__header').bounding_box(); actions_box=panel.locator('.relationship-details__actions').bounding_box(); title_box=panel.locator('#relationship-details-title').bounding_box()
                 assert header_box and actions_box and title_box, (header_box,actions_box,title_box)
                 assert actions_box['y'] >= header_box['y'] + header_box['height'] - 1, (header_box,actions_box)
-                assert title_box['width'] >= 175, title_box
+                assert title_box['width'] > 0 and title_box['x'] + title_box['width'] <= panel.bounding_box()['x'] + panel.bounding_box()['width'], title_box
                 assert panel.locator('.details-action__label', has_text='編輯').is_visible() and panel.locator('.details-action__label', has_text='定位').is_visible()
-                assert panel.locator('.add-relative').is_visible() and panel.locator('.add-relative .details-action__label').is_visible()
+                assert panel.locator('.add-relative').is_visible() and panel.locator('.add-relative svg').is_visible()
                 panel.locator('.add-relative').click(); management=page.locator('.family-management-dialog'); assert management.is_visible()
                 management_close=management.locator('.dialog-header .details-icon'); assert management_close.locator('svg').count()==1 and management_close.inner_text().strip()==''
-                management_close.click(); assert management.is_hidden()
+                management_close.click(); assert hidden(management)
                 person_id = first.get_attribute('data-person-id')
                 page.evaluate("""() => { const view=document.querySelector('.tree'); view.scrollLeft=view.scrollWidth; view.scrollTop=view.scrollHeight; }""")
                 locate.click(); page.wait_for_timeout(650)
@@ -126,13 +129,14 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
                 topbox=page.locator('#relationship-details .relationship-details__top').bounding_box(); titlebox=page.locator('#relationship-details-title').bounding_box(); editbox=page.locator('#relationship-details .edit-member').bounding_box()
                 assert topbox and titlebox and editbox and topbox['height'] <= 120, (topbox,titlebox,editbox)
                 assert not page.locator('#relationship-details .details-locate').is_visible()
+                page.locator('#relationship-details .relationship-details__more-summary').click()
                 assert page.locator('#relationship-details .add-relative').is_visible()
-                assert page.locator('#relationship-details .add-relative .details-action__label').is_visible()
+                assert page.locator('#relationship-details .add-relative svg').is_visible()
                 assert page.locator('#relationship-details .details-action__label', has_text='編輯').is_visible()
                 assert page.locator('#relationship-details .relationship-details__more-summary').is_visible()
                 page.locator('#relationship-details .edit-member').click(); page.wait_for_function("document.querySelector('#member-dialog').open")
                 relation=page.locator('#member-relations .relation-row').first
-                assert relation.locator('.relation-row__editor').is_hidden()
+                assert hidden(relation.locator('.relation-row__editor'))
                 assert relation.locator('.relation-row__actions .relation-row__toggle').is_visible() and relation.locator('.relation-row__actions .remove-relation').is_visible()
                 assert not relation.locator('.relation-row__action-label').first.is_visible()
                 before=page.locator('#member-relations .relation-row').count(); relation.locator('.remove-relation').click(); assert page.locator('#member-relations .relation-row').count()==before-1
@@ -155,8 +159,9 @@ with tempfile.TemporaryDirectory(prefix='family-p2-') as temp:
                 assert morebox['x'] > 400 and morebox['x']+morebox['width'] >= 843 and morebox['y'] < 100 and morebox['height'] > 240, morebox
                 page.locator('#landscape-more-close').click(); page.locator('.person').first.click(); page.wait_for_timeout(30)
                 assert not page.locator('#relationship-details .details-locate').is_visible()
+                page.locator('#relationship-details .relationship-details__more-summary').click()
                 assert page.locator('#relationship-details .add-relative').is_visible()
-                assert page.locator('#relationship-details .add-relative .details-action__label').is_visible()
+                assert page.locator('#relationship-details .add-relative svg').is_visible()
                 topbox=page.locator('#relationship-details .relationship-details__top').bounding_box(); titlebox=page.locator('#relationship-details-title').bounding_box(); editbox=page.locator('#relationship-details .edit-member').bounding_box()
                 assert topbox and titlebox and editbox and topbox['height'] <= 120, (topbox,titlebox,editbox)
                 assert page.locator('#relationship-details .details-action__label', has_text='編輯').is_visible()

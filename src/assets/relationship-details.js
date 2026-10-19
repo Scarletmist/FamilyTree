@@ -1,10 +1,11 @@
 /* Relationship detail presentation. The graph remains the only source of relationship data. */
 (function (root, factory) {
   const model = typeof module === 'object' && module.exports ? require('./family-model.js') : root.FamilyModel;
-  const details = factory(model);
+  const evidence = typeof module === 'object' && module.exports ? require('./relationship-evidence.js') : root.RelationshipEvidence;
+  const details = factory(model,evidence);
   if (typeof module === 'object' && module.exports) module.exports = details;
   else root.FamilyRelationshipDetails = details;
-})(globalThis, function (FamilyModel) {
+})(globalThis, function (FamilyModel,Evidence) {
   'use strict';
   const CHILD_KINDS = new Set(['親生', '過繼', '養子女']);
   const CATEGORIES = [
@@ -34,6 +35,7 @@
     const byId = new Map(graph.people.map(p => [p.id, p]));
     const person = byId.get(personId);
     if (!person) return [];
+    const proofs = Evidence.create(graph);
     const groups = new Map(CATEGORIES.map(category => [category.id, new Map()]));
     const unions = new Map((graph.unions || []).map(u => [u.id, u]));
     const descents = graph.descents || [];
@@ -135,13 +137,13 @@
           if (presentation.rank && !presentation.order) badges.push('手足序：' + presentation.rank);
           if (entry.sworn && entry.ordinary) badges.push(FamilyModel.peerPresentation(graph, target, person, 'swornSibling').role);
         }
-        const categoryTypes = {parents:['parent'],grandparents:['grandparent'],spouses:['spouse'],children:['child'],grandchildren:['grandchild'],siblings:['sibling','swornSibling'],cousins:['tangCousin','biaoCousin'],unclesAunts:[],nephewsNieces:[],fellowDisciples:['fellowDisciple'],teachers:['teacher'],students:['student']};
+        const categoryTypes = {parents:['parent'],grandparents:['grandparent'],spouses:['spouse'],children:['child'],grandchildren:['grandchild'],siblings:['sibling','swornSibling'],cousins:['tangCousin','biaoCousin'],unclesAunts:['uncleAunt'],nephewsNieces:['nephewNiece'],fellowDisciples:['fellowDisciple'],teachers:['teacher'],students:['student']};
         const recorded = direct.filter(r => r.personId === target.id && categoryTypes[category.id].includes(r.type));
         if (category.id === 'cousins' && recorded.length) {
           const additions = inferred.filter(r => !r.recorded);
           if (additions.length) {
             role = [...new Set([role, ...additions.map(r => FamilyModel.inferredRole(r, target))].filter(Boolean))].join('、');
-            entry.contexts.add('直接設定與推導的堂／表類型不同，請確認原始關係。');
+            entry.contexts.add('直接記錄與推導的堂／表類型不同，請核對原始關係。');
           }
         }
         if (inferred.length && (!recorded.length || ['grandparents', 'grandchildren'].includes(category.id) && [...entry.kinds].every(kind => kind === '親生'))) {
@@ -156,7 +158,6 @@
           if (presentation.group) entry.contexts.add('排行群組：' + presentation.group);
         }
         for (const r of recorded) {
-          if (r.status === 'pending') entry.contexts.add('待確認');
           if (r.source) entry.contexts.add('來源：' + r.source);
           if (r.note) entry.contexts.add('關係說明：' + r.note);
         }
@@ -165,11 +166,10 @@
           const evidence = FamilyModel.siblingEvidence(graph, personId, target.id);
           if (evidence) for (const owner of [personId,target.id]) for (const r of FamilyModel.relationshipsFor(graph,owner)) {
             if (r.type !== 'parent' || !evidence.parentIds.includes(r.personId)) continue;
-            if (r.status === 'pending') entry.contexts.add('推導依據待確認：' + byId.get(owner).name + '與' + byId.get(r.personId).name + '的親子關係');
             if (r.source) entry.contexts.add('推導依據來源：' + r.source);
           }
         }
-        return { ...entry, role, badges, missing, recorded: recorded.length > 0, contexts: [...entry.contexts], kinds: [...entry.kinds],
+          return { ...entry, role, badges, missing, proofs:proofs.between(personId,target.id,categoryTypes[category.id]), recorded: recorded.length > 0, contexts: [...entry.contexts], kinds: [...entry.kinds],
           ordinary: entry.ordinary, sworn: entry.sworn };
       });
       if (['fellowDisciples', 'students'].includes(category.id)) {
@@ -252,7 +252,9 @@
       layout ||= globalThis.FamilyMemberDetailLayout?.create(panel, {
         setCollapsed: (value, options) => setCollapsed(panel, value, options)
       });
+      const keepMoreOpen = personId === currentPersonId && !panel.hidden && panel.querySelector('.relationship-details__more')?.open === true;
       layout?.beforeRender();
+      for (let i = navigationHistory.length - 1; i >= 0; i--) if (!graph?.people.some(p => p.id === navigationHistory[i])) navigationHistory.splice(i,1);
       const mobile = globalThis.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px)').matches;
       if (!personId) {
         navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null;
@@ -265,6 +267,7 @@
       const active = document.activeElement;
       const focused = active && panel.contains(active) ?
         { className: active.classList.contains('relationship-details__tab') ? 'relationship-details__tab' :
+          active.classList.contains('relationship-details__more-summary') ? 'relationship-details__more-summary' :
           active.classList.contains('details-back') ? 'details-back' :
           active.classList.contains('edit-member') ? 'edit-member' :
           active.classList.contains('relationship-details__location') ? 'relationship-details__location' :
@@ -347,7 +350,7 @@
       if (mobile) {
         const expand = iconButton('detail-expand', '展開完整閱讀', globalThis.FamilyMemberDetailLayout?.expandPath || 'M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5');
         expand.setAttribute('aria-controls', content.id);
-        navigation.replaceChildren(back, element('span', 'detail-nav-title', person.name), expand, collapse, close);
+        navigation.replaceChildren(back, element('div', 'detail-nav-identity'), expand, collapse, close);
         const grabber = element('div', 'detail-grabber'); grabber.setAttribute('aria-hidden', 'true');
         top.append(grabber);
       }
@@ -356,9 +359,12 @@
       const eyebrow = element('small','profile-eyebrow','成員詳情');
       const generation = element('p','profile-generation',person.gen ? '第 ' + (person.gen + (globalThis.FamilyDisplayProjection?.generationOffset(graph) || 0)) + ' 代' : '未設定關係');
       identity.append(eyebrow,title,generation); header.append(avatar,identity);
+      if (person.archive) identity.append(element('span','member-archive-badge','已封存'));
+      if (mobile) navigation.querySelector('.detail-nav-identity').append(identity);
       top.append(navigation);
       {
         const more = element('details', 'relationship-details__more');
+        more.open = keepMoreOpen;
         const moreSummary = element('summary', 'plain-button relationship-details__more-summary');
         moreSummary.setAttribute('aria-label', '更多成員操作');
         const moreIcon = iconButton('', '更多成員操作', 'M5 12h.01M12 12h.01M19 12h.01').children[0];
@@ -366,17 +372,24 @@
         moreSummary.appendChild(moreIcon);
         const moreBody = element('div', 'relationship-details__more-body');
         moreBody.appendChild(locate);
+        const archive = iconButton('details-archive details-action',person.archive ? '解除封存' : '封存成員','M4 4h16v4H4z M6 8v12h12V8 M10 12h4');
+        archive.append(element('span','details-action__label',person.archive ? '解除封存' : '封存成員'));
+        archive.addEventListener('click',() => globalThis.FamilyMaintenanceUI?.openLifecycle(person.archive ? 'unarchiveMember' : 'archiveMember',person.id));
+        const remove = iconButton('details-remove details-action maintenance-danger','移至回收區','M4 7h16 M9 7V4h6v3 M7 7l1 13h8l1-13 M10 11v5 M14 11v5');
+        remove.append(element('span','details-action__label','移至回收區'));
+        remove.addEventListener('click',() => globalThis.FamilyMaintenanceUI?.openLifecycle('deleteMember',person.id));
+        moreBody.append(archive,remove);
         if (mobile) moreBody.appendChild(addRelative);
         more.append(moreSummary, moreBody);
         if (mobile) actions.append(edit, query, more);
         else actions.append(edit, query, addRelative, more);
       }
       if (!mobile) top.append(header, actions);
+      else top.append(actions);
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
-      if (mobile) {
-        const overview = element('div', 'detail-overview'); overview.append(header, actions); body.append(overview);
-      }
+      const information = mobile ? element('details','relationship-group member-information') : body;
+      if (mobile) { information.dataset.group = 'information'; information.open = openStates.get(person.id)?.get('information') ?? false; information.append(element('summary','relationship-group__summary','成員資料與備註')); }
       const profile = element('div', 'relationship-details__profile');
       if (person.location) {
         const row = element('p', '', '所在地：');
@@ -404,12 +417,12 @@
         const member = group.members.find(m => m.personId === person.id);
         if (member) profile.appendChild(element('p', '', group.name + '：' + (member.order == null ? '排行未知' : '排行 ' + member.order)));
       }
-      if (profile.childElementCount) body.appendChild(profile);
+      if (profile.childElementCount) information.appendChild(profile);
       if (person.notes) {
         const notes = element('details', 'relationship-group member-notes'); notes.dataset.group = 'notes';
         notes.open = openStates.get(person.id)?.get('notes') ?? true;
         notes.append(element('summary', 'relationship-group__summary', '備註說明'), element('p', 'member-notes__text', person.notes));
-        body.append(notes);
+        information.append(notes);
       }
       const groups = buildGroups(graph, person.id);
       const evidence = element('details','relationship-evidence'); evidence.dataset.group = 'evidence';
@@ -446,24 +459,32 @@
             main.appendChild(personButton);
             if (entry.role) main.appendChild(element('span', 'relationship-entry__role', entry.role));
             item.appendChild(main);
-            if (entry.contexts.some(context => context.includes('待確認'))) item.append(element('span','relationship-entry__badge pending','待確認'));
+            const actions = element('div','relationship-entry__actions');
+            const inferredProofs = entry.proofs.filter(proof => proof.evidence.origin === 'inferred');
             const evidenceItem = element('div','relationship-evidence__item');
-            evidenceItem.append(element('strong','',entry.name + ' · ' + (entry.role || group.title)),element('p','',entry.recorded ? '直接設定' : '由既有關係推導'));
+            if (globalThis.RelationshipEvidenceView) globalThis.RelationshipEvidenceView.render(evidenceItem,graph,entry.proofs,{onEdit});
+            else evidenceItem.append(element('strong','',entry.name + ' · ' + (entry.role || group.title)));
             for (const message of entry.missing || []) {
               const fix = element('button', 'plain-button relationship-missing', message + '・補填'); fix.type = 'button';
               fix.addEventListener('click', () => globalThis.completeFamilyRelationship?.(person.id, entry.personId, group.id, message));
-              item.appendChild(fix);
+              actions.appendChild(fix);
             }
-            if (!entry.recorded) {
-              const source = element('button', 'plain-button', '編輯關係依據'); source.type = 'button';
-              source.addEventListener('click', () => onEdit?.(person.id)); evidenceItem.appendChild(source);
-            }
-            if (entry.badges.length) {
+            if (actions.children.length) item.appendChild(actions);
+            if (entry.badges.length || inferredProofs.length) {
               const badges = element('div', 'relationship-entry__badges');
-              entry.badges.forEach(badge => badges.appendChild(element('span', 'relationship-entry__badge', badge)));
+              entry.badges.filter(badge => badge !== '自動辨別' || !inferredProofs.length)
+                .forEach(badge => badges.appendChild(element('span', 'relationship-entry__badge', badge)));
+              if (inferredProofs.length) {
+                const badge = element('button','relationship-entry__badge relationship-entry__badge--inferred',entry.badges.includes('自動辨別') ? '自動辨別' : '推導');
+                badge.type = 'button'; badge.dataset.origin = 'inferred'; badge.title = '查看推導依據';
+                badge.dataset.evidenceKey = [...new Set(inferredProofs.map(proof => Evidence.canonical(person.id,proof.relation).key))].sort().join(';');
+                badge.setAttribute('aria-label',entry.name + '：查看推導依據'); badge.setAttribute('aria-haspopup','dialog');
+                badge.addEventListener('click',() => globalThis.RelationshipEvidenceView?.open(graph,inferredProofs,{opener:badge,originFilter:'inferred'}));
+                badges.appendChild(badge);
+              }
               item.appendChild(badges);
             }
-            entry.contexts.forEach(context => evidenceItem.appendChild(element('p', '', context)));
+            entry.contexts.filter(context => !/待確認|來源：|關係說明：/.test(context)).forEach(context => evidenceItem.appendChild(element('p', '', context)));
             evidence.append(evidenceItem);
             items.appendChild(item);
           });
@@ -473,6 +494,7 @@
         body.appendChild(list);
         body.appendChild(evidence);
       }
+      if (mobile && (profile.childElementCount || person.notes)) body.append(information);
       content.appendChild(body);
       const tab = element('button', 'relationship-details__tab');
       tab.type = 'button';

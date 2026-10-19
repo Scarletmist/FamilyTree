@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 import json, re, subprocess, tempfile, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -43,8 +45,8 @@ with tempfile.TemporaryDirectory(prefix='ux125-') as temp:
       collapsed=page.locator('#member-relations .relation-row__editor[hidden]').count(); assert collapsed==count,(name,count,collapsed)
       height=page.locator('#member-form .form-scroll').evaluate('el=>({scroll:el.scrollHeight,client:el.clientHeight})')
       first=rows.nth(0); first.locator('.relation-row__toggle').click(); assert first.locator('.relation-row__editor').is_visible()
-      first.locator('.relation-row__toggle').click(); assert first.locator('.relation-row__editor').is_hidden()
-      page.locator('#cancel-member').click(); assert page.locator('#member-dialog').is_hidden()
+      first.locator('.relation-row__toggle').click(); assert hidden(first.locator('.relation-row__editor'))
+      page.locator('#cancel-member').click(); assert hidden(page.locator('#member-dialog'))
 
       # Relationship-detail navigation history: relative -> back returns to p11.
       page.evaluate("window.selectFamilyMember('p11',{expandDetails:true})")
@@ -61,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix='ux125-') as temp:
       page.locator('#save-member').click(); page.wait_for_function("!document.querySelector('#member-dialog').open")
       toast=page.locator('#save-status'); assert toast.is_visible(); assert toast.get_attribute('data-kind')=='success'
       assert toast.locator('.save-status__action').is_visible(),(name,'undo action missing')
-      page.wait_for_timeout(6200); assert toast.is_hidden(),(name,'undo toast did not auto-dismiss')
+      page.wait_for_timeout(6200); assert hidden(toast),(name,'undo toast did not auto-dismiss')
 
       # Draft is persisted in the tab and offered when the same form is opened again.
       page.locator('#add-member').click(); page.locator('#member-name').fill(f'{name}未完成草稿'); page.wait_for_timeout(250)
@@ -77,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix='ux125-') as temp:
       print(name,'PASS',{'relations':count,'formScrollHeight':height['scroll'],'formViewport':height['client']})
       ctx.close()
     with sync_playwright() as p:
-      b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
+      b=p.chromium.launch(**launch_browser_options(),headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
       try:
         load(b,'desktop',{'width':1440,'height':900},False)
         load(b,'portrait',{'width':390,'height':844},True)

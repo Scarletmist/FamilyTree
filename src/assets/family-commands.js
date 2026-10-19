@@ -96,13 +96,21 @@
   }
 
   function importFamily(data, command) {
-    Model.build(command.data);
-    return { data: command.data, label: '匯入族譜', backupBeforeImport: true };
+    return { data: Model.upgradeSchema(command.data), label: '匯入族譜', backupBeforeImport: true,
+      ...(command.data?.schemaVersion === 2 ? { migrationImport:command.data } : {}) };
   }
 
   function applyRaw(data, command) {
     if (!data || !command || typeof command.type !== 'string') throw commandError('不支援的族譜操作。', 400, 'INVALID_COMMAND');
     switch (command.type) {
+      case 'migrateSchema': return { data, unchanged:true, metadataOnly:true, label:'升級族譜資料格式' };
+      case 'archiveMember':
+      case 'unarchiveMember':
+      case 'deleteMember':
+      case 'restoreMember': {
+        const Lifecycle = typeof module === 'object' && module.exports ? require('./family-lifecycle.js') : globalThis.FamilyLifecycle;
+        return Lifecycle.apply(data,command,Model);
+      }
       case 'refreshKinship': return { data, unchanged: true, metadataOnly: true, label: '補齊已知親屬關係' };
       case 'claimLocationLookup': {
         if (!/^[a-zA-Z0-9_-]{1,80}$/.test(command.deviceId || '')) throw commandError('背景定位裝置格式不正確。');
@@ -114,7 +122,7 @@
         if (!Location.valid(command.result) || Location.normalize(command.query) !== Location.normalize(command.result.query)) throw commandError('定位結果不正確。');
         let changed = false;
         const people = data.people.map(person => {
-          if (!Location.eligible(person) || Location.overrideCurrent(person) || Location.normalize(person.location) !== Location.normalize(command.query) || Location.current(person)) return person;
+          if (person.archive || !Location.eligible(person) || Location.overrideCurrent(person) || Location.normalize(person.location) !== Location.normalize(command.query) || Location.current(person)) return person;
           changed = true;
           return { ...person, geocode: { ...command.result, query: person.location.trim() } };
         });
@@ -123,8 +131,9 @@
       case 'resetLocation': {
         const person = data.people.find(p => p.id === command.id);
         if (!person) throw commandError('成員已不存在。');
+        if (person.archive) return { data,unchanged:true,metadataOnly:true };
         const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
-        const people = data.people.map(p => { if (Location.overrideCurrent(p) || Location.normalize(p.location) !== Location.normalize(person.location)) return p; const next = { ...p }; delete next.geocode; return next; });
+        const people = data.people.map(p => { if (p.archive || Location.overrideCurrent(p) || Location.normalize(p.location) !== Location.normalize(person.location)) return p; const next = { ...p }; delete next.geocode; return next; });
         return { data: { ...data, people }, metadataOnly: true };
       }
       case 'setLocationOverride':
@@ -132,6 +141,7 @@
         const Location = typeof module === 'object' && module.exports ? require('./family-location.js') : globalThis.FamilyLocation;
         const person = data.people.find(p => p.id === command.id);
         if (!person) throw commandError('成員已不存在，請重新開啟地點修正。', 404);
+        if (person.archive) throw commandError('此成員已封存，請先解除封存再修正地點。',409,'MEMBER_ARCHIVED');
         if (!Location.eligible(person)) throw commandError('私人住址或未填所在地的成員不能指定地圖位置。');
         if (typeof command.expectedLocation !== 'string' || Location.normalize(command.expectedLocation) !== Location.normalize(person.location)
           || !Object.hasOwn(command, 'expectedOverride') || !Model.sameJsonData(command.expectedOverride, person.locationOverride || null)) {
@@ -142,7 +152,7 @@
           if (!Location.validOverride(command.override) || Location.normalize(command.override.location) !== Location.normalize(person.location)) throw commandError('修正位置格式不正確。');
           if (command.applyToSameLocation !== undefined && typeof command.applyToSameLocation !== 'boolean') throw commandError('地點套用範圍格式不正確。');
           if (command.applyToSameLocation) {
-            const related = data.people.filter(p => p.id !== person.id && Location.eligible(p) && Location.normalize(p.location) === Location.normalize(person.location));
+            const related = data.people.filter(p => p.id !== person.id && Location.locatable(p) && Location.normalize(p.location) === Location.normalize(person.location));
             const expected = command.expectedRelatedMembers;
             if (!Array.isArray(expected) || expected.length !== related.length || new Set(expected.map(p => p?.id)).size !== expected.length
               || related.some(p => !expected.some(e => e?.id === p.id && typeof e.expectedLocation === 'string'
@@ -175,9 +185,11 @@
   }
 
   function apply(data, command) {
-    const change = applyRaw(data, command);
+    const migrated = Model.upgradeSchema(data);
+    const change = applyRaw(migrated, command);
     const completed = Model.completeKinship(change.data);
-    return { ...change, data: completed, unchanged: Boolean(change.unchanged && completed === change.data) };
+    return { ...change, data: completed, backupBeforeMigration:data.schemaVersion === 2,
+      unchanged: Boolean(change.unchanged && completed === data) };
   }
   return { apply, memberInput, commandError };
 });

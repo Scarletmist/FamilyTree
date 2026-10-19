@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createFamilyServer } = require('../dev/server.cjs');
 const { renderFamilyTreeHtml } = require('../dev/site-source.cjs');
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = require('./browser-runtime.cjs');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 const initial = { schemaVersion: 2, people: [person('A'), person('B', [{ type: 'tangCousin', personId: 'A', seniority: 'older' }])] };
 async function checkGeometry(page) {
@@ -63,6 +63,8 @@ async function checkGeometry(page) {
       assert.equal(await page.locator('.intermediate-node').count(), 2);
       await page.locator('.intermediate-node[data-near="A"]').click();
       await page.locator('#member-name').fill('C');
+      if (!await page.locator('.member-optional-fields').evaluate(details => details.open)) await page.locator('.member-optional-fields > summary').click();
+      if (!await page.locator('.member-ranking-fields').evaluate(details => details.open)) await page.locator('.member-ranking-fields > summary').click();
       await page.locator('[name="siblingOrder"]').fill('1');
       await page.locator('#save-member').click();
       await page.waitForFunction(() => window.FAMILY.people.length === 3);
@@ -88,7 +90,7 @@ async function checkGeometry(page) {
       if (mode === 'api' && process.env.INTERMEDIATE_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.INTERMEDIATE_SCREENSHOTS, 'intermediate-one.png') });
       await page.locator('.intermediate-node[data-near="B"]').click();
       const rows = await readRows();
-      assert.match(await page.locator('.relation-preview').last().textContent(), /親生手足/);
+      assert.match(await page.locator('.relation-preview').last().textContent(), /長兄/);
       assert.deepEqual(rows.map(({ type, personId }) => ({ type, personId })), [{ type: 'child', personId: 'B' }, { type: 'sibling', personId: c }]);
       await page.locator('#member-name').fill('D');
       await page.locator('#save-member').click();

@@ -332,7 +332,7 @@
     const relationCount = data => data.people.reduce((count, person) => count + (person.relationships?.length || 0), 0);
     document.getElementById('cloud-conflict-local-summary').textContent = `${local.data.people.length} 位成員\n${relationCount(local.data)} 筆關係記錄\n更新時間：未提供`;
     document.getElementById('cloud-conflict-remote-summary').textContent = `${remoteData.people.length} 位成員\n${relationCount(remoteData)} 筆關係記錄\n更新時間：${formatTime(remote.modifiedTime) || '未提供'}`;
-    window.renderFamilyDifferences?.(document.getElementById('cloud-conflict-remote-summary').parentElement.parentElement, local.data, remoteData);
+    window.renderFamilyDifferences?.(document.getElementById('cloud-conflict-remote-summary').parentElement.parentElement, local.data, remoteData,{beforeLabel:'此裝置',afterLabel:'Google Drive'});
     chooseConflictVersion(null);
     conflictDialog.showModal();
     return new Promise(resolve => { conflictResolver = resolve; });

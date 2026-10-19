@@ -1,0 +1,40 @@
+.tree-minimap { position:absolute;z-index:6;width:220px;padding:8px;background:rgba(255,253,249,.97);border:1px solid var(--color-line);border-radius:12px;box-shadow:0 4px 16px #32281d12; }
+.tree-minimap[hidden] { display:none; }
+.tree-minimap__header { display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:13px;color:var(--color-ink-soft); }
+.tree-minimap__header .details-icon { width:44px;height:44px;font-size:22px; }
+.tree-minimap__surface { display:block;width:100%;height:128px;background:#f4efe7;border-radius:6px;touch-action:none;cursor:crosshair; }
+.tree-minimap__surface:focus-visible { outline:2px solid #286e86;outline-offset:2px; }
+.tree-minimap__actions { display:flex;gap:4px;margin-top:4px; }
+.tree-minimap__actions button { flex:1;min-height:44px;padding:4px;font-size:13px;user-select:none;touch-action:manipulation; }
+.tree-output-dialog { width:min(1080px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--color-line);border-radius:16px;color:var(--color-ink);background:var(--color-paper); }
+.tree-output-dialog::backdrop { background:#20180f65; }
+.tree-output-header,.tree-output-actions { display:flex;align-items:center;gap:12px;padding:16px 20px;background:white; }
+.tree-output-header { justify-content:space-between;border-bottom:1px solid var(--color-line); }
+.tree-output-header h2 { font-size:20px; }
+.tree-output-header button { width:44px;height:44px;font-size:24px; }
+.tree-output-body { padding:20px;overflow:auto;max-height:calc(100dvh - 208px); }
+.tree-output-options { display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:12px; }
+.tree-output-options label { display:flex;align-items:center;gap:8px;min-height:44px;white-space:nowrap; }
+.tree-output-options select { font-size:16px;min-height:44px;max-width:100%; }
+.tree-output-check input { width:20px;height:20px;accent-color:var(--color-accent); }
+.tree-output-hint,#tree-output-status { color:var(--color-ink-soft);font-size:14px;overflow-wrap:anywhere;margin-bottom:8px; }
+.tree-output-preview { border:1px solid var(--color-line);border-radius:8px;padding:12px;background:white;margin:12px 0; }
+.tree-output-preview__diagram { overflow:auto;max-height:420px; }
+.tree-output-preview__diagram > svg { display:block;width:100%;height:auto;min-width:660px; }
+.tree-output-actions { justify-content:flex-end;border-top:1px solid var(--color-line);padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+.tree-output-actions button { min-height:44px;touch-action:manipulation; }
+/* Export is measured at full density, independent of camera zoom or phone CSS. */
+.tree-export-stage { position:absolute!important;left:-100000px!important;top:0!important;width:max-content!important;min-width:0!important;max-width:none!important;transform:none!important;contain:layout style;pointer-events:none;--person-width:240px!important;--person-min-height:100px!important;--person-padding-y:12px!important;--person-padding-x:12px!important;--generation-gap:48px!important;--couple-gap:24px!important;--intermediate-slot-width:240px!important;--intermediate-slot-height:108px!important;--intermediate-size:48px!important;--intermediate-font-size:24px!important; }
+.tree-export-stage .person { display:block!important;min-height:100px!important;padding:12px!important; }
+.tree-export-stage .person > span { display:block!important;font-size:16px!important;line-height:1.4!important;white-space:pre-wrap!important;overflow:visible!important;text-overflow:clip!important;word-break:normal!important;overflow-wrap:normal!important;margin:0!important;text-align:left!important; }
+.tree-export-stage .person > .person__name { font-size:20px!important; }
+.tree-export-stage .relation-label { font-size:16px!important; }
+@media (max-width:700px),(max-width:950px) and (max-height:520px) {
+  .tree-minimap { width:192px;padding:6px; }
+  .tree-output-dialog { width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:12px; }
+  .tree-output-header,.tree-output-actions { padding:10px 12px;gap:6px; }
+  .tree-output-body { padding:12px;max-height:calc(100dvh - 160px); }
+  .tree-output-actions { flex-wrap:wrap;padding-bottom:max(10px,env(safe-area-inset-bottom)); }
+  .tree-output-actions button { flex:1;padding:8px;font-size:14px;white-space:nowrap; }
+}
+@media (hover:hover) and (pointer:fine) { .tree-minimap__actions button:hover { background:#f2ede6; } }

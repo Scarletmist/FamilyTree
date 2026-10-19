@@ -12,6 +12,8 @@
       || /^\s*\d+\s+.+\b(?:street|st|road|rd|avenue|ave|lane|ln|drive|dr)\b/i.test(value);
   }
   function eligible(person) { return Boolean(normalize(person.location)) && !person.mapHidden && !privateAddress(person.location); }
+  // Archiving pauses mapping without discarding the saved location metadata.
+  function locatable(person) { return !person.archive && eligible(person); }
   function valid(record) {
     if (!record || record.provider !== 'nominatim' || typeof record.query !== 'string' || !record.query.trim() || record.query.length > 120
       || !['resolved', 'not_found', 'ambiguous'].includes(record.status) || !Number.isFinite(record.checkedAt) || record.checkedAt < 0) return false;
@@ -33,7 +35,7 @@
   }
   function overrideCurrent(person) { return validOverride(person.locationOverride) && normalize(person.locationOverride.location) === normalize(person.location); }
   function effective(person) {
-    if (!eligible(person)) return null;
+    if (!locatable(person)) return null;
     if (overrideCurrent(person)) return person.locationOverride;
     return current(person) && person.geocode.status === 'resolved' ? person.geocode : null;
   }
@@ -64,11 +66,12 @@
   }
   function createQueue({ people, lookup, save, cached = async () => null, cache = async () => {}, available = () => true,
     now = Date.now, schedule = setTimeout, cancel = clearTimeout, status = () => {}, lock = task => task(), backgroundMs = 15000 }) {
-    let timer = null, busy = false, stopped = false, nextAt = 0, retry = null;
+    let timer = null, busy = false, stopped = false, nextAt = 0, retry = null, activeController = null, activeKey = null;
     const priority = new Set();
-    const pending = () => people().filter(p => eligible(p) && !overrideCurrent(p) && !current(p));
+    const pending = () => people().filter(p => locatable(p) && !overrideCurrent(p) && !current(p));
     function wake(delay = 0) {
-      if (stopped || busy) return;
+      if (stopped) return;
+      if (busy) { if (activeController && !pending().some(p => normalize(p.location) === activeKey)) activeController.abort(); return; }
       if (timer !== null) cancel(timer);
       timer = schedule(() => { timer = null; tick().catch(() => wake(5000)); }, Math.max(delay, nextAt - now(), 0));
     }
@@ -79,14 +82,16 @@
       if (!jobs.length) { retry = null; status('idle'); return; }
       const person = (retry && jobs.find(p => normalize(p.location) === retry)) || jobs.find(p => priority.has(p.id)) || jobs[0];
       const query = person.location.trim(), key = normalize(query);
+      const controller = new AbortController(); activeController = controller; activeKey = key;
       busy = true;
       try {
         const worked = await lock(async () => {
           if (!available() || !pending().some(p => normalize(p.location) === key)) return false;
-          const fromPeople = people().find(p => eligible(p) && !overrideCurrent(p) && current(p) && normalize(p.location) === key)?.geocode;
+          const fromPeople = people().find(p => locatable(p) && !overrideCurrent(p) && current(p) && normalize(p.location) === key)?.geocode;
           const hit = fromPeople || await cached(key);
           status('querying', query);
-          const result = valid(hit) && normalize(hit.query) === key ? { ...hit, query } : resolve(query, await lookup(query), now());
+          const result = valid(hit) && normalize(hit.query) === key ? { ...hit, query } : resolve(query, await lookup(query,controller.signal), now());
+          if (controller.signal.aborted || !pending().some(p => normalize(p.location) === key)) return false;
           await cache(key, result);
           // Persistence rechecks location/privacy against the latest data, inside its transaction.
           await save(query, result);
@@ -98,12 +103,11 @@
         });
         if (worked === false) nextAt = now() + backgroundMs;
       } catch (error) {
-        retry = key;
-        nextAt = now() + 5000;
-        status('retry', query, error);
-      } finally { busy = false; wake(); }
+        if (controller.signal.aborted) { retry = null; nextAt = 0; status('idle'); }
+        else { retry = key; nextAt = now() + 5000; status('retry', query, error); }
+      } finally { activeController = null; activeKey = null; busy = false; wake(); }
     }
-    return { wake, resume() { stopped = false; wake(); }, prioritize(ids) { ids.forEach(id => priority.add(id)); wake(); }, stop() { stopped = true; if (timer !== null) cancel(timer); }, pending };
+    return { wake, resume() { stopped = false; wake(); }, prioritize(ids) { ids.forEach(id => priority.add(id)); wake(); }, stop() { stopped = true; activeController?.abort(); if (timer !== null) cancel(timer); }, pending };
   }
-  return { normalize, privateAddress, eligible, valid, current, validOverride, overrideCurrent, effective, content, candidates, resolve, createQueue };
+  return { normalize, privateAddress, eligible, locatable, valid, current, validOverride, overrideCurrent, effective, content, candidates, resolve, createQueue };
 });

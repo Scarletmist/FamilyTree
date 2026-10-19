@@ -2,6 +2,7 @@ import { openCorrection, configureCorrection, correction } from './location-corr
 import { mapIconButton, setMapIcon } from './map-icons.mjs';
 import { mapSheet } from './map-sheet.mjs';
 const Location = window.FamilyLocation;
+const activePeople = () => (FamilyApp.snapshot()?.data.people || []).filter(person => !person.archive);
 const dialog = document.createElement('dialog');
 dialog.id = 'member-map-dialog'; dialog.className = 'member-map-dialog';
 dialog.setAttribute('aria-labelledby', 'member-map-title');
@@ -50,7 +51,7 @@ function backgroundMessage() {
   return state.kind === 'querying' ? `正在查詢「${state.query}」。` : '背景依序補齊中。';
 }
 function refreshStatus() {
-  const people = FamilyApp.snapshot()?.data.people || [];
+  const people = activePeople();
   const count = people.filter(person => Location.effective(person)).length;
   const pending = people.filter(person => Location.eligible(person) && !Location.effective(person)).length;
   status.textContent = `${count} 已定位 · ${pending} 待定位`;
@@ -147,10 +148,11 @@ function drawList(people) {
 }
 function draw() {
   if (!dialog.open) return;
-  const people = FamilyApp.snapshot()?.data.people || []; groups = groupPeople(people);
+  const people = activePeople(); groups = groupPeople(people);
+  if (focusKey && !groups.some(group => group.key === focusKey)) focusKey = '';
   if (!editing()) {
     updateMap({ groups, focusKey:focusKey || groups.map(group => group.key).join('|'), selectedKey:focusKey, onSelect:select,
-      onCluster:keys => { regionKeys = keys; pendingView = false; filter.value = ''; summary.hidden = true; sheet.set('medium'); drawList(FamilyApp.snapshot().data.people); } });
+      onCluster:keys => { regionKeys = keys; pendingView = false; filter.value = ''; summary.hidden = true; sheet.set('medium'); drawList(activePeople()); } });
     drawList(people);
   }
   refreshStatus();
@@ -240,7 +242,7 @@ dialog.addEventListener('close', () => {
   delete dialog.dataset.editing; editor.hidden = true; browse.hidden = false; back.hidden = true; status.hidden = false; get('member-map-title').textContent = '成員地圖'; savedBrowse = null;
   restoreFocus(opener);
 });
-filter.addEventListener('input', () => drawList(FamilyApp.snapshot().data.people));
+filter.addEventListener('input', () => drawList(activePeople()));
 status.addEventListener('click', () => { pendingView = !pendingView; regionKeys = null; sheet.set('medium'); draw(); });
 document.getElementById('show-member-map').addEventListener('click', () => open());
 window.addEventListener('familyappchange', () => { summary.hidden = true; draw(); });

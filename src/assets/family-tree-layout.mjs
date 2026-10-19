@@ -13,9 +13,12 @@ export function createTreeLayout({
   displayShift,
   uncertainGeneration,
   model,
-  orderKey
+  orderKey,
+  selectedId = null,
+  includeArchived = false
 }) {
   const people = graph.people
+    .filter(person => includeArchived || !person.archive || connectedIds.has(person.id) || person.id === selectedId)
     .filter(person => !focusedIds || focusedIds.has(person.id))
     .map(person => ({
       ...person,

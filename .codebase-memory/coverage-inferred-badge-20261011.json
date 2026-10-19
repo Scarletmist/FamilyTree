@@ -1,0 +1,152 @@
+{
+  "project": "D-FamilyTree",
+  "signal": "best_effort",
+  "indexed_at": "2026-10-11T13:52:09Z",
+  "metadata": {
+    "generation": "2026-10-11T13:52:09Z",
+    "index_mode": "full",
+    "recorded_at": "2026-10-11T15:03:57Z",
+    "recording_status": "complete",
+    "ignored_files_stored": 42,
+    "ignored_files_total": 42,
+    "hash_records_complete": true,
+    "coverage_version": 3,
+    "generation_matches": true
+  },
+  "paths": [
+    {
+      "requested_path": "src/assets/relationship-details.js",
+      "path": "src/assets/relationship-details.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/relationship-evidence-view.js",
+      "path": "src/assets/relationship-evidence-view.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/relationship-evidence.css",
+      "path": "src/assets/relationship-evidence.css",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/relationship-evidence.js",
+      "path": "src/assets/relationship-evidence.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/relationship-details.test.cjs",
+      "path": "tests/relationship-details.test.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/browser-phase3.cjs",
+      "path": "tests/browser-phase3.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/browser-relationship-policy.cjs",
+      "path": "tests/browser-relationship-policy.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "README.md",
+      "path": "README.md",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "design/relationship-simplification-20261011.md",
+      "path": "design/relationship-simplification-20261011.md",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-workspace.css",
+      "path": "src/assets/family-workspace.css",
+      "status": "partial",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": [
+        {
+          "path": "src/assets/family-workspace.css",
+          "kind": "parse_partial",
+          "match": "exact",
+          "ranges": [
+            {
+              "start": 91,
+              "end": 91
+            },
+            {
+              "start": 92,
+              "end": 92
+            },
+            {
+              "start": 158,
+              "end": 158
+            }
+          ],
+          "detail": "91-91,92-92,158-158"
+        }
+      ]
+    },
+    {
+      "requested_path": "src/assets/member-detail-layout.css",
+      "path": "src/assets/member-detail-layout.css",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/member-detail-layout.js",
+      "path": "src/assets/member-detail-layout.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-tree.css",
+      "path": "src/assets/family-tree.css",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    }
+  ],
+  "path_total": 13,
+  "path_returned": 13,
+  "path_has_more": false,
+  "scopes": [],
+  "scope_total": 0,
+  "scope_returned": 0,
+  "scope_truncated": false,
+  "has_more": false,
+  "caveat": "Best-effort signal only. No recorded issue does not prove graph or source completeness; read flagged source and qualify claims when metadata is changed or unavailable."
+}

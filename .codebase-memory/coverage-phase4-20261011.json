@@ -1,0 +1,369 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"project\":\"D-FamilyTree\",\"signal\":\"best_effort\",\"indexed_at\":\"2026-10-11T15:57:45Z\",\"metadata\":{\"generation\":\"2026-10-11T15:57:45Z\",\"index_mode\":\"full\",\"recorded_at\":\"2026-10-11T16:01:26Z\",\"recording_status\":\"complete\",\"ignored_files_stored\":42,\"ignored_files_total\":42,\"hash_records_complete\":true,\"coverage_version\":3,\"generation_matches\":true},\"paths\":[{\"requested_path\":\"src/assets/family-tree.js\",\"path\":\"src/assets/family-tree.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-diagram.mjs\",\"path\":\"src/assets/family-tree-diagram.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-layout.mjs\",\"path\":\"src/assets/family-tree-layout.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-renderer.mjs\",\"path\":\"src/assets/family-tree-renderer.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-scene.mjs\",\"path\":\"src/assets/family-tree-scene.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-minimap.mjs\",\"path\":\"src/assets/family-tree-minimap.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-output.mjs\",\"path\":\"src/assets/family-tree-output.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-output-ui.mjs\",\"path\":\"src/assets/family-tree-output-ui.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-navigation.css\",\"path\":\"src/assets/family-tree-navigation.css\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-viewport.mjs\",\"path\":\"src/assets/family-tree-viewport.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-tree-interaction.mjs\",\"path\":\"src/assets/family-tree-interaction.mjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/mobile-landscape-toolbar.js\",\"path\":\"src/assets/mobile-landscape-toolbar.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-workspace.css\",\"path\":\"src/assets/family-workspace.css\",\"status\":\"partial\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[{\"path\":\"src/assets/family-workspace.css\",\"kind\":\"parse_partial\",\"match\":\"exact\",\"ranges\":[{\"start\":91,\"end\":91},{\"start\":92,\"end\":92},{\"start\":158,\"end\":158}],\"detail\":\"91-91,92-92,158-158\"}]},{\"requested_path\":\"src/assets/family-tree.css\",\"path\":\"src/assets/family-tree.css\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/generation-bands.js\",\"path\":\"src/assets/generation-bands.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-model.js\",\"path\":\"src/assets/family-model.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-display-projection.js\",\"path\":\"src/assets/family-display-projection.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/relationship-search.js\",\"path\":\"src/assets/relationship-search.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/relationship-evidence.js\",\"path\":\"src/assets/relationship-evidence.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-app.js\",\"path\":\"src/assets/family-app.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/member-detail-layout.js\",\"path\":\"src/assets/member-detail-layout.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/member-tools.js\",\"path\":\"src/assets/member-tools.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-lifecycle.js\",\"path\":\"src/assets/family-lifecycle.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/assets/family-schema.js\",\"path\":\"src/assets/family-schema.js\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/family-tree.html\",\"path\":\"src/family-tree.html\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"src/templates/dialogs.html\",\"path\":\"src/templates/dialogs.html\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"dev/build.cjs\",\"path\":\"dev/build.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"dev/site-source.cjs\",\"path\":\"dev/site-source.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"dev/server.cjs\",\"path\":\"dev/server.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"tests/browser-phase3.cjs\",\"path\":\"tests/browser-phase3.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"tests/browser-phase4.cjs\",\"path\":\"tests/browser-phase4.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"tests/phase3-reading.test.cjs\",\"path\":\"tests/phase3-reading.test.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"tests/phase4-output.test.cjs\",\"path\":\"tests/phase4-output.test.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"tests/phase4-pdf-inspect.py\",\"path\":\"tests/phase4-pdf-inspect.py\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"tests/build-cloud-sync.test.cjs\",\"path\":\"tests/build-cloud-sync.test.cjs\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"package.json\",\"path\":\"package.json\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"README.md\",\"path\":\"README.md\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"design/implementation-plan-20261011.md\",\"path\":\"design/implementation-plan-20261011.md\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]},{\"requested_path\":\"design/phase4-implementation-20261011.md\",\"path\":\"design/phase4-implementation-20261011.md\",\"status\":\"no_recorded_issue\",\"freshness\":\"metadata_changed\",\"recommended_action\":\"read_source_and_reindex\",\"coverage\":[]}],\"path_total\":39,\"path_returned\":39,\"path_has_more\":false,\"scopes\":[],\"scope_total\":0,\"scope_returned\":0,\"scope_truncated\":false,\"has_more\":false,\"caveat\":\"Best-effort signal only. No recorded issue does not prove graph or source completeness; read flagged source and qualify claims when metadata is changed or unavailable.\"}"
+    }
+  ],
+  "structuredContent": {
+    "project": "D-FamilyTree",
+    "signal": "best_effort",
+    "indexed_at": "2026-10-11T15:57:45Z",
+    "metadata": {
+      "generation": "2026-10-11T15:57:45Z",
+      "index_mode": "full",
+      "recorded_at": "2026-10-11T16:01:26Z",
+      "recording_status": "complete",
+      "ignored_files_stored": 42,
+      "ignored_files_total": 42,
+      "hash_records_complete": true,
+      "coverage_version": 3,
+      "generation_matches": true
+    },
+    "paths": [
+      {
+        "requested_path": "src/assets/family-tree.js",
+        "path": "src/assets/family-tree.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-diagram.mjs",
+        "path": "src/assets/family-tree-diagram.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-layout.mjs",
+        "path": "src/assets/family-tree-layout.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-renderer.mjs",
+        "path": "src/assets/family-tree-renderer.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-scene.mjs",
+        "path": "src/assets/family-tree-scene.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-minimap.mjs",
+        "path": "src/assets/family-tree-minimap.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-output.mjs",
+        "path": "src/assets/family-tree-output.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-output-ui.mjs",
+        "path": "src/assets/family-tree-output-ui.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-navigation.css",
+        "path": "src/assets/family-tree-navigation.css",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-viewport.mjs",
+        "path": "src/assets/family-tree-viewport.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-tree-interaction.mjs",
+        "path": "src/assets/family-tree-interaction.mjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/mobile-landscape-toolbar.js",
+        "path": "src/assets/mobile-landscape-toolbar.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-workspace.css",
+        "path": "src/assets/family-workspace.css",
+        "status": "partial",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": [
+          {
+            "path": "src/assets/family-workspace.css",
+            "kind": "parse_partial",
+            "match": "exact",
+            "ranges": [
+              {
+                "start": 91,
+                "end": 91
+              },
+              {
+                "start": 92,
+                "end": 92
+              },
+              {
+                "start": 158,
+                "end": 158
+              }
+            ],
+            "detail": "91-91,92-92,158-158"
+          }
+        ]
+      },
+      {
+        "requested_path": "src/assets/family-tree.css",
+        "path": "src/assets/family-tree.css",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/generation-bands.js",
+        "path": "src/assets/generation-bands.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-model.js",
+        "path": "src/assets/family-model.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-display-projection.js",
+        "path": "src/assets/family-display-projection.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/relationship-search.js",
+        "path": "src/assets/relationship-search.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/relationship-evidence.js",
+        "path": "src/assets/relationship-evidence.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-app.js",
+        "path": "src/assets/family-app.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/member-detail-layout.js",
+        "path": "src/assets/member-detail-layout.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/member-tools.js",
+        "path": "src/assets/member-tools.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-lifecycle.js",
+        "path": "src/assets/family-lifecycle.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/assets/family-schema.js",
+        "path": "src/assets/family-schema.js",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/family-tree.html",
+        "path": "src/family-tree.html",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "src/templates/dialogs.html",
+        "path": "src/templates/dialogs.html",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "dev/build.cjs",
+        "path": "dev/build.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "dev/site-source.cjs",
+        "path": "dev/site-source.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "dev/server.cjs",
+        "path": "dev/server.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "tests/browser-phase3.cjs",
+        "path": "tests/browser-phase3.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "tests/browser-phase4.cjs",
+        "path": "tests/browser-phase4.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "tests/phase3-reading.test.cjs",
+        "path": "tests/phase3-reading.test.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "tests/phase4-output.test.cjs",
+        "path": "tests/phase4-output.test.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "tests/phase4-pdf-inspect.py",
+        "path": "tests/phase4-pdf-inspect.py",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "tests/build-cloud-sync.test.cjs",
+        "path": "tests/build-cloud-sync.test.cjs",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "package.json",
+        "path": "package.json",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "README.md",
+        "path": "README.md",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "design/implementation-plan-20261011.md",
+        "path": "design/implementation-plan-20261011.md",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      },
+      {
+        "requested_path": "design/phase4-implementation-20261011.md",
+        "path": "design/phase4-implementation-20261011.md",
+        "status": "no_recorded_issue",
+        "freshness": "metadata_changed",
+        "recommended_action": "read_source_and_reindex",
+        "coverage": []
+      }
+    ],
+    "path_total": 39,
+    "path_returned": 39,
+    "path_has_more": false,
+    "scopes": [],
+    "scope_total": 0,
+    "scope_returned": 0,
+    "scope_truncated": false,
+    "has_more": false,
+    "caveat": "Best-effort signal only. No recorded issue does not prove graph or source completeness; read flagged source and qualify claims when metadata is changed or unavailable."
+  },
+  "isError": false
+}

@@ -1,10 +1,13 @@
 /* Shared by the browser and local server. JSON member relationships are the only source of truth. */
 (function (root, factory) {
   const model = factory(typeof module === 'object' && module.exports ? require('./family-location.js') : root.FamilyLocation,
-    typeof module === 'object' && module.exports ? require('./family-inference.js') : root.FamilyInference);
+    typeof module === 'object' && module.exports ? require('./family-inference.js') : root.FamilyInference,
+    typeof module === 'object' && module.exports ? require('./family-schema.js') : root.FamilySchema,
+    typeof module === 'object' && module.exports ? require('./family-lifecycle.js') : root.FamilyLifecycle,
+    typeof module === 'object' && module.exports ? require('./family-diff.js') : root.FamilyDiff);
   if (typeof module === 'object' && module.exports) module.exports = model;
   else root.FamilyModel = model;
-})(globalThis, function (Location, Inference) {
+})(globalThis, function (Location, Inference, Schema, Lifecycle, Diff) {
   'use strict';
   const DEFAULT_FAMILY_NAME = '陳氏家族';
   function normalizeFamilyName(value) {
@@ -168,7 +171,8 @@
     });
     // Slot identity is semantic; the display projection decides which generation row owns the slot.
     const result = plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)) }));
-    return includeIgnored ? result : result.filter(plan => !ignored.has(plan.id));
+    const active = result.filter(plan => !byId.get(plan.near)?.archive && !byId.get(plan.other)?.archive);
+    return includeIgnored ? active : active.filter(plan => !ignored.has(plan.id));
   }
   function fail(message) { throw new Error(message); }
   function validateMember(p) {
@@ -192,14 +196,15 @@
       if (isDescent(r.type) && !KINDS.includes(r.kind)) fail('請選擇親子／祖孫關係類型。');
       if (r.seniority !== undefined && ((r.type !== 'fellowDisciple' && !hasSeniority(r.type)) || !['older', 'younger', 'unknown'].includes(r.seniority))) fail('關係長幼設定不正確。');
       for (const key of ['note', 'source']) if (r[key] !== undefined && (typeof r[key] !== 'string' || r[key].length > 2000)) fail('關係說明與來源最多 2000 字。');
-      if (r.status !== undefined && !['confirmed', 'pending'].includes(r.status)) fail('關係確認狀態不正確。');
+      if (r.status !== undefined && !['confirmed', 'pending'].includes(r.status)) fail('舊版關係資料的 status 欄位不正確。');
       const key = [r.type, r.personId, r.kind || ''].join('|');
       if (seen.has(key)) fail('同一關係重複填寫。');
       seen.add(key);
     }
   }
   function build(data) {
-    if (!data || data.schemaVersion !== 2 || !Array.isArray(data.people)) fail('族譜 JSON 格式不正確。');
+    Schema.validate(data);
+    Lifecycle.validate(data, validateMember);
     if (data.locationLookupDeviceId !== undefined && (typeof data.locationLookupDeviceId !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(data.locationLookupDeviceId))) fail('背景定位裝置設定不正確。');
     const familyName = normalizeFamilyName(data.familyName);
     const ignoredIntermediatePlans = ignoredIntermediatePlanIds(data);
@@ -321,7 +326,7 @@
     const inferredRelations = Inference.derive(data, (base, target) => peerPresentation(data, byId.get(target), byId.get(base), 'sibling').order);
     const inferredCousins = inferredRelations.filter(r => isCousin(r.type) && !r.recorded && r.from < r.personId)
       .map(r => ({ members: [r.from, r.personId], kind: r.type === 'tangCousin' ? '堂親' : '表親', inferred: true }));
-    return { schemaVersion: 2, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents, inferredRelations,
+    return { schemaVersion: data.schemaVersion, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents, inferredRelations,
       bonds: [...cousins.values()].concat(inferredCousins).concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
       mentorships: [...mentors.values()] };
   }
@@ -407,7 +412,7 @@
       else if (target.gender === 'U') role = (order < 0 ? '年長' : '年幼') + (type === 'fellowDisciple' ? '同門' : prefix + '手足');
       else role = prefix + rank + (order < 0 ? (target.gender === 'M' ? '兄' : '姊') : (target.gender === 'M' ? '弟' : '妹'));
     }
-    return { role, missing, order, rank: ranks.target, group: ranks.group?.name, pending: relation.status === 'pending' };
+    return { role, missing, order, rank: ranks.target, group: ranks.group?.name };
   }
   function siblingEvidence(data, a, b) {
     const parents = id => relationshipsFor(data, id).filter(r => r.type === 'parent' && CHILD_KINDS.includes(r.kind));
@@ -487,43 +492,6 @@
       for (const id of map.keys()) visit(id);
     }
   }
-  function dataDifferences(before, after) {
-    const lines = [], left = new Map(before.people.map(p => [p.id, p])), right = new Map(after.people.map(p => [p.id, p]));
-    const labels = { name: '姓名', gender: '性別', location: '所在地', position: '職位', notes: '備註', siblingOrder: '手足排行', discipleOrder: '師門排行', mapHidden: '不在地圖顯示', geocode: '定位結果', locationOverride: '手動修正位置' };
-    const show = v => v === null || v === undefined || v === '' ? '未填寫' : typeof v === 'object' ? (v.source || v.status === 'resolved' ? `${v.lat}, ${v.lon}` : v.status === 'ambiguous' ? '同名地點' : '查無地點') : String(v);
-    for (const p of before.people) if (!right.has(p.id)) lines.push(`移除成員：${p.name}`);
-    for (const p of after.people) {
-      const old = left.get(p.id);
-      if (!old) { lines.push(`新增成員：${p.name}`); }
-      else for (const [key, label] of Object.entries(labels)) if (!sameJsonData(old[key] ?? null, p[key] ?? null)) lines.push(`${p.name}・${label}：${show(old[key])} → ${show(p[key])}`);
-    }
-    const relations = data => {
-      const map = new Map();
-      for (const p of data.people) for (const r of relationshipsFor(data, p.id)) {
-        const reverse = p.id > r.personId;
-        const a = reverse ? r.personId : p.id, b = reverse ? p.id : r.personId;
-        const normalized = { ...r, type: reverse ? INVERSE[r.type] : r.type, personId: b };
-        if (reverse && normalized.seniority) normalized.seniority = inverseSeniority(normalized.seniority);
-        map.set([a, b, normalized.type, r.kind || ''].join('|'), { a, b, relation: normalized });
-      }
-      return map;
-    };
-    const oldEdges = relations(before), newEdges = relations(after);
-    const typeNames = { parent:'父母',child:'子女',grandparent:'祖父母',grandchild:'孫子女',spouse:'配偶',sibling:'手足',swornSibling:'契手足',fellowDisciple:'同門',teacher:'師父',student:'徒弟',tangCousin:'堂親',biaoCousin:'表親' };
-    const describe = (edge, map) => `${map.get(edge.a)?.name || edge.a} ↔ ${map.get(edge.b)?.name || edge.b}（${typeNames[edge.relation.type]}${edge.relation.kind ? '・' + edge.relation.kind : ''}）`;
-    for (const [key, edge] of oldEdges) if (!newEdges.has(key)) lines.push('移除關係：' + describe(edge, left));
-    for (const [key, edge] of newEdges) {
-      if (!oldEdges.has(key)) lines.push('新增關係：' + describe(edge, right));
-      else if (!sameJsonData(oldEdges.get(key).relation, edge.relation)) lines.push('修改關係：' + describe(edge, right) + '・' + ['seniority','groupId','status','source','note'].filter(k => !sameJsonData(oldEdges.get(key).relation[k], edge.relation[k])).map(k => ({seniority:'長幼',groupId:'排行群組',status:'確認狀態',source:'來源',note:'說明'})[k] + '：' + show(oldEdges.get(key).relation[k]) + ' → ' + show(edge.relation[k])).join('；'));
-    }
-    if (normalizeFamilyName(before.familyName) !== normalizeFamilyName(after.familyName)) lines.push(`家族名稱：${normalizeFamilyName(before.familyName)} → ${normalizeFamilyName(after.familyName)}`);
-    const groupText = (g, people) => g.name + '：' + g.members.map(m => (people.get(m.personId)?.name || m.personId) + '（' + (m.order === null ? '排行未知' : '排行 ' + m.order) + '）').join('、');
-    const oldGroups = new Map((before.rankGroups || []).map(g => [g.id,g])), newGroups = new Map((after.rankGroups || []).map(g => [g.id,g]));
-    for (const [id,g] of oldGroups) if (!newGroups.has(id)) lines.push('移除排行群組：' + groupText(g,left));
-    for (const [id,g] of newGroups) if (!sameJsonData(oldGroups.get(id),g)) lines.push((oldGroups.has(id) ? '修改排行群組：' + groupText(oldGroups.get(id),left) + ' → ' : '新增排行群組：') + groupText(g,right));
-    if (!sameJsonData(before.ignoredIntermediatePlans || [], after.ignoredIntermediatePlans || [])) lines.push('已忽略待補項目有所變更');
-    return lines;
-  }
   function mergeMembers(data, keepId, removeId, fields = {}) {
     if (keepId === removeId) fail('請選擇兩位不同成員。');
     const keep = data.people.find(p => p.id === keepId), remove = data.people.find(p => p.id === removeId);
@@ -553,7 +521,9 @@
         const r = { ...original, personId: original.personId === removeId ? keepId : original.personId };
         if (r.personId === p.id) fail('合併後會產生自我關係，請先修正兩人之間的關係。');
         const key = [r.type, r.personId, r.kind || ''].join('|');
-        if (seen.has(key) && !sameJsonData(seen.get(key), r)) fail('合併後的同一關係有不同長幼、來源或說明，請先統一資料。');
+        const comparable = relation => { const copy = {...relation}; delete copy.status; return copy; };
+        if (seen.has(key) && !sameJsonData(comparable(seen.get(key)), comparable(r))) fail('合併後的同一關係有不同長幼、來源或說明，請先統一資料。');
+        if (seen.get(key)?.status) r.status = seen.get(key).status;
         seen.set(key, r);
       }
       p.relationships = [...seen.values()];
@@ -563,7 +533,7 @@
       const reverse = p.id > r.personId;
       const key = [reverse ? r.personId : p.id, reverse ? p.id : r.personId, reverse ? INVERSE[r.type] : r.type, r.kind || ''].join('|');
       const previous = metadata.get(key) || {};
-      for (const field of ['note','source','status','groupId']) if (previous[field] !== undefined && r[field] !== undefined && previous[field] !== r[field]) fail('合併後的雙向關係有不同的來源、說明、狀態或群組，請先統一資料。');
+      for (const field of ['note','source','groupId']) if (previous[field] !== undefined && r[field] !== undefined && previous[field] !== r[field]) fail('合併後的雙向關係有不同的來源、說明或群組，請先統一資料。');
       metadata.set(key,{...previous,...r});
     }
     for (const g of next.rankGroups || []) {
@@ -590,6 +560,7 @@
     const graph = build(data);
     return Inference.normalize(data, graph.inferredRelations);
   }
+  function upgradeSchema(data) { build(data); return Schema.migrate(data); }
   const inferredRole = (relation, target) => Inference.role(relation, target);
-  return { completeKinship, inferredRole, dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
+  return { upgradeSchema, completeKinship, inferredRole, dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences:Diff.lines, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
 });

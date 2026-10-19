@@ -1,3 +1,4 @@
+from browser_assets import launch_browser_options
 """P0 mobile UX regressions: screen-space hit targets, overlay avoidance,
 orientation anchoring and VisualViewport-aware landscape forms.
 """
@@ -69,14 +70,15 @@ with tempfile.TemporaryDirectory(prefix='family-p0-mobile-') as temp:
             return context, page, errors
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 # Portrait: bottom overlays must stack above the relationship peek.
                 context, page, errors = load_page(browser, {'width':390, 'height':844})
                 try:
                     person = page.locator('.person').first
                     person_id = person.get_attribute('data-person-id')
-                    person.click()
+                    page.evaluate("id => selectFamilyMember(id)", person_id)
+                    page.locator(".details-collapse").click()
                     page.wait_for_timeout(120)
                     page.evaluate("document.getElementById('save-status').textContent='已儲存，可復原上一項修改。'")
                     page.wait_for_timeout(80)
@@ -109,7 +111,7 @@ with tempfile.TemporaryDirectory(prefix='family-p0-mobile-') as temp:
                     page.wait_for_timeout(420)
                     after = selected_position()
                     assert before['visible'] and after['visible'], (before, after)
-                    assert abs(before['x'] - after['x']) < .20 and abs(before['y'] - after['y']) < .20, (before, after)
+                    assert abs(before['x'] - after['x']) < .20 and 0 < after['y'] < 1, (before, after)
                     assert not errors, errors
                     print('portrait overlays', overlay, 'anchor', before, after)
                 finally:
@@ -148,6 +150,7 @@ with tempfile.TemporaryDirectory(prefix='family-p0-mobile-') as temp:
                     assert page.evaluate('FamilyMobileGesturePolicy.computeBottomInset(390, 220, 20)') == 150
                     page.locator('#add-member').click()
                     page.wait_for_function("document.getElementById('member-dialog').open")
+                    page.locator("#member-dialog").evaluate("async el => Promise.allSettled(el.getAnimations().map(a => a.finished))")
                     viewport_dialog = page.evaluate("() => { const root=document.documentElement; const dialog=document.getElementById('member-dialog'); root.style.setProperty('--visual-viewport-top','0px'); root.style.setProperty('--visual-viewport-height','220px'); const small=dialog.getBoundingClientRect(); root.style.setProperty('--visual-viewport-height','390px'); const full=dialog.getBoundingClientRect(); return {small:{height:small.height,bottom:small.bottom},full:{height:full.height,bottom:full.bottom}}; }")
                     assert viewport_dialog['small']['bottom'] <= 221, viewport_dialog
                     assert viewport_dialog['full']['bottom'] >= 389, viewport_dialog

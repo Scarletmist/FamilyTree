@@ -31,7 +31,7 @@ const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelati
       if (mode === 'static') {
         const html = await renderFamilyTreeHtml({ browserStorage: true });
         await page.route(base + '/', route => route.fulfill({ contentType: 'text/html', body: html }));
-        await page.addInitScript(data => localStorage.setItem('family-static-v1:/', JSON.stringify({ data, version: 'initial' })), initial);
+        await page.addInitScript(data => localStorage.setItem('family-static-v1:/', JSON.stringify({ data, version: 'initial' })), { ...initial, schemaVersion: 3 });
       }
       async function checkGenerations(expected) {
         await page.waitForFunction(expected => Object.entries(expected).every(([id, gen]) =>
@@ -42,7 +42,7 @@ const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelati
       }
       await page.goto(base);
       await checkGenerations({ G: 1, P: 2, C: 3, A: 3, B: 4, X: 1, Y: 2 });
-      assert.deepEqual(sourceData(await page.evaluate(() => FamilyApp.snapshot().data)), initial);
+      assert.deepEqual(sourceData(await page.evaluate(() => FamilyApp.snapshot().data)), { ...initial, schemaVersion: 3 });
       const peerRows = await page.locator('.person[data-person-id="A"],.person[data-person-id="C"]').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
       assert(Math.abs(peerRows[0] - peerRows[1]) < 1, 'fellow disciples share the rendered row');
       if (process.env.PEER_GENERATION_SCREENSHOTS) await page.locator('#tree-canvas').screenshot({ path: path.join(process.env.PEER_GENERATION_SCREENSHOTS, `peer-generations-${mode}-${width}.png`) });
@@ -59,7 +59,7 @@ const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelati
       await checkGenerations({ [fatherId]: 1, A: 2, B: 3, C: 3 });
       await page.evaluate(() => FamilyApp.undo(FamilyApp.snapshot().version));
       await checkGenerations({ C: 3, A: 3, B: 4 });
-      assert.deepEqual(sourceData(await page.evaluate(() => FamilyApp.snapshot().data)), initial);
+      assert.deepEqual(sourceData(await page.evaluate(() => FamilyApp.snapshot().data)), { ...initial, schemaVersion: 3 });
 
       // Until A has ancestors, it keeps following C when C's ancestry expands.
       await page.evaluate(member => FamilyApp.addMember({ member, requestId: crypto.randomUUID(), version: FamilyApp.snapshot().version }), person('E', [child('G')]));

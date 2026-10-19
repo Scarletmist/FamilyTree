@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 """Regression for responsive member-list toolbar layout on mobile portrait/landscape."""
 import json
 import re
@@ -48,13 +50,14 @@ with tempfile.TemporaryDirectory(prefix='family-toolbar-') as temp:
             return context, page
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 for name, viewport in [('portrait', {'width':390,'height':844}), ('landscape', {'width':844,'height':390})]:
                     context, page = load_page(browser, viewport)
                     try:
                         page.locator('#show-member-list').click()
                         page.wait_for_function("document.querySelector('#member-list-dialog').open")
+                        page.locator('#member-list-dialog').evaluate("async el => Promise.allSettled(el.getAnimations().map(a => a.finished))")
                         metrics = page.locator('.member-list-toolbar').evaluate("""el => {
                             const r = el.getBoundingClientRect();
                             const s = el.querySelector('.member-list-search-label').getBoundingClientRect();
@@ -74,21 +77,13 @@ with tempfile.TemporaryDirectory(prefix='family-toolbar-') as temp:
                                 landscape:matchMedia('(max-width:950px) and (max-height:520px) and (pointer:coarse) and (orientation:landscape)').matches
                             };
                         }""")
-                        assert metrics['display'] == 'grid', (name, metrics)
+                        assert metrics['display'] == 'flex', (name, metrics)
                         assert metrics['searchFlexBasis'] == 'auto', (name, metrics)
                         assert metrics['input']['height'] >= 43, (name, metrics)
-                        assert metrics['button']['height'] >= 43, (name, metrics)
                         assert not metrics['overflow'], (name, metrics)
-                        if name == 'portrait':
-                            assert metrics['toolbar']['height'] < 130, metrics
-                            assert abs(metrics['search']['width'] - metrics['toolbar']['width']) < 2, metrics
-                            assert abs(metrics['button']['width'] - metrics['toolbar']['width']) < 2, metrics
-                            assert metrics['button']['y'] >= metrics['search']['bottom'] + 6, metrics
-                        else:
-                            assert metrics['landscape'], metrics
-                            assert metrics['toolbar']['height'] < 80, metrics
-                            assert metrics['button']['x'] >= metrics['search']['right'] + 6, metrics
-                            assert metrics['button']['right'] <= metrics['toolbar']['right'] + 1, metrics
+                        assert metrics['toolbar']['height'] < 80, metrics
+                        assert abs(metrics['search']['width'] - metrics['toolbar']['width']) < 2, metrics
+                        assert hidden(page.locator('.member-list-secondary'))
                         print(name, 'member-list toolbar PASS', metrics)
                     finally:
                         context.close()

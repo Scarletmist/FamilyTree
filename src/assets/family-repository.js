@@ -10,7 +10,7 @@
   const dbName = 'family-tree-v2:' + storagePath;
   const storeName = 'records';
   const HISTORY_LIMIT = 10;
-  const defaultData = () => ({ schemaVersion: 2, familyName: '我的家族', people: [] });
+  const defaultData = () => ({ schemaVersion: 3, familyName: '我的家族', people: [] });
   const emptySyncState = () => ({ fileId: null, remoteVersion: null, dirty: false, connected: false, lastSyncedAt: null });
   let dbPromise = null;
   let dbConnection = null;
@@ -191,6 +191,10 @@
     const migrated = await migrateLegacy();
     const saved = migrated || await recordGet('current');
     if (!saved) return { data: defaultData(), version: 'empty' };
+    if (saved.data.schemaVersion === 2) {
+      try { return await executeStatic({ type:'migrateSchema',expectedVersion:saved.version }); }
+      catch (error) { if (error.status === 409 && attempt < 2) return readStatic(attempt + 1); throw error; }
+    }
     const completed = FamilyModel.completeKinship(saved.data);
     if (completed !== saved.data) {
       try { return await executeStatic({ type: 'refreshKinship', expectedVersion: saved.version }); }
@@ -217,6 +221,7 @@
         const currentRequest = store.get('current');
         const historyRequest = store.get('history');
         const syncRequest = store.get('sync');
+        const migrationBackupRequest = store.get('schema-v2-backup');
         let result = null, applied = false, settled = false;
 
         const fail = error => {
@@ -226,7 +231,7 @@
           reject(error);
         };
         const apply = () => {
-          if (applied || [currentRequest, historyRequest, syncRequest].some(request => request.readyState !== 'done')) return;
+          if (applied || [currentRequest, historyRequest, syncRequest, migrationBackupRequest].some(request => request.readyState !== 'done')) return;
           applied = true;
           const current = currentRequest.result?.value || { data: defaultData(), version: 'empty' };
           const history = Array.isArray(historyRequest.result?.value) ? historyRequest.result.value : [];
@@ -271,10 +276,14 @@
           };
           const nextHistory = [{ data: current.data, version: current.version, savedAt: Date.now(), label: change.label }, ...history].slice(0, HISTORY_LIMIT);
           const nextSync = { ...sync, dirty: true };
-          store.put({ key: 'current', value: saved });
-          if (!change.metadataOnly) store.put({ key: 'history', value: nextHistory });
-          store.put({ key: 'sync', value: nextSync });
-          if (change.backupBeforeImport) store.put({ key: 'before-import', value: { ...current, savedAt: Date.now() } });
+          try {
+            store.put({ key: 'current', value: saved });
+            if (!change.metadataOnly) store.put({ key: 'history', value: nextHistory });
+            store.put({ key: 'sync', value: nextSync });
+            if (change.backupBeforeImport) store.put({ key: 'before-import', value: { ...current, savedAt: Date.now() } });
+            if (change.backupBeforeMigration && !migrationBackupRequest.result) store.put({ key:'schema-v2-backup',value:{ ...current,savedAt:Date.now() } });
+            if (change.migrationImport) store.put({ key:'schema-v2-import-backup',value:{ data:change.migrationImport,savedAt:Date.now() } });
+          } catch (error) { fail(error); return; }
           result = {
             ...saved,
             ...(change.memberId ? { memberId: change.memberId } : {}),
@@ -285,9 +294,11 @@
         currentRequest.onsuccess = apply;
         historyRequest.onsuccess = apply;
         syncRequest.onsuccess = apply;
+        migrationBackupRequest.onsuccess = apply;
         currentRequest.onerror = () => fail(currentRequest.error || repositoryError('無法讀取本機族譜版本。'));
         historyRequest.onerror = () => fail(historyRequest.error || repositoryError('無法讀取復原歷史。'));
         syncRequest.onerror = () => fail(syncRequest.error || repositoryError('無法讀取同步狀態。'));
+        migrationBackupRequest.onerror = () => fail(migrationBackupRequest.error || repositoryError('無法讀取資料升級備份。'));
         tx.oncomplete = () => { if (!settled) { settled = true; resolve(result); } };
         tx.onerror = () => { if (!settled) { settled = true; reject(tx.error || repositoryError('無法寫入 IndexedDB。')); } };
         tx.onabort = () => { if (!settled) { settled = true; reject(tx.error || repositoryError('IndexedDB 寫入已取消。')); } };
@@ -333,7 +344,7 @@
           }
           const target = history[0];
           let completed;
-          try { completed = FamilyModel.completeKinship(target.data); }
+          try { completed = FamilyModel.completeKinship(FamilyModel.upgradeSchema(target.data)); }
           catch (error) {
             if (!error.status) error.status = 400;
             fail(error);
@@ -414,6 +425,24 @@
   async function exportData() {
     return isStatic ? (await readStatic()).data : devJson('/api/family/export', { cache: 'no-store' });
   }
+  const lifecycleTypes = new Set(['archiveMember','unarchiveMember','deleteMember','restoreMember']);
+  async function lifecycleCommand(command) {
+    if (!lifecycleTypes.has(command?.type) || typeof command.version !== 'string' || !command.version) throw repositoryError('請重新預覽成員操作後再提交。');
+    return isStatic ? executeStatic({ ...command,expectedVersion:command.version })
+      : devJson('/api/family/lifecycle',{ method:'POST',headers:{ 'Content-Type':'application/json' },body:JSON.stringify(command) });
+  }
+  async function previewLifecycle(command) {
+    if (!lifecycleTypes.has(command?.type)) throw repositoryError('不支援的成員操作。');
+    const current = await load();
+    if (command.version && command.version !== current.version) throw repositoryError('資料已更新，請重新預覽成員操作。',409,'STALE_VERSION');
+    const result = FamilyLifecycle.preview(current.data,command,FamilyModel);
+    return { ...result,version:current.version,differences:result.data ? FamilyDiff.compare(current.data,result.data) : null };
+  }
+  async function getSchemaBackup(kind = 'local') {
+    const keys = { local:'schema-v2-backup',import:'schema-v2-import-backup',cloud:'schema-v2-cloud-backup' };
+    if (!keys[kind]) throw repositoryError('不支援的升級備份類型。');
+    return isStatic ? recordGet(keys[kind]) : devJson('/api/family/schema-backup?kind=' + encodeURIComponent(kind),{ cache:'no-store' });
+  }
 
   async function locationCommand(command) {
     return isStatic ? executeStatic(command) : devJson('/api/family/locations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command) });
@@ -450,7 +479,8 @@
   async function replaceFromCloud(data, remote = {}, expectedLocalVersion = null) {
     if (!isStatic) throw new Error('開發模式不支援 Google Drive 同步。');
     FamilyModel.build(data);
-    const completed = FamilyModel.completeKinship(data), enriched = completed !== data;
+    const completed = FamilyModel.completeKinship(FamilyModel.upgradeSchema(data)), enriched = completed !== data;
+    const migrationSource = data.schemaVersion === 2 ? data : null;
     data = completed;
     const db = await openDb();
     const result = await new Promise((resolve, reject) => {
@@ -480,11 +510,14 @@
           connected: true,
           lastSyncedAt: Date.now()
         };
-        if (changed) {
-          store.put({ key: 'current', value: saved });
-          store.put({ key: 'history', value: [] });
-        }
-        store.put({ key: 'sync', value: sync });
+        try {
+          if (changed) {
+            store.put({ key: 'current', value: saved });
+            store.put({ key: 'history', value: [] });
+          }
+          if (migrationSource) store.put({ key:'schema-v2-cloud-backup',value:{ data:migrationSource,savedAt:Date.now(),fileId:remote.fileId || null } });
+          store.put({ key: 'sync', value: sync });
+        } catch (error) { settled = true; try { tx.abort(); } catch {} reject(error); }
       };
       currentRequest.onsuccess = apply;
       syncRequest.onsuccess = apply;
@@ -534,6 +567,8 @@
   }
   function isPristine(data) {
     if (!data || !Array.isArray(data.people) || data.people.length !== 0) return false;
+    if (data.recycleBin?.length || data.rankGroups?.length || data.ignoredIntermediatePlans?.length
+      || Object.keys(data).some(key => !['schemaVersion','familyName','people','recycleBin','rankGroups','ignoredIntermediatePlans','locationLookupDeviceId'].includes(key))) return false;
     const name = data.familyName == null ? '我的家族' : String(data.familyName).trim();
     return !name || name === '我的家族';
   }
@@ -553,6 +588,9 @@
     importFamily,
     undo,
     exportData,
+    lifecycleCommand,
+    previewLifecycle,
+    getSchemaBackup,
     locationCommand,
     getLocationCache,
     setLocationCache,

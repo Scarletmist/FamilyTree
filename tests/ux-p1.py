@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 """P1 UX regressions: desktop focal wheel zoom, semantic zoom feedback,
 portrait core+More toolbar and stronger Google Drive attention UI.
 """
@@ -62,7 +64,7 @@ with tempfile.TemporaryDirectory(prefix='family-p1-') as temp:
             return context, page, errors
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 # Desktop: Ctrl/Cmd-wheel zoom anchors the logical point under the cursor.
                 context, page, errors = load_page(browser, {'width':1440, 'height':900}, mobile=False)
@@ -106,9 +108,9 @@ with tempfile.TemporaryDirectory(prefix='family-p1-') as temp:
                     page.wait_for_timeout(40)
                     sheet = page.locator('#landscape-more-sheet')
                     assert sheet.get_attribute('open') is not None
-                    for action in ['relationship','family-name','canvas-names','cloud','legend','import','export']:
+                    for action in ['relationship','family-name','canvas-names','legend','import','export']:
                         assert sheet.locator(f'[data-action="{action}"]').is_visible(), action
-                    assert sheet.locator('[data-action="ignored"]').count() == 0
+                    assert hidden(sheet.locator('[data-action="ignored"]'))
                     sheet.locator('#landscape-more-close').click()
 
                     # Mobile pinch shows temporary semantic scale feedback.
@@ -162,7 +164,9 @@ with tempfile.TemporaryDirectory(prefix='family-p1-') as temp:
                       window.FamilyRepository={isStatic:true,getSyncState:async()=>({connected:true,dirty:true,lastSyncedAt:null}),setSyncState:async()=>{},read:async()=>({data:{people:[]},version:'v'}),isPristine:()=>false};
                       window.google={accounts:{oauth2:{initTokenClient:()=>({requestAccessToken(){}})}}};
                     }""")
-                    page.add_script_tag(content=(ROOT / 'assets/google-drive-sync.js').read_text())
+                    page.evaluate('window.FamilyModel = {build: value => value}')
+                    for asset in ['family-diff.js','family-diff-view.js','google-drive-client.js','family-sync-engine.js','google-drive-sync.js']:
+                        page.add_script_tag(content=(ROOT / 'src/assets' / asset).read_text(encoding='utf-8'))
                     page.wait_for_function("document.getElementById('cloud-sync').dataset.syncState === 'pending'")
                     state = page.evaluate("""() => ({hidden:document.getElementById('cloud-sync-alert').hidden,text:document.getElementById('cloud-sync-alert-text').textContent,state:document.getElementById('cloud-sync-alert').dataset.syncState})""")
                     assert not state['hidden'] and state['state'] == 'pending' and '未同步' in state['text'], state

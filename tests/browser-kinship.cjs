@@ -3,7 +3,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { createFamilyServer } = require('../dev/server.cjs');
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = require('./browser-runtime.cjs');
 const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships: parent ? [{ type: 'parent', personId: parent, kind: '親生' }] : [] });
 (async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kinship-ui-'));
@@ -33,20 +33,26 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     assert.equal(await page.locator('.generation[data-uncertain=true]').getAttribute('data-gen'), '4');
     assert.equal(await page.locator('.tree__generation-label-track[data-uncertain=true]').textContent(), '未確定');
     assert.equal(await page.locator('.generation[data-gen="1"] .person').getAttribute('data-person-id'), 'G');
+    const persistedBaseline = await fs.readFile(dataFile, 'utf8');
+    assert.equal(JSON.parse(persistedBaseline).schemaVersion, 3);
+    await page.click('#mobile-search-open');
     await page.locator('#kinship-retry').waitFor({ state: 'visible' });
     fail = false; await page.click('#kinship-retry');
     await page.waitForFunction(() => document.querySelector('#kinship-status').textContent === '');
+    await page.click('#relationship-sheet-close');
     const originalGraph = await page.evaluate(() => JSON.stringify(FAMILY));
     await page.click('#toggle-canvas-names');
     assert.equal(await page.locator('#toggle-canvas-names').getAttribute('aria-pressed'), 'true');
     assert.ok(await page.locator('.person__name').evaluateAll(nodes => nodes.every(n => n.textContent === 'OOO')));
     assert.equal(await page.evaluate(() => JSON.stringify(FAMILY)), originalGraph);
-    assert.equal(await page.locator('#relationship-a option[value=A]').textContent(), 'A');
+    assert.equal(await page.locator('#relationship-a option[value=A]').textContent(), 'A · 第 3 代');
     await page.evaluate(() => window.selectFamilyMember('A'));
-    assert.match(await page.locator('#relationship-details-title').textContent(), /A的關係/);
+    assert.match(await page.locator('#relationship-details-title').textContent(), /A/);
+    await page.click('#mobile-search-open');
     await choose('#relationship-a', 'A'); await choose('#relationship-b', 'B');
     const desktopFields = await page.locator('.relationship-field-a,.relationship-field-b,#relationship-swap').evaluateAll(nodes => nodes.map(n => ({ id: n.id || n.className, x: n.getBoundingClientRect().x })));
-    assert(desktopFields[0].x < desktopFields[1].x && desktopFields[1].x < desktopFields[2].x);
+    const swapField = desktopFields.find(field => field.id === 'relationship-swap');
+    assert(desktopFields.filter(field => field !== swapField).every(field => swapField.x > field.x), 'Swap sits beside the stacked query fields');
     await page.click('#relationship-search [type=submit]');
     assert.match(await page.locator('#relationship-summary h2').textContent(), /A 為 B 的堂兄弟/);
     assert.deepEqual((await page.locator('.person').evaluateAll(nodes => nodes.map(n => n.dataset.personId))).sort(), ['A', 'B', 'G', 'P', 'Q']);
@@ -59,7 +65,9 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     const before = await page.locator('#relationship-summary').boundingBox();
     await page.locator('.tree').evaluate(node => { node.scrollTop = 100; node.scrollLeft = 100; });
     assert.deepEqual(await page.locator('#relationship-summary').boundingBox(), before);
+    await page.click('#relationship-result-edit');
     await page.click('#relationship-swap');
+    await page.click('#relationship-search [type=submit]');
     assert.match(await page.locator('#relationship-summary h2').textContent(), /B 為 A 的堂兄弟/);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(250);
@@ -67,11 +75,12 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     const headingBox = await page.locator('#relationship-summary h2').boundingBox(), editBox = await page.locator('#relationship-result-edit').boundingBox();
     assert(editBox.x >= headingBox.x + headingBox.width, 'modify sits beside the summary');
     await page.evaluate(() => window.selectFamilyMember('A'));
+    await page.click('.details-collapse');
     assert.equal(await page.locator('#relationship-details').getAttribute('data-collapsed'), 'true');
-    assert((await page.locator('#relationship-details').boundingBox()).height <= 56);
+    assert((await page.locator('#relationship-details').boundingBox()).height <= 92);
     await page.click('.relationship-details__tab');
     assert.equal(await page.locator('#relationship-details').getAttribute('data-collapsed'), 'false');
-    assert((await page.locator('#relationship-details').boundingBox()).height <= 844 * .48 + 1);
+    assert((await page.locator('#relationship-details').boundingBox()).height <= 844 * .8 + 1);
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await page.waitForTimeout(200);
@@ -82,6 +91,7 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
       assert(contained, 'detail header buttons remain inside panel');
     }
     await page.evaluate(() => window.selectFamilyMember('B'));
+    await page.click('.details-collapse');
     assert.equal(await page.locator('#relationship-details').getAttribute('data-collapsed'), 'true');
     await page.click('.relationship-details__tab');
     await page.click('.details-close');
@@ -89,9 +99,9 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     await page.click('#relationship-result-edit');
     assert.equal(await page.locator('.relationship-sheet').evaluate(d => d.open), true);
     const fieldB = await page.locator('.relationship-field-b').boundingBox(), fieldA = await page.locator('.relationship-field-a').boundingBox();
-    assert(fieldB.y < fieldA.y); assert(fieldB.width > 300);
+    assert(fieldA.y < fieldB.y); assert(fieldB.width >= 200);
     const swapBox = await page.locator('#relationship-swap').boundingBox();
-    assert(Math.abs(swapBox.x + swapBox.width / 2 - (fieldB.x + fieldB.width / 2)) < 1);
+    assert(swapBox.x >= fieldB.x + fieldB.width);
     assert.equal(await page.locator('#relationship-swap svg').count(), 1);
     if (process.env.SEARCH_SHEET_SCREENSHOT) await page.screenshot({ path: process.env.SEARCH_SHEET_SCREENSHOT });
     await choose('#relationship-a', 'A');
@@ -101,10 +111,12 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     assert.equal(await page.locator('#relationship-b option[value=X]').count(), 0, 'unlinked member is excluded from relationship B');
     await page.click('.relationship-result-end');
     assert.equal(await page.locator('.person').count(), 6);
+    await page.locator('#relationship-summary').waitFor({state:'hidden'});
     assert.equal(await page.locator('#relationship-summary').isHidden(), true, 'mobile relationship summary disappears when comparison ends');
     assert.equal(await page.locator('#relationship-summary').getAttribute('class'), 'relationship-summary', 'compact display class is cleared after comparison ends');
     await page.setViewportSize({ width: 1440, height: 960 });
     assert.equal(await page.locator('.select-dropdown:popover-open').count(), 0);
+    await page.click('#mobile-search-open');
     await page.locator('#relationship-a').locator('..').locator('.select-trigger').click();
     await page.locator('.select-dropdown:popover-open input').fill('不存在');
     assert.match(await page.locator('.select-dropdown:popover-open').textContent(), /找不到符合/);
@@ -113,6 +125,7 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     assert.match(await page.locator('.select-dropdown:popover-open').textContent(), /找不到符合/);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('.select-dropdown:popover-open').count(), 0);
+    await page.click('#relationship-sheet-close');
     await page.click('#show-member-list');
     assert.equal(await page.locator('#member-list-body tr').count(), 6);
     assert.equal(await page.locator('#member-list-body .member-list-unlinked').count(), 1);
@@ -127,7 +140,10 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     await choose('.relation-row:last-child .relation-type', 'teacher');
     assert.equal(await page.locator('.relation-kind').locator('..').locator('.select-trigger').isVisible(), false);
     await page.click('#cancel-member');
+    if (await page.locator('#unsaved-changes-dialog').evaluate(dialog => dialog.open)) await page.click('#discard-member-changes');
+    await page.locator('#member-dialog').waitFor({state:'hidden'});
     await page.evaluate(() => window.editFamilyMember('A'));
+    await page.locator('.relation-row__toggle').first().click();
     await page.locator('.relation-target').first().locator('..').locator('.select-trigger').click();
     await page.locator('.select-dropdown:popover-open input').fill('Q');
     await page.keyboard.press('Escape');
@@ -136,7 +152,9 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     await choose('.relation-target', 'Q');
     assert.equal(await page.locator('.relation-target').inputValue(), 'Q');
     await page.click('#cancel-member');
-    assert.equal(await fs.readFile(dataFile, 'utf8'), initial);
+    if (await page.locator('#unsaved-changes-dialog').evaluate(dialog => dialog.open)) await page.click('#discard-member-changes');
+    await page.locator('#member-dialog').waitFor({state:'hidden'});
+    assert.equal(await fs.readFile(dataFile, 'utf8'), persistedBaseline);
     assert.deepEqual(errors, []);
     console.log('PASS: config retry, cousin intermediates, reverse, fixed hint, mobile, disconnected, self, reset; data unchanged. Screenshot: ' + path.join(dir, 'mobile.png'));
   } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }

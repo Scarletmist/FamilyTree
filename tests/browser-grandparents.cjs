@@ -38,7 +38,7 @@ const initial = { schemaVersion: 2, people: [person('G'), person('C', [grandpare
       assert.equal(await page.locator('.intermediate-node').count(), 1);
       assert.equal(await page.locator('.person[data-person-id="G"]').evaluate(node => node.closest('.generation').dataset.gen), '1');
       assert.equal(await page.locator('.person[data-person-id="C"]').evaluate(node => node.closest('.generation').dataset.gen), '3');
-      assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), initial);
+      assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), {...initial,schemaVersion:3});
       if (process.env.GRANDPARENT_SCREENSHOTS) await page.locator('#tree-canvas').screenshot({ path: path.join(process.env.GRANDPARENT_SCREENSHOTS, `grandparent-${mode}-${width}.png`) });
 
       // The remaining connector still supports filling the missing generation.
@@ -58,7 +58,7 @@ const initial = { schemaVersion: 2, people: [person('G'), person('C', [grandpare
         assert.equal(await page.locator('#tree-connectors path[data-role="parent-origin"]').count(), origins);
         assert.equal(await page.locator('.intermediate-node').count(), slots);
         assert.equal(await page.locator('#tree-connectors path[data-role="marriage"]').count(), marriages);
-        assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), data);
+        assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot().data), {...data,schemaVersion:3});
       }
       assert.deepEqual(errors, []);
       await context.close();

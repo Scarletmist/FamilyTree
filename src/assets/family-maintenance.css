@@ -1,0 +1,13 @@
+.family-maintenance-dialog{width:min(900px,calc(100% - 32px));max-width:calc(100% - 32px)}
+.family-maintenance-dialog .dialog-scroll{overscroll-behavior:contain;min-width:0}
+.family-maintenance-dialog input:not([type=checkbox]),.family-maintenance-dialog textarea{width:100%;box-sizing:border-box;font-size:16px;min-height:44px;border:1px solid var(--color-line);border-radius:8px;padding:10px;background:white;color:inherit}
+.maintenance-search{margin:8px 0 16px}.maintenance-categories{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}
+.maintenance-categories button{min-height:44px}.maintenance-categories [aria-pressed=true]{background:#eff3e6;border-color:#9cae7c;color:#3e522a}
+.maintenance-item{padding:18px 0;border-top:1px solid var(--color-line);overflow-wrap:anywhere}.maintenance-item h3{font-size:16px;line-height:1.6;margin:4px 0 8px}.maintenance-item p{line-height:1.7;white-space:pre-wrap;margin:8px 0}
+.maintenance-category{color:var(--color-ink-soft)}.maintenance-item-actions,.maintenance-library-links{display:flex;gap:8px;flex-wrap:wrap}.maintenance-library-links{padding:12px 0}
+.maintenance-item-actions button{min-height:44px}.maintenance-danger{color:#a33021;border-color:#dfb6ae}.maintenance-conflicts{padding:12px 12px 12px 32px;background:#fff5ee;border-radius:8px;line-height:1.8}
+.maintenance-choice{display:flex;align-items:flex-start;gap:10px;padding:10px 0;min-height:44px;box-sizing:border-box;line-height:1.6;overflow-wrap:anywhere}.maintenance-choice input{flex:none;margin:4px 0}
+.maintenance-restore-options{margin:16px 0}.maintenance-restore-options summary{cursor:pointer;font-weight:600}.maintenance-impact{line-height:1.7;overflow-wrap:anywhere}.maintenance-empty{padding:24px 0;color:var(--color-ink-soft)}
+.person[data-archived=true]{border-style:dashed}.person__archive,.member-archive-badge{font-size:12px;color:#725f42}.member-archive-badge{display:inline-block;padding:3px 7px;border-radius:6px;background:#f5f0e6}
+.family-maintenance-dialog button{touch-action:manipulation}.family-maintenance-dialog button:active{background:#eff3e6}
+@media(max-width:700px),(max-width:950px) and (max-height:520px){.family-maintenance-dialog{inset:0;margin:0;width:100%;max-width:100%;height:var(--visual-viewport-height,100dvh);max-height:var(--visual-viewport-height,100dvh);border:0;border-radius:0}.family-maintenance-dialog .dialog-header{padding-top:calc(12px + env(safe-area-inset-top,0px))}.family-maintenance-dialog .form-actions{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));flex-wrap:wrap}.family-maintenance-dialog .dialog-scroll{padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}.maintenance-categories{gap:6px}}

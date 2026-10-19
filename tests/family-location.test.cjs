@@ -54,7 +54,7 @@ test('coordinate writes preserve latest edits and ignore changed, hidden or dele
   assert.equal(change.data.people[0].notes,'保留備註'); assert.deepEqual(change.data.people[0].custom,{keep:true});
   assert.equal(change.data.people[1].geocode,undefined); assert.equal(change.data.people[2].geocode,undefined);
   assert.equal(original.geocode,undefined);
-  assert.equal(Commands.apply({schemaVersion:2,people:[]},{type:'updateLocations',query:'新竹天公壇',result:result()}).unchanged,true);
+  assert.equal(Commands.apply({schemaVersion:3,people:[]},{type:'updateLocations',query:'新竹天公壇',result:result()}).unchanged,true);
   assert.throws(()=>Commands.apply(data,{type:'updateLocations',query:'新竹關帝廟',result:result()}));
 });
 test('location/privacy edits invalidate coordinates; ordinary edits retain them',()=>{

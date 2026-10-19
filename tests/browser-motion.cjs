@@ -110,9 +110,10 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await clear();
       await activate('.person[data-person-id="p11"]');
       const panel = '#relationship-details';
-      duration(await motion(panel), reducedMotion === 'reduce' ? 80 : touch ? 120 : 160);
+      if (touch) assert.equal((await motion(panel)).duration,'0s','Mobile sheet geometry is controlled by its drag/reading controller');
+      else duration(await motion(panel), reducedMotion === 'reduce' ? 80 : 160);
       await settle();
-      assert(await didAnimate('relationship-details'));
+      assert.equal(await didAnimate('relationship-details'),!touch);
       assert.equal((await motion(panel)).opacity, '1');
       duration(await motion('.tree__canvas svg [data-people]'), reducedMotion === 'reduce' ? 80 : 180);
       if (await page.locator(panel).getAttribute('data-collapsed') === 'true') {
@@ -240,8 +241,8 @@ const { createFamilyServer } = require('../dev/server.cjs');
 
       // A real save yields the toast; rapid undo replaces text in place rather
       // than replaying a second entrance or retaining stale timer state.
-      if (touch) {
-        await activate(height < width ? '#landscape-more-open' : '#portrait-more-open');
+      if (!await page.locator('#edit-family-name').isVisible()) {
+        await activate('.tree-controls [aria-label="更多功能"]:visible');
         await activate('[data-action="family-name"]');
       } else await activate('#edit-family-name');
       await page.locator('#family-name-input').fill(`動畫測試 ${width} ${reducedMotion}`);

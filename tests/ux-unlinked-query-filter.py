@@ -1,3 +1,4 @@
+from browser_assets import launch_browser_options
 import json, re, subprocess, tempfile, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -60,7 +61,7 @@ with tempfile.TemporaryDirectory(prefix='ux-unlinked-query-') as temp:
       finally: ctx.close()
 
     with sync_playwright() as p:
-      b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
+      b=p.chromium.launch(**launch_browser_options(),headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
       try:
         run_layout(b,'desktop',{'width':1440,'height':900},False)
         run_layout(b,'portrait',{'width':390,'height':844},True)

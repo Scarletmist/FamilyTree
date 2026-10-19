@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 import json, re, subprocess, tempfile, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -40,7 +42,7 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
                 assert after['top'] == 0, (name,before,after)
                 assert after['transform'] != 'none', (name,before,after)
             else:
-                assert fit.is_hidden(), name
+                assert hidden(fit), name
                 assert page.locator('#tree-zoom-controls').is_visible(), name
 
             print(name, 'fit PASS', flush=True)
@@ -49,10 +51,10 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
             panel = page.locator('#relationship-details'); assert panel.is_visible(), name
             page.locator('#show-member-list').click(); assert page.locator('#member-list-dialog').is_visible(), name
             page.keyboard.press('Escape'); page.wait_for_timeout(50)
-            assert page.locator('#member-list-dialog').is_hidden(), name
+            assert hidden(page.locator('#member-list-dialog')), name
             assert panel.is_visible(), name
             page.keyboard.press('Escape'); page.wait_for_timeout(50)
-            assert panel.is_hidden(), name
+            assert hidden(panel), name
             assert page.locator('.person[aria-pressed="true"]').count() == 0, name
 
             print(name, 'escape layering PASS', flush=True)
@@ -67,7 +69,7 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
                         page.locator('#mobile-search-open').click()
                 open_query(); sheet = page.locator('.relationship-sheet'); assert sheet.is_visible(), name
                 page.mouse.click(4, 4); page.wait_for_timeout(60)
-                assert sheet.is_hidden(), name
+                assert hidden(sheet), name
 
                 print(name, 'backdrop PASS', flush=True)
                 # Activate a query and ensure blank Canvas taps do not cancel it.
@@ -86,7 +88,7 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
                 # Complete path details are the topmost relationship UI and Escape closes them first.
                 page.locator('.relationship-result-details').click(); result = page.locator('#relationship-result-sheet'); assert result.is_visible(), name
                 page.keyboard.press('Escape'); page.wait_for_timeout(50)
-                assert result.is_hidden(), name
+                assert hidden(result), name
                 assert page.locator('#relationship-summary').is_visible(), name
                 page.locator('.relationship-result-end').click()
 
@@ -95,7 +97,7 @@ with tempfile.TemporaryDirectory(prefix='ux78-') as temp:
             ctx.close()
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
             try:
                 load(browser,'desktop',{'width':1440,'height':900},False)
                 load(browser,'portrait',{'width':390,'height':844},True)

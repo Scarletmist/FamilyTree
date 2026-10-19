@@ -1,0 +1,239 @@
+{
+  "project": "D-FamilyTree",
+  "signal": "best_effort",
+  "indexed_at": "2026-10-11T10:08:22Z",
+  "metadata": {
+    "generation": "2026-10-11T10:08:22Z",
+    "index_mode": "full",
+    "recorded_at": "2026-10-11T10:08:58Z",
+    "recording_status": "complete",
+    "ignored_files_stored": 42,
+    "ignored_files_total": 42,
+    "hash_records_complete": true,
+    "coverage_version": 3,
+    "generation_matches": true
+  },
+  "paths": [
+    {
+      "requested_path": "src/assets/family-schema.js",
+      "path": "src/assets/family-schema.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-lifecycle.js",
+      "path": "src/assets/family-lifecycle.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-diff.js",
+      "path": "src/assets/family-diff.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-diff-view.js",
+      "path": "src/assets/family-diff-view.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-diff.css",
+      "path": "src/assets/family-diff.css",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/relationship-evidence.js",
+      "path": "src/assets/relationship-evidence.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-commands.js",
+      "path": "src/assets/family-commands.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-model.js",
+      "path": "src/assets/family-model.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-repository.js",
+      "path": "src/assets/family-repository.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-app.js",
+      "path": "src/assets/family-app.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/member-form.js",
+      "path": "src/assets/member-form.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-management.js",
+      "path": "src/assets/family-management.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/google-drive-sync.js",
+      "path": "src/assets/google-drive-sync.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/kinship.js",
+      "path": "src/assets/kinship.js",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/family-tree.html",
+      "path": "src/family-tree.html",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "dev/server.cjs",
+      "path": "dev/server.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/phase1-foundation.test.cjs",
+      "path": "tests/phase1-foundation.test.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/browser-phase1.cjs",
+      "path": "tests/browser-phase1.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/server.test.cjs",
+      "path": "tests/server.test.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/family-location.test.cjs",
+      "path": "tests/family-location.test.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/browser-static.cjs",
+      "path": "tests/browser-static.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/browser-device-reset.cjs",
+      "path": "tests/browser-device-reset.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "tests/browser-family-inference.cjs",
+      "path": "tests/browser-family-inference.cjs",
+      "status": "no_recorded_issue",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": []
+    },
+    {
+      "requested_path": "src/assets/family-workspace.css",
+      "path": "src/assets/family-workspace.css",
+      "status": "partial",
+      "freshness": "metadata_changed",
+      "recommended_action": "read_source_and_reindex",
+      "coverage": [
+        {
+          "path": "src/assets/family-workspace.css",
+          "kind": "parse_partial",
+          "match": "exact",
+          "ranges": [
+            {
+              "start": 91,
+              "end": 91
+            },
+            {
+              "start": 92,
+              "end": 92
+            },
+            {
+              "start": 158,
+              "end": 158
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "path_total": 24,
+  "path_returned": 24,
+  "path_has_more": false,
+  "scopes": [],
+  "scope_total": 0,
+  "scope_returned": 0,
+  "scope_truncated": false,
+  "has_more": false,
+  "caveat": "Best-effort signal only. No recorded issue does not prove graph or source completeness; read flagged source and qualify claims when metadata is changed or unavailable."
+}

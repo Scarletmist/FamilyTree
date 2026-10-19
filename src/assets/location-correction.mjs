@@ -88,9 +88,9 @@ function setMode(next) {
   drawChoices(); selectedChanged(); drawMap();
 }
 export async function openCorrection(id) {
-  if (!host || saving || opening || host.editing() || document.querySelector('#member-dialog[open], #family-name-dialog[open], #import-dialog[open], .family-management-dialog[open]')) return;
+  if (!host || saving || opening || host.editing() || document.querySelector('#member-dialog[open], #family-name-dialog[open], #import-dialog[open], .family-management-dialog[open]:not(#family-workbench-dialog)')) return;
   const record = FamilyApp.snapshot()?.data.people.find(p => p.id === id);
-  if (!record || !Location.eligible(record)) return;
+  if (!record || !Location.locatable(record)) return;
   opening = true; const ticket = ++session;
   try {
     if (!await host.enter(record) || ticket !== session) return;
@@ -98,7 +98,7 @@ export async function openCorrection(id) {
     const position = Location.effective(person);
     center = position ? [position.lat, position.lon] : [23.7, 121]; focusKey = 'edit-current';
     get('location-search-query').value = person.locationOverride?.query || person.location;
-    relatedMembers = FamilyApp.snapshot().data.people.filter(p => p.id !== person.id && Location.eligible(p)
+    relatedMembers = FamilyApp.snapshot().data.people.filter(p => p.id !== person.id && Location.locatable(p)
       && Location.normalize(p.location) === Location.normalize(person.location)).map(p => ({
         id:p.id, name:p.name, expectedLocation:p.location, expectedOverride:structuredClone(p.locationOverride || null)
       }));
@@ -155,3 +155,8 @@ export const correction = {
   busy:() => saving
 };
 window.FamilyLocationCorrection = { open:openCorrection };
+window.addEventListener('familyappchange',() => {
+  if (!person || saving) return;
+  const current = FamilyApp.snapshot()?.data.people.find(p => p.id === person.id);
+  if (!current || !Location.locatable(current)) finish();
+});

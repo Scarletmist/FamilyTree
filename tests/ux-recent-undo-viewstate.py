@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 import json, re, subprocess, tempfile, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -49,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='ux81011-') as temp:
         expected24=page.evaluate("FAMILY.people.find(p=>p.id==='p24').name"); expected11=page.evaluate("FAMILY.people.find(p=>p.id==='p11').name")
         assert recent_buttons.nth(0).inner_text()==expected24,(name,'recent order')
         assert recent_buttons.nth(1).inner_text()==expected11,(name,'recent order second')
-        page.locator('#member-list-search').fill('不存在的人'); assert recent.is_hidden(),(name,'recent should hide during search')
+        page.locator('#member-list-search').fill('不存在的人'); assert hidden(recent),(name,'recent should hide during search')
         page.locator('#member-list-search').fill(''); assert recent.is_visible()
         page.locator('#close-member-list').click()
 
@@ -100,7 +102,7 @@ with tempfile.TemporaryDirectory(prefix='ux81011-') as temp:
       finally: ctx2.close()
 
     with sync_playwright() as p:
-      b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
+      b=p.chromium.launch(**launch_browser_options(),headless=True,args=['--no-sandbox','--disable-dev-shm-usage','--no-proxy-server'])
       try:
         run_layout(b,'desktop',{'width':1440,'height':900},False)
         run_layout(b,'portrait',{'width':390,'height':844},True)

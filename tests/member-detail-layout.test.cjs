@@ -83,6 +83,7 @@ test('desktop transition releases reading and Escape leaves native dialogs in co
 
 test('member scrolling survives redraws and navigation, without sharing offsets between members', () => withInspector(({ controller, panel, getBody, redrawBody }) => {
   controller.afterRender(); getBody().scrollTop = 180; controller.beforeRender();
+  const detached = getBody(); detached.isConnected = false; detached.scrollTop = 0; detached.emit('scroll');
   redrawBody(); controller.afterRender(); assert.equal(getBody().scrollTop, 180);
   controller.beforeRender(); panel.dataset.memberId = 'B'; redrawBody(); controller.afterRender();
   assert.equal(getBody().scrollTop, 0);

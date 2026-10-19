@@ -6,7 +6,7 @@
   const normalized = text => text.normalize('NFKC').toLocaleLowerCase();
   // These are fixed enums, unlike member/family/rank-group lists populated
   // from user data. Larger enums keep search if their choices grow later.
-  const fixedChoices = '#member-gender, .relation-kind, .relation-cousin-seniority, .relation-status';
+  const fixedChoices = '#member-gender, .relation-kind, .relation-cousin-seniority';
   const needsSearch = select => !select.matches(fixedChoices) || select.options.length > 8;
   function close(restore = false) {
     if (!active) return;
@@ -25,7 +25,18 @@
     const down = below >= 220 || below >= above;
     control.panel.style.width = width + 'px';
     const offscreen = rect.bottom < viewportTop || rect.top > bottomEdge;
-    control.panel.style.maxHeight = Math.min(Math.max(0, viewportHeight - 16), Math.max(80, Math.min(320, offscreen ? viewportHeight - 16 : down ? below : above))) + 'px';
+    const maxHeight = Math.min(Math.max(0, viewportHeight - 16), Math.max(80, Math.min(320, offscreen ? viewportHeight - 16 : down ? below : above)));
+    control.panel.style.maxHeight = maxHeight + 'px';
+    // Give the option scroller its own definite limit. Mobile WebKit must not
+    // rely on flex shrinking inside a popup constrained only by max-height.
+    const style = getComputedStyle(control.panel);
+    let reservedHeight = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+      .reduce((height, key) => height + (parseFloat(style[key]) || 0), 0);
+    for (const sibling of [control.search, control.hint]) {
+      const height = sibling.getBoundingClientRect().height;
+      if (height) reservedHeight += height + (parseFloat(style.rowGap) || 0);
+    }
+    control.list.style.maxHeight = Math.max(0, maxHeight - reservedHeight) + 'px';
     control.panel.style.left = Math.max(viewportLeft + 8, Math.min(rect.left, rightEdge - width - 8)) + 'px';
     const height = control.panel.getBoundingClientRect().height;
     const top = down ? rect.bottom + 4 : rect.top - height - 4;
@@ -45,7 +56,6 @@
       list.append(item);
     });
     hint.textContent = control.options.length ? '' : '找不到符合的選項';
-    highlight(control);
   }
   function highlight(control) {
     [...control.list.children].forEach((item, i) => item.classList.toggle('is-active', i === control.index));
@@ -75,7 +85,7 @@
     control.search.hidden = !needsSearch(control.select);
     control.list.tabIndex = control.search.hidden ? 0 : -1;
     draw(control);
-    control.panel.showPopover(); position(control);
+    control.panel.showPopover(); position(control); highlight(control);
     control.trigger.setAttribute('aria-expanded', 'true');
     (control.search.hidden ? control.list : control.search).focus({ preventScroll: true });
   }
@@ -100,7 +110,7 @@
         control = { select, trigger, panel, search, list, hint }; controls.set(select, control);
         trigger.addEventListener('click', event => { event.preventDefault(); active === control ? close() : open(control); });
         trigger.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); open(control); } });
-        search.addEventListener('input', () => draw(control));
+        search.addEventListener('input', () => { draw(control); position(control); highlight(control); });
         panel.addEventListener('keydown', event => {
           if (event.isComposing) return;
           if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); control.index = Math.max(0, Math.min(control.options.length - 1, control.index + (event.key === 'ArrowDown' ? 1 : -1))); highlight(control); }
@@ -125,7 +135,9 @@
   const observer = new MutationObserver(enhance);
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
   document.addEventListener('pointerdown', event => { if (active && !active.panel.contains(event.target) && !active.trigger.contains(event.target)) close(); });
-  document.addEventListener('scroll', () => { if (active) position(active); }, true);
+  // Option scrolling does not move the anchor. Repositioning on every inner
+  // scroll event can interrupt native touch/momentum scrolling.
+  document.addEventListener('scroll', event => { if (active && !active.panel.contains(event.target)) position(active); }, true);
   window.addEventListener('resize', () => { if (active) position(active); });
   window.visualViewport?.addEventListener('resize', () => { if (active) position(active); });
   window.visualViewport?.addEventListener('scroll', () => { if (active) position(active); });
@@ -158,7 +170,10 @@
     } catch (_) { return []; }
   }
   function writeRecentMembers(ids) {
-    try { localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, RECENT_LIMIT))); } catch (_) {}
+    try {
+      if (ids.length) localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, RECENT_LIMIT)));
+      else localStorage.removeItem(RECENT_KEY);
+    } catch (_) {}
   }
   window.clearRecentFamilyMembers = () => {
     try { localStorage.removeItem(RECENT_KEY); } catch (_) {}
@@ -167,7 +182,7 @@
   function rememberRecentMember(id) {
     if (!id) return;
     const people = FamilyApp.graph()?.people || [];
-    if (!people.some(person => person.id === id)) return;
+    if (!people.some(person => person.id === id && !person.archive)) return;
     writeRecentMembers([id, ...readRecentMembers().filter(value => value !== id)]);
     if (dialog.open) renderMemberList();
   }
@@ -211,7 +226,7 @@
   function renderMemberList() {
     const previousScroll = listScroll.scrollTop;
     const graph = FamilyApp.graph();
-    const people = graph?.people || [], linked = FamilyModel.relationshipMemberIds(people);
+    const allPeople = graph?.people || [], people = allPeople.filter(p => memberFilter === 'archived' ? p.archive : !p.archive), linked = FamilyModel.relationshipMemberIds(allPeople);
     const generationOffset = graph ? FamilyDisplayProjection.generationOffset(graph) : 0;
     const keyword = normalized(searchMembers?.value.trim() || '');
     const visible = people.filter(person => {
@@ -221,7 +236,7 @@
       return normalized([person.name, person.location, person.position, connected ? `第 ${person.gen + generationOffset} 代` : '未設定關係'].join(' ')).includes(keyword);
     });
     if (recentSection && recentItems) {
-      const byId = new Map(people.map(person => [person.id, person]));
+      const byId = new Map(allPeople.filter(p => !p.archive).map(person => [person.id, person]));
       const recentIds = readRecentMembers().filter(id => byId.has(id));
       if (recentIds.length !== readRecentMembers().length) writeRecentMembers(recentIds);
       recentItems.replaceChildren();
@@ -250,6 +265,7 @@
           button.textContent = value; button.setAttribute('aria-label', `查看${person.name}並定位到族譜圖`);
           button.addEventListener('click', event => { event.stopPropagation(); navigateToMember(person.id); });
           cell.appendChild(button);
+          if (person.archive) { const badge = document.createElement('span'); badge.className = 'member-archive-badge'; badge.textContent = '已封存'; cell.append(badge); }
           const meta = document.createElement('small'); meta.className = 'member-list-row-meta';
           meta.textContent = [person.location,person.position].filter(Boolean).join(' · ');
           if (meta.textContent) cell.append(meta);
@@ -270,9 +286,10 @@
     refreshIgnoredCount();
     listScroll.scrollTop = previousScroll;
   }
-  function openMemberList({ restore = false } = {}) {
+  function openMemberList({ restore = false,filter = null } = {}) {
     if (dialog.open) { searchMembers?.focus(); return; }
     if (!restore) { searchMembers.value = ''; memberFilter = 'all'; listScrollTop = 0; }
+    if (filter) memberFilter = filter;
     renderMemberList();
     if (listCompact.matches) dialog.showModal(); else dialog.show();
     listScroll.scrollTop = listScrollTop;
@@ -292,8 +309,19 @@
   });
   document.getElementById('close-member-list').addEventListener('click', () => { listScrollTop = listScroll.scrollTop; dialog.close(); document.getElementById('show-member-list').focus(); });
   dialog.addEventListener('cancel', () => { listScrollTop = listScroll.scrollTop; });
+  dialog.addEventListener('keydown', event => {
+    // Desktop uses a nonmodal list, which does not receive native Escape cancel.
+    if (event.key !== 'Escape' || event.defaultPrevented || !dialog.open || dialog.matches(':modal')) return;
+    event.preventDefault();listScrollTop = listScroll.scrollTop;dialog.close();
+    document.getElementById('show-member-list').focus();
+  });
   listCompact.addEventListener('change', () => { if (dialog.open) { listScrollTop = listScroll.scrollTop; dialog.close(); openMemberList({restore:true}); } });
   window.addEventListener('familyintermediatechange', () => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); });
+  window.addEventListener('familyappchange',() => {
+    const active = new Set((FamilyApp.graph()?.people || []).filter(p => !p.archive).map(p => p.id));
+    writeRecentMembers(readRecentMembers().filter(id => active.has(id)));
+    if (dialog.open) renderMemberList();
+  });
   window.addEventListener('familyrepositorychange', () => { queueMicrotask(() => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); }); });
   window.addEventListener('familymemberviewed', event => rememberRecentMember(event.detail?.id));
   refreshIgnoredCount();

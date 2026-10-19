@@ -73,14 +73,15 @@ test('API saves JSON, survives restart, prevents lost updates and handles retrie
     assert((await read()).data.people.some(p => p.id === saved.memberId), 'Data survives a server restart');
   } finally {
     await new Promise(resolve => server.close(resolve));
-    await fs.unlink(dataFile); await fs.rmdir(directory);
+    await fs.unlink(dataFile); await fs.rm(dataFile + '.schema-v2.backup.json',{force:true}); await fs.rmdir(directory);
   }
 });
 
 test('edit reconciles inverse relationships; import/export round trips with backup and validation', async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'family-edit-test-'));
   const dataFile = path.join(directory, 'family.json');
-  await fs.writeFile(dataFile, JSON.stringify(demo));
+  const legacy = { ...demo,schemaVersion:2 };
+  await fs.writeFile(dataFile, JSON.stringify(legacy));
   const server = createFamilyServer({ dataFile });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -93,7 +94,9 @@ test('edit reconciles inverse relationships; import/export round trips with back
     const exportResponse = await fetch(base + '/api/family/export');
     assert.match(exportResponse.headers.get('content-disposition'), /attachment/);
     const exported = await exportResponse.json();
-    const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelationships, ...person }) => person) });
+    assert.equal(exported.schemaVersion,3);
+    assert.deepEqual(JSON.parse(await fs.readFile(dataFile + '.schema-v2.backup.json','utf8')),legacy);
+    const sourceData = data => ({ ...data, schemaVersion:3, people: data.people.map(({ inferredRelationships, ...person }) => person) });
     assert.deepEqual(sourceData(exported), sourceData(demo));
     assert(exported.people.some(p => p.inferredRelationships?.length), 'existing family gains automatic kinship records');
     const first = await read();
@@ -131,7 +134,7 @@ test('edit reconciles inverse relationships; import/export round trips with back
     assert.equal((await read()).data.people.length, 0);
   } finally {
     await new Promise(resolve => server.close(resolve));
-    await fs.unlink(dataFile); await fs.rm(dataFile + '.backup.json', { force: true }); await fs.rmdir(directory);
+    await fs.unlink(dataFile); await fs.rm(dataFile + '.backup.json', { force: true }); await fs.rm(dataFile + '.schema-v2.backup.json',{force:true}); await fs.rm(dataFile + '.schema-v2.import.backup.json',{force:true}); await fs.rmdir(directory);
   }
 });
 

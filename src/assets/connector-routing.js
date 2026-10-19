@@ -104,12 +104,18 @@
       const simple = simplify(points);
       let length = 0;
       for (let i = 1; i < simple.length; i++) {
-        if (obstacles.some(r => intersects(simple[i - 1], simple[i], r))) return;
         length += Math.abs(simple[i][0] - simple[i - 1][0]) + Math.abs(simple[i][1] - simple[i - 1][1]);
+      }
+      // Crossings and overlaps only increase this score. A candidate that
+      // cannot beat the current route needs no card or connector scans.
+      const minimum = length + Math.max(0, simple.length - 2) * 8;
+      if (minimum >= score) return;
+      for (let i = 1; i < simple.length; i++) {
+        if (obstacles.some(r => intersects(simple[i - 1], simple[i], r))) return;
       }
       const overlap = overlapCost(simple, occupied);
       const crossings = crossingCount(simple, occupied);
-      const value = length + Math.max(0, simple.length - 2) * 8 + crossings * 6 + overlap;
+      const value = minimum + crossings * 6 + overlap;
       if (value < score) { score = value; best = simple; }
     }
     for (const x of xs) consider([start, [x, start[1]], [x, end[1]], end]);

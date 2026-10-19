@@ -118,7 +118,7 @@
     const old = new Map((previous?.people || []).map(p => [p.id, p]));
     const priority = next.people.filter(p => {
       const before = old.get(p.id);
-      return Location.eligible(p) && (!before || Location.normalize(before.location) !== Location.normalize(p.location) || before.mapHidden !== p.mapHidden);
+      return Location.locatable(p) && (!before || before.archive || Location.normalize(before.location) !== Location.normalize(p.location) || before.mapHidden !== p.mapHidden);
     }).map(p => p.id);
     previous = next;
     ensureOwner();
@@ -140,7 +140,7 @@
     async takeOver() { await FamilyApp.locationCommand({ type: 'claimLocationLookup', deviceId: deviceId, takeOver: true }); queue.wake(); notify(); },
     async retry(id) {
       const person = data()?.people.find(p => p.id === id);
-      if (!person || !Location.eligible(person)) return;
+      if (!person || !Location.locatable(person)) return;
       await FamilyRepository.clearLocationCache(Location.normalize(person.location));
       await FamilyApp.locationCommand({ type: 'resetLocation', id });
       queue.prioritize([id]);

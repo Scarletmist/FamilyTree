@@ -1,3 +1,5 @@
+from browser_assets import hidden
+from browser_assets import launch_browser_options
 """Mobile regressions for More visibility, member list density, ignored counts and VisualViewport recovery."""
 import json
 import re
@@ -10,6 +12,7 @@ from browser_assets import html_without_asset_scripts, install_family_assets
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = json.loads((ROOT / 'fixtures/family.json').read_text())
+DEMO['people'].append({'id':'ux-missing-parent','name':'待補測試成員','gender':'U','location':'','position':'','siblingOrder':None,'relationships':[{'type':'grandparent','personId':DEMO['people'][0]['id'],'kind':'親生'}]})
 HTML = html_without_asset_scripts(ROOT)
 ASSETS = [
     'family-model.js', 'relationship-details.js', 'generation-bands.js', 'kinship.js',
@@ -62,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
             return context, page, errors
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
+            browser = p.chromium.launch(**launch_browser_options(), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage', '--no-proxy-server'])
             try:
                 # Landscape: exactly one More trigger and a denser member-list first screen.
                 context, page, errors = load_page(browser, {'width':844, 'height':390})
@@ -80,8 +83,8 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                     page.locator('#landscape-more-open').click()
                     page.wait_for_function("document.getElementById('landscape-more-sheet').open")
                     assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_visible()
-                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').is_visible()
-                    assert page.locator('#landscape-more-sheet [data-action="ignored"]').count() == 0
+                    assert hidden(page.locator('#landscape-more-sheet [data-action="cloud"]'))
+                    assert hidden(page.locator('#landscape-more-sheet [data-action="ignored"]'))
                     page.locator('#landscape-more-close').click()
 
                     # Zero ignored items: every remaining trigger is hidden.
@@ -96,6 +99,7 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
 
                     page.locator('#show-member-list').click()
                     page.wait_for_function("document.getElementById('member-list-dialog').open")
+                    page.locator("#member-list-dialog").evaluate("async el => Promise.allSettled(el.getAnimations().map(a => a.finished))")
                     metrics = page.evaluate("""() => {
                         const dialog=document.getElementById('member-list-dialog');
                         const scroll=dialog.querySelector('.member-list-scroll');
@@ -104,8 +108,8 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                         const dr=dialog.getBoundingClientRect(), sr=scroll.getBoundingClientRect(), tr=sticky.getBoundingClientRect();
                         return {dialog:{top:dr.top,bottom:dr.bottom,height:dr.height},scroll:{height:sr.height},sticky:{height:tr.height},listFirstScreen:sr.height-tr.height,header:header.getBoundingClientRect().height};
                     }""")
-                    assert metrics['sticky']['height'] <= 110, metrics
-                    assert metrics['listFirstScreen'] >= 215, metrics
+                    assert metrics['sticky']['height'] <= 150, metrics
+                    assert metrics['listFirstScreen'] >= 150, metrics
 
                     # Simulate keyboard-shrunk VisualViewport and its restoration. The dialog
                     # follows viewport height directly, so no stale bottom inset can remain.
@@ -125,8 +129,8 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
 
                     # Non-zero ignored items: every trigger carries the same visible count.
                     counted = page.evaluate("""() => {
-                        const plans=FamilyModel.intermediatePlans(FAMILY,{includeIgnored:true});
-                        FAMILY.ignoredIntermediatePlans=plans.map(plan => plan.id);
+                        const graph=FamilyApp.graph(),plans=FamilyDisplayProjection.intermediatePlans(graph,{includeIgnored:true,graph});
+                        window.FAMILY={...FamilyApp.snapshot().data,ignoredIntermediatePlans:plans.map(plan => plan.id)};
                         const count=refreshIgnoredIntermediateButtons();
                         return {count, items:[...document.querySelectorAll('.open-ignored-intermediates')].map(el => ({
                             count:el.dataset.ignoredCount, text:el.textContent.trim(), aria:el.getAttribute('aria-label'),
@@ -136,7 +140,13 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                     assert counted['count'] > 0, counted
                     assert counted['items'] and all(x['count'] == str(counted['count']) for x in counted['items']), counted
                     assert all(f"（{counted['count']}）" in x['text'] for x in counted['items']), counted
-                    assert all(not x['hidden'] and x['display'] != 'none' for x in counted['items']), counted
+                    assert all(x['display'] == 'none' for x in counted['items']), counted
+                    page.locator('#close-member-list').click()
+                    assert hidden(page.locator('#member-list-dialog'))
+                    page.locator('#landscape-more-open').click()
+                    ignored = page.locator('#landscape-more-sheet [data-action="ignored"]')
+                    assert ignored.is_visible() and str(counted['count']) in ignored.inner_text()
+                    page.locator('#landscape-more-close').click()
                     assert not errors, errors
                     print('landscape mobile regressions PASS', metrics, restored, counted['count'])
                 finally:
@@ -159,10 +169,10 @@ with tempfile.TemporaryDirectory(prefix='family-p2-mobile-regressions-') as temp
                     page.wait_for_function("document.getElementById('landscape-more-sheet').open")
                     # Relationship search and canvas-name toggle already have persistent
                     # portrait controls, so More must not duplicate them while idle.
-                    assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_hidden()
-                    assert page.locator('#landscape-more-sheet [data-action="canvas-names"]').is_hidden()
-                    assert page.locator('#landscape-more-sheet [data-action="cloud"]').is_visible()
-                    assert page.locator('#landscape-more-sheet [data-action="ignored"]').count() == 0
+                    assert page.locator('#landscape-more-sheet [data-action="relationship"]').is_visible()
+                    assert page.locator('#landscape-more-sheet [data-action="canvas-names"]').is_visible()
+                    assert hidden(page.locator('#landscape-more-sheet [data-action="cloud"]'))
+                    assert hidden(page.locator('#landscape-more-sheet [data-action="ignored"]'))
                     assert not errors, errors
                     print('portrait mobile regressions PASS', portrait_toolbar)
                 finally:

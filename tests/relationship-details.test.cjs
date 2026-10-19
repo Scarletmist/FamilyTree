@@ -98,6 +98,48 @@ class FakeElement {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
 
+test('one inferred badge opens every shared-parent proof while direct rows retain only completion controls', () => {
+  const previousDocument = global.document, previousView = globalThis.RelationshipEvidenceView;
+  global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
+  let opened = null;
+  globalThis.RelationshipEvidenceView = { render() {}, open(data, proofs, options) { opened = { data, proofs, options }; } };
+  const person = (id, relationships = []) => ({ id, name: id, gender: 'U', location: '', position: '', siblingOrder: null, relationships });
+  const parent = (id, source) => ({ type: 'parent', personId: id, kind: '親生', source });
+  try {
+    for (const includeDirect of [false, true]) {
+      const cRelations = [parent('A', 'C 的父親來源'), parent('B', 'C 的母親來源')];
+      if (includeDirect) cRelations.push({ type: 'swornSibling', personId: 'D', source: '直接記錄' });
+      const graph = Model.build({ schemaVersion: 3, people: [
+        person('A'), person('B'), person('C', cRelations),
+        person('D', [parent('A', 'D 的父親來源'), parent('B', 'D 的母親來源')])
+      ] });
+      const panel = new FakeElement('section');
+      Details.createController().render(panel, graph, 'C', {});
+      const sibling = panel.querySelectorAll('.relationship-entry').find(row => row.querySelector('.relationship-entry__person')?.dataset.personId === 'D');
+      assert(sibling, 'shared parents make C and D siblings');
+      assert.equal(panel.querySelectorAll('.relationship-source-button').length,0);
+      const direct = panel.querySelectorAll('.relationship-entry').find(row => row.querySelector('.relationship-entry__person')?.dataset.personId === 'A');
+      assert.equal(direct.querySelectorAll('.relationship-entry__badge--inferred').length,0,'direct records have no evidence entry point');
+      assert(direct.querySelectorAll('.relationship-missing').length > 0,'completion remains available');
+      const buttons = sibling.querySelectorAll('.relationship-entry__badge--inferred');
+      assert.equal(buttons.length, 1, 'one inferred badge per person, regardless of number of paths');
+      assert.equal(buttons[0].tagName,'button');
+      assert.equal(buttons[0].textContent,'推導');
+      assert.doesNotMatch(buttons[0].textContent + buttons[0].attributes['aria-label'], /來源與說明/);
+      assert.equal(buttons[0].dataset.origin,'inferred');
+      buttons[0].click();
+      const inferred = opened.proofs.filter(proof => proof.evidence.origin === 'inferred');
+      assert.equal(inferred.length, 2, 'both shared parents remain inspectable');
+      assert.deepEqual(inferred.map(proof => proof.evidence.premises[0].to).sort(), ['A','B']);
+      assert.equal(opened.proofs.length,2,'badge opens inferred evidence only');
+      assert.equal(opened.options.originFilter,'inferred','live refresh stays limited to inferred evidence');
+      assert.equal(opened.data, graph);
+    }
+  } finally {
+    global.document = previousDocument; globalThis.RelationshipEvidenceView = previousView;
+  }
+});
+
 test('drawer preserves disclosure state and selected member, and restores keyboard focus', () => {
   const previous = global.document;
   global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
@@ -236,7 +278,7 @@ test('unlinked member detail omits relationship query shortcut', () => {
   } finally { global.document = previous; }
 });
 
-test('mobile inspector keeps identity and actions in its scroll area, with secondary actions in More', () => {
+test('mobile inspector keeps one identity and fixed actions above relatives, with secondary actions in More', () => {
   const previous = global.document, previousMedia = global.matchMedia;
   global.document = { activeElement: null, createElement: tag => new FakeElement(tag), createElementNS: (_, tag) => new FakeElement(tag) };
   global.matchMedia = query => ({ matches: !query.includes('orientation:landscape') });
@@ -244,8 +286,11 @@ test('mobile inspector keeps identity and actions in its scroll area, with secon
     const controller = Details.createController(), panel = new FakeElement('section');
     controller.render(panel, graph, 'p11', {});
     const body = panel.querySelector('.relationship-details__body');
-    assert(body.contains(panel.querySelector('.relationship-details__header')));
-    assert(body.contains(panel.querySelector('.edit-member')));
+    const top = panel.querySelector('.relationship-details__top');
+    assert(top.contains(panel.querySelector('.relationship-details__identity')));
+    assert(top.contains(panel.querySelector('.edit-member')));
+    assert.equal(panel.querySelectorAll('h2').length,1);
+    assert.equal(body.children[0].className,'relationship-groups');
     assert(panel.querySelector('.detail-expand'));
     const more = panel.querySelector('.relationship-details__more-body');
     assert(more.contains(panel.querySelector('.add-relative')));

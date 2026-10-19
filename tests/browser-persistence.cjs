@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { createFamilyServer } = require('../dev/server.cjs');
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = require('./browser-runtime.cjs');
 const person = (id, relationships = []) => ({ id, name: id, gender: 'M', location: '', position: '', siblingOrder: null, relationships });
 (async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'family-browser-'));
@@ -54,9 +54,8 @@ const person = (id, relationships = []) => ({ id, name: id, gender: 'M', locatio
     assert.equal(await page.locator('#add-member').isDisabled(), true);
     await page.evaluate(() => window.selectFamilyMember('G'));
     assert.match(await page.locator('[data-group="grandchildren"]').textContent(), /契孫子/);
-    const downloadEvent = page.waitForEvent('download');
-    await page.locator('#export-json').click();
-    const download = await downloadEvent;
+    await page.click('#portrait-more-open');
+    const [download] = await Promise.all([page.waitForEvent('download'),page.click('[data-action=export]')]);
     const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
     assert(exported.people.find(p => p.id === 'C').relationships.some(r => r.type === 'grandparent'));
     assert.equal(exported.people.find(p => p.id === 'C').discipleOrder, 3);

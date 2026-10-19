@@ -25,7 +25,18 @@
     const down = below >= 220 || below >= above;
     control.panel.style.width = width + 'px';
     const offscreen = rect.bottom < viewportTop || rect.top > bottomEdge;
-    control.panel.style.maxHeight = Math.min(Math.max(0, viewportHeight - 16), Math.max(80, Math.min(320, offscreen ? viewportHeight - 16 : down ? below : above))) + 'px';
+    const maxHeight = Math.min(Math.max(0, viewportHeight - 16), Math.max(80, Math.min(320, offscreen ? viewportHeight - 16 : down ? below : above)));
+    control.panel.style.maxHeight = maxHeight + 'px';
+    // Give the option scroller its own definite limit. Mobile WebKit must not
+    // rely on flex shrinking inside a popup constrained only by max-height.
+    const style = getComputedStyle(control.panel);
+    let reservedHeight = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+      .reduce((height, key) => height + (parseFloat(style[key]) || 0), 0);
+    for (const sibling of [control.search, control.hint]) {
+      const height = sibling.getBoundingClientRect().height;
+      if (height) reservedHeight += height + (parseFloat(style.rowGap) || 0);
+    }
+    control.list.style.maxHeight = Math.max(0, maxHeight - reservedHeight) + 'px';
     control.panel.style.left = Math.max(viewportLeft + 8, Math.min(rect.left, rightEdge - width - 8)) + 'px';
     const height = control.panel.getBoundingClientRect().height;
     const top = down ? rect.bottom + 4 : rect.top - height - 4;
@@ -45,7 +56,6 @@
       list.append(item);
     });
     hint.textContent = control.options.length ? '' : '找不到符合的選項';
-    highlight(control);
   }
   function highlight(control) {
     [...control.list.children].forEach((item, i) => item.classList.toggle('is-active', i === control.index));
@@ -75,7 +85,7 @@
     control.search.hidden = !needsSearch(control.select);
     control.list.tabIndex = control.search.hidden ? 0 : -1;
     draw(control);
-    control.panel.showPopover(); position(control);
+    control.panel.showPopover(); position(control); highlight(control);
     control.trigger.setAttribute('aria-expanded', 'true');
     (control.search.hidden ? control.list : control.search).focus({ preventScroll: true });
   }
@@ -100,7 +110,7 @@
         control = { select, trigger, panel, search, list, hint }; controls.set(select, control);
         trigger.addEventListener('click', event => { event.preventDefault(); active === control ? close() : open(control); });
         trigger.addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); open(control); } });
-        search.addEventListener('input', () => draw(control));
+        search.addEventListener('input', () => { draw(control); position(control); highlight(control); });
         panel.addEventListener('keydown', event => {
           if (event.isComposing) return;
           if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); control.index = Math.max(0, Math.min(control.options.length - 1, control.index + (event.key === 'ArrowDown' ? 1 : -1))); highlight(control); }
@@ -125,7 +135,9 @@
   const observer = new MutationObserver(enhance);
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
   document.addEventListener('pointerdown', event => { if (active && !active.panel.contains(event.target) && !active.trigger.contains(event.target)) close(); });
-  document.addEventListener('scroll', () => { if (active) position(active); }, true);
+  // Option scrolling does not move the anchor. Repositioning on every inner
+  // scroll event can interrupt native touch/momentum scrolling.
+  document.addEventListener('scroll', event => { if (active && !active.panel.contains(event.target)) position(active); }, true);
   window.addEventListener('resize', () => { if (active) position(active); });
   window.visualViewport?.addEventListener('resize', () => { if (active) position(active); });
   window.visualViewport?.addEventListener('scroll', () => { if (active) position(active); });

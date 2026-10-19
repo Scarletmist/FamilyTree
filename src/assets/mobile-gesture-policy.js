@@ -71,6 +71,9 @@
     if (!landscapeMobile()) return;
     const active = document.activeElement;
     if (!(active instanceof HTMLElement)) return;
+    // Popovers are positioned against VisualViewport by member-tools. Their
+    // fixed inputs must not scroll the underlying form when the keyboard opens.
+    if (active.closest('.select-dropdown:popover-open')) return;
     const dialog = active.closest('dialog[open]');
     if (!dialog) return;
     const scroller = active.closest('.form-scroll,.dialog-scroll,.member-list-scroll,.relationship-search,.relationship-sheet,.select-options');

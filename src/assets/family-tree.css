@@ -312,11 +312,12 @@ dialog > .form-actions,dialog form > .form-actions { flex:none; margin-top:0; pa
 .select-native { position:absolute; width:1px!important; height:1px; opacity:0; pointer-events:none; clip-path:inset(50%); }
 .select-trigger { width:100%; min-height:38px; padding:8px 28px 8px 10px; text-align:left; font:inherit; color:inherit; border:1px solid #c5b8a6; border-radius:6px; background:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .select-trigger:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
-.select-dropdown { position:fixed; inset:auto; margin:0; padding:8px; box-sizing:border-box; border:1px solid #c5b8a6; border-radius:8px; background:white; color:#342b23; box-shadow:0 6px 24px #0003; overflow:auto; }
+.select-dropdown { position:fixed; inset:auto; margin:0; padding:8px; box-sizing:border-box; border:1px solid #c5b8a6; border-radius:8px; background:white; color:#342b23; box-shadow:0 6px 24px #0003; overflow:hidden; }
 .select-dropdown:popover-open { display:flex; flex-direction:column; gap:6px; }
 /* Keep search inputs at 16px or above to prevent iOS focus zoom in every popover. */
 .select-dropdown .select-search { flex:none; width:100%; box-sizing:border-box; font:inherit; font-size:max(16px, 1rem); padding:8px; border:1px solid #c5b8a6; border-radius:5px; }
-.select-options { overflow:auto; min-height:0; }
+/* Only the options scroll; keep the search field outside the gesture surface. */
+.select-options { flex:1 1 auto; min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
 .select-dropdown .select-search[hidden] { display:none; }
 .select-options:focus-visible { outline:2px solid #286e86; outline-offset:-2px; border-radius:4px; }
 .management-toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px; }

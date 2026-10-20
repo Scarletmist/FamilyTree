@@ -32,6 +32,14 @@
  .relationship-details[data-collapsed=true]{inset:auto max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) auto;width:clamp(260px,38vw,340px);max-width:calc(100vw - 16px);height:auto}
 }
 /* Keep all global actions reachable beside the inspector on smaller phones. */
+@media(max-width:700px),(max-width:950px) and (max-height:520px){
+ .relationship-details .relationship-details__actions{gap:6px;padding-bottom:8px;margin-bottom:0;border:0}
+ .relationship-details .details-action{min-width:0;flex:1;width:auto;padding:6px;gap:4px}.relationship-details .details-action__label{font-size:12px;white-space:nowrap}
+ .relationship-details .query-relationship>svg{display:none}.relationship-details .add-relative{background:#f1f5eb;color:#405536}
+ .relationship-details .relationship-details__actions .add-relative .details-action__label{display:inline}.relationship-details .relationship-details__actions .details-action{padding-inline:4px}
+ .relationship-details__navigation .details-icon:has(.detail-nav-label){flex-direction:column;gap:1px;font-size:10px;line-height:1.2}.relationship-details__navigation .detail-nav-label{display:block}.relationship-details__navigation .details-back::after{content:'返回';font-size:10px;line-height:1.2}.relationship-details__navigation .details-back{flex-direction:column;gap:1px}
+ .relationship-details .relationship-category-nav{position:sticky;top:-16px;z-index:2;background:#fff}
+}
 @media(max-width:740px) and (max-height:520px) and (orientation:landscape){
  body{--mobile-inspector-width:clamp(280px,48vw,360px)}
  body:has(#relationship-details:not([hidden]):not([data-collapsed=true]):not([data-reading=true])) :is(.page-header,.workspace-toolbar,.workspace .tree){width:calc(100% - var(--mobile-inspector-width) - 16px)}

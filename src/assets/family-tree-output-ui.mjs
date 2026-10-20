@@ -16,9 +16,11 @@ export function createExportController({getContext,getGraph}) {
       <label>紙張<select id="tree-output-paper"><option>A4</option><option>A3</option></select></label>
       <label>方向<select id="tree-output-orientation"><option value="landscape">橫式</option><option value="portrait">直式</option></select></label>
     </div><p class="tree-output-hint" id="tree-output-privacy"></p><p class="tree-output-hint">封存成員預設省略；需要銜接的成員會保留並標示。回收區成員不會輸出。</p>
-    <div class="tree-output-preview" id="tree-output-preview"><p>建立預覽後，可下載 SVG 或開啟列印版。</p></div>
+    <p id="tree-output-dirty" class="tree-output-hint" role="status"></p>
+    <div class="tree-output-preview-tools"><label>預覽頁面<select id="tree-output-page" disabled><option value="all">完整圖</option></select></label><button type="button" class="plain-button" id="tree-output-fit" aria-pressed="true">適應範圍</button></div>
+    <div class="tree-output-preview is-fit" id="tree-output-preview"><p>建立預覽後，可下載向量圖或開啟列印版。</p></div>
     <p id="tree-output-status" role="status" aria-live="polite"></p></div>
-    <footer class="tree-output-actions"><button type="button" class="plain-button" id="tree-output-generate">更新預覽</button><button type="button" class="plain-button" id="tree-output-svg" disabled>下載 SVG</button><button type="button" class="primary-button" id="tree-output-print" disabled>列印／PDF</button></footer>`;
+    <footer class="tree-output-actions"><button type="button" class="plain-button" id="tree-output-generate">更新預覽</button><button type="button" class="plain-button" id="tree-output-svg" disabled>下載向量圖（SVG）</button><button type="button" class="primary-button" id="tree-output-print" disabled>列印／PDF</button></footer>`;
   document.body.append(dialog);
   const get = id => document.getElementById('tree-output-' + id),status = get('status'),preview = get('preview');
   let prepared = null,busy = false,opener = null;
@@ -26,7 +28,9 @@ export function createExportController({getContext,getGraph}) {
   const version = () => JSON.stringify(globalThis.FamilyApp.snapshot()?.version);
   const privacy = () => getContext()?.hideNames === true;
   function invalidate(message = '設定已變更，請更新預覽。') {
-    prepared = null;get('svg').disabled = get('print').disabled = true;
+    prepared = null;get('svg').disabled = get('print').disabled = get('page').disabled = true;
+    get('dirty').textContent = message;
+    preview.dataset.stale = 'true';
     for (const popup of printWindows) {
       try {
         if (popup.closed) {printWindows.delete(popup);continue;}
@@ -44,7 +48,11 @@ export function createExportController({getContext,getGraph}) {
   }
   dialog.querySelector('[data-close]').addEventListener('click',() => dialog.close());
   dialog.addEventListener('close',() => opener?.focus({preventScroll:true}));
-  dialog.addEventListener('change',() => invalidate());
+  dialog.querySelector('.tree-output-options').addEventListener('change',() => invalidate());
+  get('fit').addEventListener('click', () => {
+    const fit = !preview.classList.contains('is-fit'); preview.classList.toggle('is-fit',fit);
+    get('fit').setAttribute('aria-pressed',String(fit)); get('fit').textContent = fit ? '適應範圍' : '原尺寸';
+  });
   addEventListener('familyappchange',() => invalidate('族譜資料已更新，請重新產生預覽後再輸出。'));
   new MutationObserver(() => {if (dialog.open) {syncPrivacy();invalidate('姓名顯示設定已變更，請更新預覽。');}})
     .observe(document.getElementById('toggle-canvas-names'),{attributes:true,attributeFilter:['aria-pressed']});
@@ -105,6 +113,14 @@ export function createExportController({getContext,getGraph}) {
         const number = document.createElementNS(ns,'text');number.setAttribute('x',page.x + 8);number.setAttribute('y',page.y + 20);number.setAttribute('font-size','16');number.setAttribute('fill','#286e86');number.textContent = '第 ' + page.number + ' 頁';cuts.append(box,number);
       }
       svg.append(cuts);preview.replaceChildren(info,image);
+      const fullViewBox = svg.getAttribute('viewBox');
+      const all = element('option','','完整圖'); all.value = 'all'; get('page').replaceChildren(all);
+      pagination.pages.forEach((page,index) => { const option = element('option','','第 ' + page.number + ' 頁／' + pagination.pages.length); option.value = index; get('page').append(option); });
+      get('page').onchange = () => {
+        const page = pagination.pages[Number(get('page').value)];
+        svg.setAttribute('viewBox',get('page').value === 'all' || !page ? fullViewBox : `${page.x} ${page.y + svgHeaderHeight(scene,title)} ${page.width} ${page.height}`);
+      };
+      get('page').disabled = false; get('dirty').textContent = '設定與預覽一致'; delete preview.dataset.stale;
       status.textContent = '預覽已更新。藍色虛線標示列印分頁；SVG 保留完整族譜。';get('svg').disabled = get('print').disabled = false;
     } catch (error) {invalidate(error.message || '無法建立輸出，請再試一次。');}
     finally {canvas?.remove();busy = false;get('generate').disabled = false;}

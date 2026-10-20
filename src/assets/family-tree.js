@@ -128,6 +128,15 @@ let FAMILY = FamilyApp?.graph?.() || null;
 
   minimap = createMinimap({camera:treeZoom,getSelectedId:() => selectedId});
   createExportController({getContext:() => diagramContext,getGraph:() => FAMILY});
+  const guide = element('details','canvas-guide');
+  guide.append(element('summary','','圖譜操作說明'),element('p','','拖曳空白處移動畫面；手機可用雙指縮放。i 查看關係依據，＋補登缺少的親屬。'));
+  const guideActions = element('div','canvas-guide-actions');
+  for (const [label,action] of [['看全圖',() => treeZoom.fitView()],['定位人物',() => document.getElementById('show-member-list').click()],['知道了',() => { guide.open = false; }]]) {
+    const button = element('button','plain-button',label); button.type = 'button'; button.addEventListener('click',action); guideActions.append(button);
+  }
+  guide.append(guideActions); document.querySelector('.workspace').append(guide);
+  try { guide.open = !localStorage.getItem('family-tree:canvas-guide:v1'); } catch { guide.open = true; }
+  guide.addEventListener('toggle', () => { if (!guide.open) try { localStorage.setItem('family-tree:canvas-guide:v1','seen'); } catch {} });
   function applyResponsiveDefaults() {
     const legend = document.querySelector('.legend-panel');
     if (!legend || legend.dataset.responsiveDefaultApplied) return;
@@ -155,6 +164,8 @@ let FAMILY = FamilyApp?.graph?.() || null;
     memberTooltip.hide(null, true);
     updateSelectedDetails = null;
     canvas.replaceChildren();
+    canvas.style.width = canvas.style.minWidth = '';
+    canvas.classList.remove('is-empty');
     minimap.setScene(null); diagramContext = null;
     canvas.style.paddingBottom = '';
     if (!Array.isArray(FAMILY?.people)) {
@@ -179,7 +190,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     const familySelect = document.getElementById('family-filter');
     if (familySelect) {
       const previous = !viewStateReady && initialViewState?.filter ? initialViewState.filter : familySelect.value;
-      familySelect.replaceChildren(element('option', '', '所有關係'));
+      familySelect.replaceChildren(element('option', '', '全族譜'));
       familySelect.options[0].value = '';
       (FAMILY.unions || []).forEach(u => {
         const parents = (u.partners || []).map(id => FAMILY.people.find(p => p.id === id));
@@ -224,9 +235,11 @@ let FAMILY = FamilyApp?.graph?.() || null;
     const {people,byId,firstGeneration} = layout;
     if (!people.length) {
       const emptyState = element('section', 'tree-empty-state');
+      canvas.classList.add('is-empty');
       emptyState.setAttribute('aria-label', '尚未有族譜資料');
       emptyState.appendChild(element('h2', '', '尚未有族譜資料'));
-      emptyState.appendChild(element('p', '', '您可以從同一個 Google 帳號同步既有族譜，或從這台裝置開始建立／匯入族譜。'));
+      const cloudAvailable = window.FamilyGoogleDriveSync?.isAvailable?.() === true;
+      emptyState.appendChild(element('p', '', cloudAvailable ? '新增第一位成員，或同步／匯入既有族譜。' : '新增第一位成員，或匯入先前備份的族譜。'));
       const actions = element('div', 'tree-empty-actions');
       const cloud = element('button', 'primary-button', '從 Google Drive 同步'); cloud.type = 'button';
       cloud.addEventListener('click', async () => {
@@ -240,7 +253,9 @@ let FAMILY = FamilyApp?.graph?.() || null;
       add.addEventListener('click', () => document.getElementById('add-member')?.click());
       const importButton = element('button', 'plain-button', '匯入族譜'); importButton.type = 'button';
       importButton.addEventListener('click', () => document.getElementById('import-json')?.click());
-      actions.append(cloud, add, importButton);
+      add.classList.replace('plain-button', 'primary-button');
+      actions.append(add, importButton);
+      if (cloudAvailable) actions.append(cloud);
       emptyState.appendChild(actions);
       canvas.appendChild(emptyState);
       document.getElementById('relationship-details').hidden = true;
@@ -282,7 +297,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
         const related = Boolean(visibleId && button.dataset.people.split(' ').includes(visibleId));
         button.dataset.selected = String(related);
         button.style.display = connectorVisible(button.dataset.inferred === 'true', button.dataset.detailsOnly === 'true') ? '' : 'none';
-        button.style.opacity = visibleId && !related ? '0.25' : '1';
+        button.style.opacity = visibleId ? related ? '1' : '0.25' : queryView.active ? '1' : '0.65';
       });
       const visibleSegments = bridgeRecords.filter(r => connectorVisible(r.inferred, r.detailsOnly) && (!visibleId || r.people.includes(visibleId)))
         .flatMap(r => FamilyConnectorRouting.segments(r.points, { group: r.group }));

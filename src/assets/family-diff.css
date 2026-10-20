@@ -17,4 +17,6 @@
 .family-diff-value__text,.family-diff-long{font-size:14px;line-height:1.7;white-space:pre-wrap}
 .family-diff-long summary{cursor:pointer;overflow-wrap:anywhere}
 .family-diff-long pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:8px 0 0}
+.family-diff-raw>summary,.family-diff-filters>summary{min-height:44px;cursor:pointer;padding:8px 0;font-size:13px;color:var(--color-ink-soft)}
+.family-diff-raw pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 monospace;margin:8px 0}
 @media(max-width:700px){.family-differences{padding:12px}.family-diff-row{grid-template-columns:minmax(0,1fr);gap:8px}.family-diff-controls{align-items:stretch}.family-diff-controls>label{min-width:100%;box-sizing:border-box}.family-diff-field{margin-top:4px}.family-diff-group h3{font-size:16px}}

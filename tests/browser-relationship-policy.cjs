@@ -78,7 +78,7 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       await moreAction('undo'); await page.waitForFunction(()=>!FamilyEditor.snapshot().data.rankGroups?.length);
       // Merge must be previewed and can be undone without losing source members.
       await moreAction('merge');
-      const merge=page.locator('.family-management-dialog'); await merge.getByLabel('保留的成員',{exact:true}).selectOption(a); await merge.getByLabel('併入後移除的成員',{exact:true}).selectOption(duplicate);
+      const merge=page.locator('.family-management-dialog'); await merge.locator('select[aria-label="保留的成員"]').selectOption(a); await merge.locator('select[aria-label="併入後移除的成員"]').selectOption(duplicate);
       assert.equal(await merge.getByRole('button',{name:'確認合併'}).isDisabled(),true);
       await merge.getByRole('button',{name:'預覽合併'}).click(); assert.match(await merge.locator('.family-differences').textContent(),/移除成員：重複資料/);
       await merge.getByRole('button',{name:'確認合併'}).click(); await page.waitForFunction(()=>!document.querySelector('.family-management-dialog'));

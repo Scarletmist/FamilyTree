@@ -1,5 +1,9 @@
 .family-maintenance-dialog{width:min(900px,calc(100% - 32px));max-width:calc(100% - 32px)}
 .family-maintenance-dialog .dialog-scroll{overscroll-behavior:contain;min-width:0}
+.maintenance-sticky{position:sticky;top:-12px;z-index:2;background:#fff;padding:4px 0 8px;border-bottom:1px solid var(--color-line)}
+.maintenance-task-group>summary{min-height:44px;padding:12px 0;font-weight:600;font-size:15px;cursor:pointer}
+.maintenance-sticky .maintenance-categories{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior:contain;margin:4px 0 8px}.maintenance-sticky .maintenance-categories button{flex:none;white-space:nowrap;font-size:13px;padding-inline:10px}
+.maintenance-sticky .maintenance-search{margin:4px 0 8px}
 .family-maintenance-dialog input:not([type=checkbox]),.family-maintenance-dialog textarea{width:100%;box-sizing:border-box;font-size:16px;min-height:44px;border:1px solid var(--color-line);border-radius:8px;padding:10px;background:white;color:inherit}
 .maintenance-search{margin:8px 0 16px}.maintenance-categories{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}
 .maintenance-categories button{min-height:44px}.maintenance-categories [aria-pressed=true]{background:#eff3e6;border-color:#9cae7c;color:#3e522a}

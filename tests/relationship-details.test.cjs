@@ -70,6 +70,7 @@ test('children and students use their own ranks, keep gaps and put unranked memb
 });
 
 class FakeElement {
+  get childElementCount() { return this.children.length; }
   constructor(tag) {
     this.tagName = tag; this.children = []; this.dataset = {}; this.attributes = {};
     this.listeners = {}; this.open = false; this.hidden = false; this.inert = false;
@@ -77,6 +78,7 @@ class FakeElement {
     this.classList = { contains: name => this.className.split(/\s+/).includes(name) };
   }
   append(...nodes) { nodes.forEach(node => { node.parentElement = this; this.children.push(node); }); }
+  prepend(...nodes) { nodes.forEach(node => { node.parentElement = this; }); this.children.unshift(...nodes); }
   appendChild(node) { this.append(node); return node; }
   replaceChildren(...nodes) { this.children.forEach(node => { node.parentElement = null; }); this.children = []; this.append(...nodes); }
   setAttribute(name, value) { this.attributes[name] = String(value); }
@@ -170,7 +172,7 @@ test('drawer preserves disclosure state and selected member, and restores keyboa
     assert.equal(actions.children[2].classList.contains('add-relative'), true, 'Add-relative is promoted into the contextual action row');
     assert(actions.children[3].querySelector('.details-locate'), 'Locate remains available in member More');
     assert.equal(edit.querySelector('.details-action__label').textContent, '編輯');
-    assert.equal(query.querySelector('.details-action__label').textContent, '查關係');
+    assert.equal(query.querySelector('.details-action__label').textContent, '以此人查詢');
     assert.equal(actions.children[2].querySelector('.details-action__label').textContent, '新增親屬');
     assert.equal(back.disabled, true);
     assert.equal(back.classList.contains('details-back--placeholder'), true);
@@ -290,10 +292,12 @@ test('mobile inspector keeps one identity and fixed actions above relatives, wit
     assert(top.contains(panel.querySelector('.relationship-details__identity')));
     assert(top.contains(panel.querySelector('.edit-member')));
     assert.equal(panel.querySelectorAll('h2').length,1);
-    assert.equal(body.children[0].className,'relationship-groups');
+    assert(body.querySelector('.relationship-groups'));
+    assert(body.querySelector('.relationship-category-nav'));
     assert(panel.querySelector('.detail-expand'));
     const more = panel.querySelector('.relationship-details__more-body');
-    assert(more.contains(panel.querySelector('.add-relative')));
+    assert(panel.querySelector('.relationship-details__actions').contains(panel.querySelector('.add-relative')));
+    assert(!more.contains(panel.querySelector('.add-relative')));
     assert(more.contains(panel.querySelector('.details-locate')));
     assert.equal(panel.querySelector('.add-relative').children[0].attributes['data-icon'], 'person-plus');
     const children = panel.querySelectorAll('details[data-group]').find(item => item.dataset.group === 'children');

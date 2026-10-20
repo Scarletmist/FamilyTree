@@ -34,21 +34,27 @@
     });
     const scope = get('family-filter');
     document.querySelector('.workspace-toolbar__scope').append(document.querySelector('.family-filter-label'), scope.closest('.searchable-select') || scope);
+    const resetScope = document.createElement('button'); resetScope.type = 'button'; resetScope.id = 'family-scope-reset'; resetScope.className = 'plain-button'; resetScope.textContent = '全族譜'; resetScope.setAttribute('aria-label','返回全族譜');
+    scope.closest('.workspace-toolbar__scope').append(resetScope);
+    const syncScope = () => { resetScope.hidden = !scope.value || scope.disabled; };
+    resetScope.addEventListener('click', () => { scope.value = ''; scope.dispatchEvent(new Event('change',{bubbles:true})); });
+    scope.addEventListener('change',syncScope); new MutationObserver(syncScope).observe(scope,{childList:true,attributes:true,attributeFilter:['disabled']}); syncScope();
     // Move the actual map entry, preserving its module listener and unique ID.
     document.querySelector('.workspace-toolbar').append(get('show-member-map'));
     const dialog = document.createElement('dialog'); dialog.id = 'landscape-more-sheet'; dialog.className = 'landscape-more-sheet';
     dialog.setAttribute('aria-labelledby','landscape-more-title');
     dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;
     const sections = [
-      ['檢視',[['relationship','查關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','map'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','query'],['legend','關係圖例','legend']]],
+      ['備份、同步與輸出',[['diagram-export','列印／下載向量圖','export'],['export','匯出族譜備份','export'],['import','匯入族譜','import'],['cloud','Google Drive 同步','cloud']]],
       ['成員管理',[['workbench','待整理資料','list'],['archived','封存成員','list'],['recycle','回收區','list'],['groups','排行群組','list'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','list'],['undo','復原','undo']]],
-      ['備份與同步',[['cloud','Google Drive 同步','cloud'],['import','匯入族譜','import'],['export','匯出族譜','export']]],
-      ['輸出',[['diagram-export','族譜輸出（SVG／PDF）','export']]],
+      ['檢視',[['relationship','查兩人關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','map'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','query'],['legend','關係圖例','legend']]],
       ['族譜設定',[['family-name','編輯家族名稱','edit']]]
     ];
+    const menuSearch = document.createElement('input'); menuSearch.type = 'search'; menuSearch.className = 'workspace-menu-search'; menuSearch.placeholder = '搜尋功能'; menuSearch.setAttribute('aria-label','搜尋功能');
+    dialog.querySelector('.landscape-more-sheet__body').before(menuSearch);
     for (const [title, items] of sections) {
-      const section = document.createElement('section'); section.className = 'workspace-menu-group';
-      const heading = document.createElement('h3'); heading.textContent = title; section.append(heading);
+      const section = document.createElement('details'); section.className = 'workspace-menu-group'; section.open = true;
+      const heading = document.createElement('summary'); heading.textContent = title; section.append(heading);
       for (const [name,label,icon] of items) {
         const button = name === 'inferred-lines' ? get('toggle-inferred-lines') : document.createElement('button');
         button.type = 'button'; button.className = 'landscape-more-action'; button.dataset.action = name; button.hidden = false;
@@ -57,14 +63,30 @@
         button.append(text); section.append(button);
         if (name === 'inferred-lines') {
           const hint = document.createElement('p'); hint.id = 'inferred-lines-hint'; hint.className = 'workspace-menu-hint';
-          hint.textContent = '只影響全覽；選取成員時會顯示全部自動線段。'; section.append(hint);
+          hint.textContent = '全覽可切換；選取成員時自動顯示詳細線段。i 查看依據，＋補登親屬。'; section.append(hint);
         }
+      }
+      if (title === '備份、同步與輸出') {
+        const hint = document.createElement('p'); hint.className = 'workspace-menu-hint';
+        hint.textContent = window.FamilyRepository?.isStatic ? '資料儲存在此裝置；匯出備份可另存一份，連結雲端後可跨裝置同步。' : '資料已儲存至伺服器；匯出備份可另存一份。'; section.append(hint);
       }
       dialog.querySelector('.landscape-more-sheet__body').append(section);
     }
     const legendPanel = document.createElement('div'); legendPanel.className = 'landscape-more-legend legend'; legendPanel.hidden = true;
     dialog.querySelector('[data-action=legend]').after(legendPanel); document.body.append(dialog);
     const action = name => dialog.querySelector(`[data-action="${name}"]`);
+    function filterMenu() {
+      const keyword = menuSearch.value.trim().normalize('NFKC').toLocaleLowerCase();
+      for (const section of dialog.querySelectorAll('.workspace-menu-group')) {
+        let visible = 0;
+        for (const item of section.querySelectorAll('[data-action]')) {
+          const eligible = !((item.dataset.action === 'ignored' && !(window.getIgnoredIntermediateCount?.() || 0)) || (item.dataset.action === 'cloud' && get('cloud-sync').hidden));
+          item.hidden = !eligible || !item.textContent.normalize('NFKC').toLocaleLowerCase().includes(keyword); if (!item.hidden) visible++;
+        }
+        section.hidden = !visible; if (keyword) section.open = true;
+      }
+    }
+    menuSearch.addEventListener('input',filterMenu);
     searchOpen.prepend(action('relationship').querySelector('svg').cloneNode(true));
     let opener;
     function syncState() {
@@ -99,9 +121,9 @@
     }
     for (const button of openers) button.addEventListener('click', () => {
       if (dialog.open) { closeMore(); return; }
-      opener = button; syncState(); legendPanel.hidden = true;
+      opener = button; menuSearch.value = ''; syncState(); filterMenu(); legendPanel.hidden = true;
       if (compact.matches) dialog.showModal(); else dialog.show();
-      button.setAttribute('aria-expanded','true'); position(); action('relationship').focus({preventScroll:true});
+      button.setAttribute('aria-expanded','true'); position(); action('diagram-export').focus({preventScroll:true});
     });
     get('landscape-more-close').addEventListener('click', () => closeMore());
     dialog.addEventListener('cancel', event => { event.preventDefault(); closeMore(); });

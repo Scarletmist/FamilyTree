@@ -45,6 +45,7 @@
         const label = reading ? '返回瀏覽面板' : '展開完整閱讀';
         button.setAttribute('aria-label', label); button.title = label;
         button.setAttribute('aria-pressed', String(reading));
+        const text = button.querySelector('.detail-nav-label'); if (text) text.textContent = reading ? '返回' : '閱讀';
         button.querySelector('path').setAttribute('d', reading ? restorePath : expandPath);
         if (focus || (reading && !previous && !panel.contains(document.activeElement))) button.focus({ preventScroll: true });
       }

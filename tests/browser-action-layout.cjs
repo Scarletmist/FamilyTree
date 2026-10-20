@@ -26,8 +26,8 @@ const { createFamilyServer } = require('../dev/server.cjs');
       await scope.locator('.select-trigger').focus();
       await page.keyboard.press('ArrowDown');
       const scopePopup = page.locator('.select-dropdown:popover-open');
-      assert.equal(await scopePopup.getAttribute('aria-label'),'顯示範圍');
-      assert.equal(await scopePopup.locator('[role=option][aria-selected=true]').textContent(),'所有關係');
+      assert.equal(await scopePopup.getAttribute('aria-label'),'家庭分支');
+      assert.equal(await scopePopup.locator('[role=option][aria-selected=true]').textContent(),'全族譜');
       assert(await scopePopup.locator('.select-search').evaluate(input=>parseFloat(getComputedStyle(input).fontSize)>=16));
       const popupBounds=await scopePopup.boundingBox();
       assert(popupBounds.x>=0&&popupBounds.y>=0&&popupBounds.x+popupBounds.width<=width&&popupBounds.y+popupBounds.height<=height);
@@ -138,7 +138,8 @@ const { createFamilyServer } = require('../dev/server.cjs');
         assert(layout.topHeight<=170,JSON.stringify(layout));
         if(width>350) assert(layout.titleVisible&&layout.titleWidth>=30,JSON.stringify(layout));
         assert.equal(await page.locator('.edit-member .details-action__label').isVisible(),true);
-        assert.equal(await page.locator('.add-relative').isVisible(),false);
+        assert.equal(await page.locator('.add-relative').isVisible(),true);
+        assert.equal(await page.locator('.add-relative .details-action__label').isVisible(),true);
         assert(await page.locator('.relationship-details__more-summary').isVisible());
         assert.equal(await page.locator('.query-relationship').isVisible(),true);
         assert.equal(await page.locator('.details-locate').isVisible(),false);
@@ -155,7 +156,6 @@ const { createFamilyServer } = require('../dev/server.cjs');
       }
       await page.locator('#relationship-details').evaluate(async panel=>{await Promise.all(panel.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
       await page.screenshot({path:path.join(dir,`${width}-${height}-details.png`)});
-      await page.locator('.relationship-details__more-summary').click();
       await page.locator('.add-relative').click();
       const picker=page.locator('.family-management-dialog'), close=picker.getByRole('button',{name:/^關閉/});
       await picker.evaluate(async dialog=>{await Promise.all(dialog.getAnimations().map(animation=>animation.finished.catch(()=>{})));});
@@ -166,7 +166,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       if (compact) {
         await page.evaluate(()=>window.dispatchEvent(new CustomEvent('familytreeselect',{detail:{id:'C',options:{expandDetails:true}}})));
         assert.equal(await page.locator('.query-relationship').count(),0,'Unlinked members must not expose a relationship-query action');
-        const gap=await page.locator('.relationship-details__actions').evaluate(actions=>actions.querySelector('.relationship-details__more-summary').getBoundingClientRect().left-actions.querySelector('.edit-member').getBoundingClientRect().right);
+        const gap=await page.locator('.relationship-details__actions').evaluate(actions=>actions.querySelector('.add-relative').getBoundingClientRect().left-actions.querySelector('.edit-member').getBoundingClientRect().right);
         assert(gap>=4&&gap<=8,'High-frequency mobile actions keep one compact gap: '+gap);
       }
       await page.evaluate(()=>editFamilyMember('B'));

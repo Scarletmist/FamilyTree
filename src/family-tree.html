@@ -22,7 +22,7 @@
       <div class="page-header__identity">
         <span class="family-emblem" id="family-emblem" aria-hidden="true">陳</span>
         <div class="family-identity-copy">
-        <h1 class="page-header__title" id="family-title">陳氏家族族譜圖</h1>
+        <h1 class="page-header__title"><button type="button" id="family-title" class="family-title-trigger" aria-label="查看完整家族名稱" aria-haspopup="dialog">陳氏家族族譜圖</button></h1>
         <p class="family-subtitle">把每一段關係，好好留下。</p>
         </div>
         <button type="button" id="edit-family-name" class="details-icon" aria-label="編輯家族名稱" title="編輯家族名稱" disabled>
@@ -31,8 +31,8 @@
       </div>
       <div class="tree-controls">
         <span class="local-save-state" id="local-save-state" role="status">正在載入族譜…</span>
-        <label for="family-filter" class="family-filter-label">顯示範圍</label>
-        <select id="family-filter" aria-label="顯示範圍"><option value="">所有關係</option></select>
+        <label for="family-filter" class="family-filter-label">家庭分支</label>
+        <select id="family-filter" aria-label="家庭分支"><option value="">全族譜</option></select>
         <button type="button" id="show-member-list" class="plain-button mobile-icon-control" aria-label="所有成員" title="所有成員">
           <span class="tree-control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1" fill="currentColor" stroke="none"/></svg></span>
           <span class="tree-control-text">所有成員</span><span class="tree-control-short" aria-hidden="true">成員</span>
@@ -101,13 +101,14 @@
       <button type="button" id="tree-zoom-in" aria-label="放大族譜" title="放大">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-      <button type="button" id="tree-zoom-fit" aria-label="讓族譜適應畫布寬度" title="適應畫布寬度">
+      <button type="button" id="tree-zoom-fit" aria-label="看全圖，讓族譜適應畫面" title="看全圖">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7H4v4M16 7h4v4M8 17H4v-4M16 17h4v-4"/><path d="m4 7 5 5-5 5M20 7l-5 5 5 5" opacity=".45"/></svg>
-        <span>適應寬度</span>
+        <span>看全圖</span>
       </button>
     </div>
     <button type="button" id="mobile-tree-fit" class="mobile-tree-fit" aria-label="讓族譜適應目前畫面" title="適應畫面">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/><path d="M4 8 9 13M20 8l-5 5M4 16l5-5M20 16l-5-5" opacity=".45"/></svg>
+      <span>看全圖</span>
     </button>
     <div id="tree-semantic-zoom-hud" class="tree-semantic-zoom-hud" aria-hidden="true">100% · 完整</div>
     <div id="cloud-auth-toast" class="cloud-auth-toast" role="status" aria-live="polite" aria-atomic="true" data-auth-state="waiting" hidden>

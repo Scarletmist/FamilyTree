@@ -44,6 +44,10 @@ html[data-motion-input] dialog.member-map-dialog { transform:none; transition-pr
 .member-map-sheet-handle { display:none; }
 .map-icon-button { display:inline-flex; width:44px; height:44px; min-height:44px; padding:0; flex:0 0 44px; justify-content:center; align-items:center; border-radius:12px; }
 .map-icon-button svg { width:20px; height:20px; flex:none; }
+.map-icon-button.map-text-action{width:auto;flex:0 0 auto;gap:6px;padding:8px 12px;font-size:14px;white-space:nowrap}
+.location-scope-controls{flex:none;padding:6px 16px;border-top:1px solid var(--map-line);background:#f8faf6;max-height:26dvh;overflow:auto;overscroll-behavior:contain}
+.location-scope-controls .location-apply-group{font-size:13px;line-height:1.5;min-height:44px}.location-scope-names{font-size:13px;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;color:var(--map-soft)}
+.location-scope-controls #location-apply-scope{margin-bottom:0;font-size:13px}.location-scope-controls #location-apply-scope summary{min-height:44px;padding:8px 0}
 .member-map-dialog button,.member-map-dialog summary { touch-action:manipulation; -webkit-tap-highlight-color:transparent; user-select:none; }
 .member-map-dialog button:active,.member-map-dialog summary:active { filter:brightness(.91); }
 .member-map-dialog button:focus-visible,.member-map-dialog summary:focus-visible,.member-map-dialog input:focus-visible { outline:3px solid #286854; outline-offset:2px; }

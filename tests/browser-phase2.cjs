@@ -120,12 +120,12 @@ const fixture = () => ({ schemaVersion:3,familyName:'第二階段驗證',people:
       assert.equal(await workbench.locator('.dialog-scroll').evaluate(n => n.scrollTop),top);
       await workbench.getByLabel('搜尋待整理資料').fill(''); await workbench.locator('button[data-category=intermediate]').click();
       await workbench.getByRole('button',{ name:'忽略此待補項目',exact:true }).click(); await page.waitForFunction(() => FamilyMaintenance.tasks(FamilyApp.snapshot().data).counts.intermediate === 0);
-      await workbench.locator('button[data-category=duplicate]').click(); await workbench.getByRole('button',{ name:'比較並合併',exact:true }).click();
+      await workbench.locator('button[data-category=duplicate]').click(); await workbench.getByRole('button',{ name:'核對重複成員',exact:true }).click();
       const merge = page.locator('.family-management-dialog:not(.family-maintenance-dialog)');
-      assert.equal(await merge.getByLabel('保留的成員',{ exact:true }).inputValue(),'D1');
+      assert.equal(await merge.locator('select[aria-label="保留的成員"]').inputValue(),'D1');
       await merge.getByRole('button',{ name:'關閉合併重複成員',exact:true }).click();
       assert.equal(await workbench.locator('.maintenance-item').count(),1,'cancel never merges candidates');
-      await workbench.getByRole('button',{ name:'比較並合併',exact:true }).click(); await merge.getByRole('button',{ name:'預覽合併',exact:true }).click(); await merge.getByRole('button',{ name:'確認合併',exact:true }).click();
+      await workbench.getByRole('button',{ name:'核對重複成員',exact:true }).click(); await merge.getByRole('button',{ name:'預覽合併',exact:true }).click(); await merge.getByRole('button',{ name:'確認合併',exact:true }).click();
       await page.waitForFunction(() => FamilyMaintenance.tasks(FamilyApp.snapshot().data).counts.duplicate === 0);
       await workbench.locator('button[data-category=location]').click(); await workbench.getByRole('button',{ name:'修正地點',exact:true }).click();
       await page.waitForFunction(() => document.getElementById('member-map-dialog').dataset.editing === 'true');

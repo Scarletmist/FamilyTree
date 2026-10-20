@@ -1,4 +1,5 @@
 const paths = {
+  person: 'M16 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0 M4 21v-2a8 8 0 0 1 16 0v2',
   correct: 'M12 21s-7-5.2-7-11a7 7 0 0 1 14 0 M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6 M14 18l5-5 2 2-5 5-3 1 1-3Z',
   edit: 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5Z',
   retry: 'M20 7v5h-5 M4 17v-5h5 M6.1 6.1A8 8 0 0 1 20 12 M4 12a8 8 0 0 0 13.9 5.9',
@@ -10,13 +11,14 @@ const paths = {
   back: 'm15 6-6 6 6 6',
   more: 'M5 12h.01 M12 12h.01 M19 12h.01'
 };
-export function setMapIcon(button, name, label) {
+export function setMapIcon(button, name, label, visibleLabel = '') {
   button.classList.add('map-icon-button');
   button.setAttribute('aria-label', label); button.title = label;
   button.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${paths[name]}" /></svg>`;
+  if (visibleLabel) { const text = document.createElement('span'); text.textContent = visibleLabel; button.append(text); button.classList.add('map-text-action'); }
   return button;
 }
-export function mapIconButton(name, label) {
+export function mapIconButton(name, label, visibleLabel = '') {
   const button = document.createElement('button'); button.type = 'button'; button.className = 'plain-button';
-  return setMapIcon(button, name, label);
+  return setMapIcon(button, name, label, visibleLabel);
 }

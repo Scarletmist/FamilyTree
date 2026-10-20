@@ -112,6 +112,7 @@
       container.replaceChildren();
       container.append(el('p', '查詢成員：' + nameA + '　稱呼基準：' + nameB));
       if (path) {
+        container.append(el('p', '稱謂：' + path.title));
         container.append(el('p', '關係路徑：' + path.nodes.map(id => byId.get(id).name).join(' → ')));
         const proof = RelationshipEvidence.create(graph).path(path.edges);
         if (path.edges.length) {
@@ -122,7 +123,8 @@
           if (path.seniorityPath?.length) items.push({ from:path.nodes[0],relation:{ type:path.seniorityType,personId:path.nodes.at(-1) },
             heading:'長幼依據',evidence:resolver.describe(path.nodes[0],{path:path.seniorityPath}) });
           RelationshipEvidenceView.render(records,graph,items,{onEdit:id => { closeResultDetails(); globalThis.editFamilyMember?.(id); }});
-          container.append(records);
+          const disclosure = document.createElement('details'); disclosure.className = 'relationship-path-records';
+          disclosure.append(el('summary','查看每段關係與長幼依據'),records); container.append(disclosure);
         }
         path.notes.filter(note => !/^來源：|^關係說明：/.test(note)).forEach(note => container.append(el('p', note)));
       } else container.append(el('p', '目前僅顯示這兩位成員；可編輯成員補上已知關係。'));
@@ -141,14 +143,14 @@
             optionButton.addEventListener('click', () => { if (i === pathIndex) { picker.open = false; return; } pathIndex = i; onChange(); });
             options.append(optionButton);
           });
-          picker.append(pickerSummary, options); container.append(picker);
+          picker.append(pickerSummary, options); container.insertBefore(picker,container.querySelector('.relationship-path-records'));
         } else {
           const label = el('label', '其他關係路徑 '), select = document.createElement('select');
           select.setAttribute('aria-label', '其他關係路徑');
           result.paths.forEach((p, i) => { const option = el('option', (i + 1) + '. ' + p.title + '：' + p.nodes.map(id => byId.get(id).name).join(' → ')); option.value = i; select.append(option); });
           select.value = pathIndex;
           select.addEventListener('change', () => { pathIndex = Number(select.value); onChange(); });
-          label.append(select); container.append(label);
+          label.append(select); container.insertBefore(label,container.querySelector('.relationship-path-records'));
         }
       }
       if (result.truncated) container.append(el('p', '等長路徑較多，目前列出前 12 條。'));
@@ -164,7 +166,7 @@
       const relationshipMemberIds = FamilyModel.relationshipMemberIds(fullGraph.people, fullGraph.bonds);
       const relationshipPeople = fullGraph.people.filter(person => !person.archive && relationshipMemberIds.has(person.id));
       const generationOffset = FamilyDisplayProjection.generationOffset(fullGraph);
-      const optionLabels = new Map(relationshipPeople.map(person => [person.id, `${names.get(person.id)} · 第 ${person.gen + generationOffset} 代`]));
+      const optionLabels = new Map(relationshipPeople.map(person => [person.id, globalThis.familyPersonLabel?.(person) || `${names.get(person.id)} · 第 ${person.gen + generationOffset} 代`]));
       for (const select of [a, b]) {
         const previous = select.value;
         select.replaceChildren(el('option', '請選擇成員')); select.options[0].value = '';
@@ -177,7 +179,7 @@
       if (!a.value || !b.value) active = false;
       summary.hidden = !active; summary.replaceChildren();
       document.getElementById('family-filter').disabled = active;
-      openLabel.textContent = active ? '更換成員' : '查關係';
+      openLabel.textContent = active ? '更換成員' : '查兩人關係';
       end.hidden = !active;
       bar.dataset.active = active ? 'true' : 'false';
       if (!active) {

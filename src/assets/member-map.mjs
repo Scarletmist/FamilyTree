@@ -83,7 +83,7 @@ function personSummary(person, trigger) {
   const heading = el('div', '', 'member-map-popup-heading'); heading.append(el('h3', person.name), close);
   summary.append(heading, el('p', person.location), el('p', Location.overrideCurrent(person) ? '● 手動修正位置' : '自動定位', 'form-note'));
   const actions = el('div', '', 'member-map-summary-actions');
-  const details = mapIconButton('edit', `查看${person.name}的詳細資料`); details.addEventListener('click', () => {
+  const details = mapIconButton('person', `查看${person.name}的詳細資料`, '查看成員'); details.addEventListener('click', () => {
     dialog.close(); window.dispatchEvent(new CustomEvent('familytreeselect', { detail:{ id:person.id, options:{ expandDetails:true } } }));
   });
   actions.append(details, correctionButton(person)); summary.append(actions); close.focus({ preventScroll:true });

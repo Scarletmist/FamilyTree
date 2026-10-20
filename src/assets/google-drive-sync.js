@@ -330,7 +330,9 @@
   function waitForConflictChoice(local, remote, remoteData) {
     if (!conflictDialog) return Promise.resolve('cloud');
     const relationCount = data => data.people.reduce((count, person) => count + (person.relationships?.length || 0), 0);
-    document.getElementById('cloud-conflict-local-summary').textContent = `${local.data.people.length} 位成員\n${relationCount(local.data)} 筆關係記錄\n更新時間：未提供`;
+    const changes = FamilyDiff.compare(local.data,remoteData);
+    const localTime = formatTime(local.savedAt);
+    document.getElementById('cloud-conflict-local-summary').textContent = `${local.data.people.length} 位成員\n${relationCount(local.data)} 筆關係記錄\n${localTime ? '此裝置儲存時間：' + localTime : '此裝置未記錄儲存時間；請依下方內容差異選版。'}\n與雲端共 ${changes.total} 項內容差異`;
     document.getElementById('cloud-conflict-remote-summary').textContent = `${remoteData.people.length} 位成員\n${relationCount(remoteData)} 筆關係記錄\n更新時間：${formatTime(remote.modifiedTime) || '未提供'}`;
     window.renderFamilyDifferences?.(document.getElementById('cloud-conflict-remote-summary').parentElement.parentElement, local.data, remoteData,{beforeLabel:'此裝置',afterLabel:'Google Drive'});
     chooseConflictVersion(null);
@@ -544,5 +546,5 @@
       setUi('error', error.message || '無法讀取同步狀態。');
     }
   })();
-  window.FamilyGoogleDriveSync = { syncNow, prepareAuthorization, checkTokenRefreshAtStartup };
+  window.FamilyGoogleDriveSync = { syncNow, prepareAuthorization, checkTokenRefreshAtStartup, isAvailable:() => Boolean(repository.isStatic && clientId) };
 })();

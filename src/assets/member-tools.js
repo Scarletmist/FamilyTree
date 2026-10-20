@@ -1,6 +1,43 @@
 (function () {
   'use strict';
-  const selector = '#family-filter, #relationship-search select, #relationship-summary select, #member-form select';
+  const personLabelCache = new WeakMap();
+  window.familyPersonLabel = (person, data = window.FamilyApp?.snapshot()?.data) => {
+    if (!person) return '';
+    if (!data) return person.name;
+    const graph = window.FamilyApp?.graph?.();
+    let cached = personLabelCache.get(data);
+    if (!cached || cached.graph !== graph) {
+      const byId = new Map(data.people.map(p => [p.id,p])), projected = new Map((graph?.people || []).map(p => [p.id,p]));
+      const linked = window.FamilyModel.relationshipMemberIds(graph?.people || [],graph?.bonds || []);
+      const parents = new Map(), duplicates = new Map(), labels = new Map();
+      const identity = p => JSON.stringify([p.name,p.location,p.position]);
+      for (const p of data.people) {
+        const key = identity(p); if (!duplicates.has(key)) duplicates.set(key,[]); duplicates.get(key).push(p.id);
+        for (const relation of p.relationships || []) {
+          const child = relation.type === 'parent' ? p.id : relation.type === 'child' ? relation.personId : null;
+          if (!child) continue;
+          if (!parents.has(child)) parents.set(child,new Set()); parents.get(child).add(relation.type === 'parent' ? relation.personId : p.id);
+        }
+      }
+      const shift = graph ? window.FamilyDisplayProjection?.generationOffset(graph) || 0 : 0;
+      for (const p of data.people) {
+        const member = projected.get(p.id), parentNames = [...(parents.get(p.id) || [])].map(id => byId.get(id)?.name).filter(Boolean);
+        const generation = member?.gen && linked.has(p.id) ? '第 ' + (member.gen + shift) + ' 代' : '未連結';
+        const context = [generation,parentNames.length ? '父母：' + parentNames.join('、') : '',p.location,p.position,p.archive ? '已封存' : ''].filter(Boolean).join(' · ');
+        const same = duplicates.get(identity(p));
+        labels.set(p.id,p.name + '（' + context + (same.length > 1 ? ' · 第 ' + (same.indexOf(p.id) + 1) + ' 筆同名記錄' : '') + '）');
+      }
+      cached = {graph,labels}; personLabelCache.set(data,cached);
+    }
+    return cached.labels.get(person.id) || person.name;
+  };
+  const fullName = document.createElement('dialog'); fullName.className = 'family-title-dialog'; fullName.setAttribute('aria-labelledby','family-title-full');
+  const fullHeading = document.createElement('h2'); fullHeading.id = 'family-title-full';
+  const closeName = document.createElement('button'); closeName.type = 'button'; closeName.className = 'plain-button'; closeName.textContent = '關閉';
+  closeName.addEventListener('click', () => fullName.close()); fullName.append(fullHeading,closeName); document.body.append(fullName);
+  document.getElementById('family-title').addEventListener('click', () => { fullHeading.textContent = document.getElementById('family-title').textContent; fullName.showModal(); });
+  fullName.addEventListener('close', () => document.getElementById('family-title').focus({preventScroll:true}));
+  const selector = '#family-filter, #relationship-search select, #relationship-summary select, #member-form select, select[data-person-picker]';
   const controls = new WeakMap();
   let active = null, nextId = 0;
   const normalized = text => text.normalize('NFKC').toLocaleLowerCase();
@@ -254,7 +291,7 @@
     visible.forEach(person => {
       const row = document.createElement('tr'); const connected = linked.has(person.id);
       row.dataset.personId = person.id; row.className = 'member-list-row' + (!connected ? ' member-list-unlinked' : '');
-      row.tabIndex = 0; row.setAttribute('aria-label', `查看${person.name}並定位到族譜圖`);
+      row.tabIndex = 0; row.setAttribute('aria-label', '查看' + window.familyPersonLabel(person) + '並定位到族譜圖');
       const values = [person.name, person.location, person.position, connected ? `第 ${person.gen + generationOffset} 代` : ''];
       const labels = ['姓名', '所在地', '職位', '代別'];
       values.forEach((value, index) => {

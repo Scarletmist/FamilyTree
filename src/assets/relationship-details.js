@@ -321,7 +321,7 @@
       let query;
       if (hasRelationships) {
         query = iconButton('query-relationship details-action', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
-        query.appendChild(element('span', 'details-action__label', '查關係'));
+        query.appendChild(element('span', 'details-action__label', '以此人查詢'));
         query.addEventListener('click', () => onQuery?.(person.id));
       } else {
         query = element('span', 'details-icon details-action details-query-placeholder');
@@ -335,6 +335,7 @@
       locate.appendChild(element('span', 'details-action__label', '定位'));
       locate.addEventListener('click', () => onLocate?.(person.id));
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
+      collapse.append(element('span','detail-nav-label','收合'));
       const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (orientation:landscape)').matches;
       const portraitMobile = globalThis.matchMedia?.('(max-width:700px)').matches;
       if (portraitMobile && !landscapeMobile) {
@@ -343,6 +344,7 @@
       collapse.setAttribute('aria-controls', content.id);
       collapse.addEventListener('click', () => setCollapsed(panel, true, { focus: true }));
       const close = iconButton('details-close', '關閉關係詳情', 'M18 6 6 18 M6 6l12 12');
+      close.append(element('span','detail-nav-label','關閉'));
       close.addEventListener('click', () => { navigationHistory.length = 0; currentPersonId = null; pendingNavigationTarget = null; onClose?.(); });
       const title = element('h2', '', person.name);
       title.id = 'relationship-details-title';
@@ -350,6 +352,7 @@
       const navigation = element('div','relationship-details__navigation'); navigation.append(back,collapse,close);
       if (mobile) {
         const expand = iconButton('detail-expand', '展開完整閱讀', globalThis.FamilyMemberDetailLayout?.expandPath || 'M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5');
+        expand.append(element('span','detail-nav-label','閱讀'));
         expand.setAttribute('aria-controls', content.id);
         navigation.replaceChildren(back, element('div', 'detail-nav-identity'), expand, collapse, close);
         const grabber = element('div', 'detail-grabber'); grabber.setAttribute('aria-hidden', 'true');
@@ -380,15 +383,17 @@
         remove.append(element('span','details-action__label','移至回收區'));
         remove.addEventListener('click',() => globalThis.FamilyMaintenanceUI?.openLifecycle('deleteMember',person.id));
         moreBody.append(archive,remove);
-        if (mobile) moreBody.appendChild(addRelative);
         more.append(moreSummary, moreBody);
-        if (mobile) actions.append(edit, query, more);
-        else actions.append(edit, query, addRelative, more);
+        actions.append(edit, query, addRelative, more);
       }
       if (!mobile) top.append(header, actions);
       else top.append(actions);
       content.appendChild(top);
       const body = element('div', 'relationship-details__body');
+      if (mobile) {
+        const summary = element('p','member-brief',[person.location,person.position,person.notes ? '有備註' : ''].filter(Boolean).join(' · '));
+        if (summary.textContent) body.append(summary);
+      }
       const information = mobile ? element('details','relationship-group member-information') : body;
       if (mobile) { information.dataset.group = 'information'; information.open = openStates.get(person.id)?.get('information') ?? false; information.append(element('summary','relationship-group__summary','成員資料與備註')); }
       const profile = element('div', 'relationship-details__profile');
@@ -426,6 +431,19 @@
         information.append(notes);
       }
       const groups = buildGroups(graph, person.id);
+      const jumps = element('nav','relationship-category-nav'); jumps.setAttribute('aria-label','跳至關係分類');
+      const jumpTo = (label,key) => {
+        const jump = element('button','plain-button',label); jump.type = 'button';
+        jump.addEventListener('click', () => {
+          const target = body.querySelector('details[data-group="' + key + '"]');
+          if (!target) return; target.open = true;
+          const scroll = body.getBoundingClientRect(), rect = target.getBoundingClientRect();
+          body.scrollTop += rect.top - scroll.top - jumps.getBoundingClientRect().height; target.querySelector('summary')?.focus({preventScroll:true});
+        }); jumps.append(jump);
+      };
+      if (mobile && (profile.childElementCount || person.notes)) jumpTo('資料與備註','information');
+      groups.forEach(group => jumpTo(group.title + ' ' + group.entries.length,group.id));
+      if (jumps.childElementCount) { if (mobile) body.append(jumps); else body.prepend(jumps); }
       const evidence = element('details','relationship-evidence'); evidence.dataset.group = 'evidence';
       evidence.open = openStates.get(person.id)?.get('evidence') ?? false;
       const evidenceSummary = element('summary','','關係依據');

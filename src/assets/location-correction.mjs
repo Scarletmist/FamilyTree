@@ -24,7 +24,11 @@ export function configureCorrection(workspace) {
     ['location-mode-search', 'search', '搜尋地點'], ['location-mode-map', 'pick', '在地圖上指定'],
     ['location-search-submit', 'search', '查詢'], ['location-more-button', 'more', '更多地點操作'],
     ['save-location-correction', 'save', '使用此位置']
-  ]) setMapIcon(get(id), icon, label);
+  ]) setMapIcon(get(id), icon, label, id === 'save-location-correction' ? label : '');
+  const scope = text('div', '', 'location-scope-controls');
+  const names = text('p', '', 'location-scope-names'); names.id = 'location-visible-members';
+  scope.append(get('location-apply-group'), names, get('location-apply-scope'));
+  panel.querySelector('footer').before(scope);
   get('location-mode-search').addEventListener('click', () => setMode('search'));
   get('location-mode-map').addEventListener('click', () => setMode('map'));
   get('location-search-query').addEventListener('input', () => {
@@ -45,6 +49,7 @@ function updateScope() {
   const apply = get('location-apply-related').checked;
   get('location-apply-summary').textContent = `將套用至 ${apply ? relatedMembers.length + 1 : 1} 位成員`;
   get('location-apply-members').textContent = [person.name, ...(apply ? relatedMembers.map(p => p.name) : [])].join('、');
+  get('location-visible-members').textContent = (apply ? '更新同址成員：' : '僅更新此人：') + get('location-apply-members').textContent;
   const corrected = apply ? relatedMembers.filter(p => p.expectedOverride).length : 0;
   get('location-apply-note').textContent = (corrected ? `其中其他 ${corrected} 位已有手動位置，套用後將更新。` : '')
     + '每位成員之後仍可個別修正。恢復自動定位只影響目前成員。';
@@ -104,7 +109,7 @@ export async function openCorrection(id) {
       }));
     get('location-apply-group').hidden = get('location-apply-scope').hidden = !relatedMembers.length;
     get('location-apply-related').checked = Boolean(relatedMembers.length); get('location-apply-scope').open = false;
-    get('location-apply-label').textContent = `一併套用至相同所在地的其他 ${relatedMembers.length} 位成員`;
+    get('location-apply-label').textContent = `一併更新同址的其他 ${relatedMembers.length} 人（關閉則僅此人）`;
     updateScope(); get('location-correction-person').textContent = person.name;
     get('location-correction-place').textContent = '所在地 · ' + person.location;
     get('location-correction-current').textContent = position ? (Location.overrideCurrent(person) ? '原手動位置：' : '原自動定位：') + position.displayName : '原所在地文字會保留。';

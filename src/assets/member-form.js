@@ -189,7 +189,7 @@
     const previous = select.value;
     select.replaceChildren(option('', '選擇現有成員'));
     const names = FamilyModel.memberOptionLabels(snapshot.data.people);
-    snapshot.data.people.filter(p => p.id !== editingId && (!p.archive || p.id === retainedId)).forEach(p => select.appendChild(option(p.id, names.get(p.id) + (p.archive ? '（已封存）' : ''))));
+    snapshot.data.people.filter(p => p.id !== editingId && (!p.archive || p.id === retainedId)).forEach(p => select.appendChild(option(p.id, window.familyPersonLabel?.(p,snapshot.data) || names.get(p.id))));
     select.value = [...select.options].some(o => o.value === previous) ? previous : '';
   }
   function accept(payload, restored = false) {
@@ -198,9 +198,10 @@
     const graph = FamilyApp.graph();
     restoredBackup = restored;
     const storage = FamilyRepository.isStatic ? 'IndexedDB' : restored ? null : backup.save(payload);
-    backupStatus.textContent = FamilyRepository.isStatic ? '已儲存至此瀏覽器（IndexedDB）；可連結 Google Drive 跨裝置同步，JSON 匯出仍可作為離線備份。' : restored ? '已還原瀏覽器備份，可檢視及匯出；重新連線並重新整理後可繼續編輯。' : storage ? `已自動備份至瀏覽器（${storage === 'cookie' ? 'Cookie' : 'localStorage'}）` : '瀏覽器備份失敗；資料仍已儲存至伺服器，請匯出備份。';
+    backupStatus.textContent = restored ? '已還原備份，可檢視及匯出。' : FamilyRepository.isStatic || storage ? '' : '此裝置的備份失敗，請匯出備份。';
     const familyName = graph.familyName;
     familyTitle.textContent = familyName;
+    familyTitle.setAttribute('aria-label',familyName + '，查看完整名稱');
     document.getElementById('family-emblem').textContent = familyName.slice(0, 1);
     document.getElementById('local-save-state').textContent = restored ? '備份檢視' : FamilyRepository.isStatic ? '已儲存在此裝置' : '已儲存';
     document.title = '族譜圖 — ' + familyName;
@@ -337,13 +338,13 @@
       rankGroup.closest('label').hidden = !availableGroups.length;
       const peerType = FamilyModel.hasSeniority(type.value) || type.value === 'fellowDisciple';
       const relation = { seniority: seniority.value, groupId: rankGroup.value || undefined };
-      const role = person && peerType ? FamilyModel.peerPresentation(snapshot.data, person, base, type.value, relation).role : labels[type.value];
+      const role = !type.value ? '' : person && peerType ? FamilyModel.peerPresentation(snapshot.data, person, base, type.value, relation).role : RelationshipEvidenceView.term(type.value,person?.gender);
       if (person) {
         seniority.options[1].textContent = `${person.name}比${base.name}年長`;
         seniority.options[2].textContent = `${person.name}比${base.name}年幼`;
       }
       const inverse = {parent:'child',child:'parent',grandparent:'grandchild',grandchild:'grandparent',teacher:'student',student:'teacher'};
-      const reverseRole = person && peerType ? FamilyModel.peerPresentation(snapshot.data, base, person, type.value, { ...relation, seniority: FamilyModel.inverseSeniority(seniority.value) }).role : labels[inverse[type.value] || type.value];
+      const reverseRole = person && peerType ? FamilyModel.peerPresentation(snapshot.data, base, person, type.value, { ...relation, seniority: FamilyModel.inverseSeniority(seniority.value) }).role : RelationshipEvidenceView.term(inverse[type.value] || type.value,base.gender);
       direction.textContent = `${person?.name || '現有成員'}是${base.name}的`;
       type.setAttribute('aria-label',direction.textContent + '關係');
       for (const button of quick.children) button.setAttribute('aria-pressed',String(button.dataset.type === type.value));

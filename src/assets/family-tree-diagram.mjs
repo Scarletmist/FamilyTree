@@ -62,6 +62,15 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     let canvasPaddingTop = baseCanvasPaddingTop;
     canvas.style.paddingTop = canvasPaddingTop + 'px';
     canvas.appendChild(rows);
+    // Cards and connectors share one measured coordinate space. A dock may
+    // resize the viewport without a render; keep that space stable until the
+    // next coordinated layout instead of allowing min-width:100% to recenter
+    // only the HTML cards beneath an unchanged SVG.
+    if (interactive) {
+      const width = canvas.getBoundingClientRect().width;
+      canvas.style.width = width + 'px';
+      canvas.style.minWidth = width + 'px';
+    }
     const generationLayers = FamilyGenerationBands.render(canvas, [...rows.children]);
     canvas.prepend(generationLayers.backgrounds);
     const svg = svgElement('svg', { class: 'tree__connectors', 'aria-hidden': 'true' });

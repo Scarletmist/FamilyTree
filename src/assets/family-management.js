@@ -31,35 +31,58 @@
   function select(options) { const input = el('select'); options.forEach(([value, title]) => { const o = el('option', title); o.value = value; input.append(o); }); return input; }
   async function save(ui, body) {
     ui.error.textContent = ''; ui.dialog.dataset.busy = 'true';
-    const controls = [...ui.dialog.querySelectorAll('button,input,select,textarea')]; controls.forEach(c => c.disabled = true);
+    const controls = [...ui.dialog.querySelectorAll('button,input,select,textarea')].map(control => ({control,disabled:control.disabled})); controls.forEach(({control}) => control.disabled = true);
     try { await editor().manage(body); ui.dialog.close(); }
     catch (error) { ui.error.textContent = error.message; ui.error.focus(); }
-    finally { delete ui.dialog.dataset.busy; controls.forEach(c => c.disabled = false); }
+    finally { delete ui.dialog.dataset.busy; controls.forEach(({control,disabled}) => control.disabled = disabled); }
   }
   window.openRelativePicker = id => {
     const person = editor().snapshot()?.data.people.find(p => p.id === id); if (!person) return;
     const ui = modal('新增' + person.name + '的親屬');
     ui.content.append(el('p', '選擇要新增的人與此成員的關係，下一步會帶入表單。'));
-    const choices = el('div', undefined, 'management-choices');
-    for (const [label, type] of [['子女','parent'],['父母','child'],['配偶','spouse'],['手足','sibling'],['契手足','swornSibling'],['祖父母','grandchild'],['孫子女','grandparent'],['師父','student'],['徒弟','teacher'],['同門','fellowDisciple']]) {
-      choices.append(button('新增' + label, () => { ui.dialog.close(); editor().addRelative(id, type); }));
+    for (const [category, items] of [['親屬',[['子女','parent'],['父母','child'],['配偶','spouse'],['手足','sibling'],['祖父母','grandchild'],['孫子女','grandparent']]],['契親',[['契手足','swornSibling']]],['師門',[['師父','student'],['徒弟','teacher'],['同門','fellowDisciple']]]]) {
+      const choices = el('section', undefined, 'management-choices'); choices.append(el('h3', category));
+      for (const [label, type] of items) choices.append(button('新增' + label, () => { ui.dialog.close(); editor().addRelative(id, type); }));
+      ui.content.append(choices);
     }
-    ui.content.append(choices); ui.open();
+    ui.open();
   };
   function openGroups() {
     const snapshot = editor().snapshot(); if (!snapshot) return;
     const ui = modal('排行群組'), data = snapshot.data;
+    ui.dialog.classList.add('rank-group-dialog');
     let groups = JSON.parse(JSON.stringify(data.rankGroups || [])), selectedId = '', memberInputs = [];
-    const choose = field(ui.content, '編輯群組', select([['','新增群組'], ...groups.map(g => [g.id, g.name])]));
-    const name = field(ui.content, '群組名稱', el('input')); name.maxLength = 80;
-    const type = field(ui.content, '排行類型', select([['sibling','家庭手足'],['swornSibling','契手足'],['fellowDisciple','師門']]));
-    const anchor = field(ui.content, '所屬父母或師父（選填，供子女／徒弟排行顯示）', select([['','未指定']]));
-    ui.content.append(el('p', '勾選所屬成員，排行未知可留空。群組會依類型自動連接手足、契手足或同門，在選取成員或查詢關係時顯示。稱謂使用群組排行；所屬父母或師父僅用於子女／徒弟排行。同一對成員有多個群組時，可在關係表單指定使用哪一組。', 'form-note'));
-    const search = field(ui.content, '搜尋成員', el('input')); search.type = 'search';
-    const members = el('div', undefined, 'rank-members'); ui.content.append(members);
+    const settings = el('div', undefined, 'rank-settings'); ui.content.append(settings);
+    const choose = field(settings, '編輯群組', select([['','新增群組'], ...groups.map(g => [g.id, g.name])]));
+    const name = field(settings, '群組名稱', el('input')); name.maxLength = 80;
+    const type = field(settings, '排行類型', select([['sibling','家庭手足'],['swornSibling','契手足'],['fellowDisciple','師門']]));
+    const anchor = field(settings, '所屬父母或師父（選填）', select([['','未指定']])); anchor.dataset.personPicker = '';
+    const help = el('details', undefined, 'form-note rank-help'); help.append(el('summary', '排行與自動連線說明'), el('p', '勾選成員，排行未知可留空。群組會依類型連接手足、契手足或同門；連線在成員詳情及關係查詢顯示。所屬父母或師父用於子女／徒弟排行。同一對成員可在關係表單指定使用哪一組。')); settings.append(help);
+    const selection = el('section', undefined, 'rank-selection'); ui.content.append(selection);
+    const tools = el('div', undefined, 'rank-selection-tools'); selection.append(tools);
+    const selectedCount = el('strong'), selectedNames = el('p', '', 'rank-selected-names'); selectedCount.role = 'status';
+    tools.append(selectedCount, selectedNames);
+    const search = field(tools, '搜尋成員', el('input')); search.type = 'search'; search.placeholder = '姓名、所在地或父母';
+    const onlyLabel = el('label', undefined, 'rank-only-selected'), only = el('input'); only.type = 'checkbox'; onlyLabel.append(only, el('span', '只看已選成員')); tools.append(onlyLabel);
+    const members = el('div', undefined, 'rank-members'); selection.append(members);
+    function filterMembers() {
+      const keyword = search.value.trim().normalize('NFKC').toLocaleLowerCase();
+      memberInputs.forEach(m => m.row.hidden = (only.checked && !m.check.checked) || !m.label.normalize('NFKC').toLocaleLowerCase().includes(keyword));
+    }
+    function updateSelection(reorder = false) {
+      const selected = memberInputs.filter(m => m.check.checked);
+      selectedCount.textContent = '已選 ' + selected.length + ' 人';
+      selectedNames.textContent = selected.length ? selected.map(m => m.name + '：' + (m.order.value || '排行未知')).join('、') : '勾選下方成員，已選成員會優先顯示。';
+      if (reorder) {
+        const active = document.activeElement;
+        [...memberInputs].sort((a,b) => Number(b.check.checked) - Number(a.check.checked)).forEach(m => members.append(m.row));
+        if (active?.isConnected) active.focus({preventScroll:true});
+      }
+      filterMembers();
+    }
     function draw() {
       const group = groups.find(g => g.id === selectedId);
-      anchor.replaceChildren(...select([['','未指定'],...data.people.filter(p => !p.archive || p.id === group?.anchorId).map(p => [p.id,p.name + (p.archive ? '（已封存）' : '')])]).children);
+      anchor.replaceChildren(...select([['','未指定'],...data.people.filter(p => !p.archive || p.id === group?.anchorId).map(p => [p.id,window.familyPersonLabel(p,data)])]).children);
       name.value = group?.name || ''; type.value = group?.type || 'sibling'; anchor.value = group?.anchorId || '';
       memberInputs = []; members.replaceChildren(); search.value = '';
       for (const p of data.people) {
@@ -69,11 +92,14 @@
         label.append(check, el('span', p.name + (p.archive ? '（已封存）' : '') + (p.location ? '（' + p.location + '）' : ''), 'rank-member__name'));
         const order = el('input'); order.type = 'number'; order.min = '1'; order.max = '999'; order.step = '1'; order.placeholder = '排行未知';
         order.setAttribute('aria-label', p.name + '的群組排行'); order.value = group?.members.find(m => m.personId === p.id)?.order ?? ''; order.disabled = !check.checked;
-        check.addEventListener('change', () => { order.disabled = !check.checked; });
-        row.append(label, order); members.append(row); memberInputs.push({ personId:p.id, check, order, row, name:p.name });
+        check.addEventListener('change', () => { order.disabled = !check.checked; updateSelection(true); });
+        order.addEventListener('input', () => updateSelection());
+        row.append(label, order); members.append(row); memberInputs.push({ personId:p.id, check, order, row, name:p.name, label:window.familyPersonLabel(p,data) });
       }
+      removeGroup.hidden = !selectedId;
+      only.checked = false; updateSelection(true);
     }
-    search.addEventListener('input', () => memberInputs.forEach(m => m.row.hidden = !m.name.includes(search.value.trim())));
+    search.addEventListener('input', filterMembers); only.addEventListener('change', filterMembers);
     choose.addEventListener('change', () => { selectedId = choose.value; draw(); });
     ui.actions.append(button('儲存群組', () => {
       const group = { id:selectedId || 'g-' + crypto.randomUUID(), name:name.value.trim(), type:type.value, ...(anchor.value ? {anchorId:anchor.value} : {}),
@@ -83,34 +109,48 @@
       catch (error) { ui.error.textContent = error.message; ui.error.focus(); return; }
       save(ui, {action:'rankGroups',rankGroups:next,version:snapshot.version});
     }, 'primary-button'));
-    ui.actions.append(button('移除此群組', () => {
+    const removeGroup = button('移除此群組', () => {
       if (!selectedId) { ui.error.textContent = '請先選擇既有群組。'; return; }
       const next = groups.filter(g => g.id !== selectedId);
       try { Model.manageFamily(data, {action:'rankGroups',rankGroups:next}); }
       catch (error) { ui.error.textContent = error.message; return; }
       save(ui, {action:'rankGroups',rankGroups:next,version:snapshot.version});
-    }));
+    }, 'destructive-button'); ui.actions.append(removeGroup);
     draw(); ui.open();
   }
   function openMerge({ keepId = '',removeId = '' } = {}) {
     const snapshot = editor().snapshot(); if (!snapshot) return;
     const data = snapshot.data, ui = modal('合併重複成員');
     ui.content.append(el('p', '選擇保留與併入的成員，逐欄確認資料，再預覽所有關係變更。相同姓名不會自動合併。'));
-    const options = [['','請選擇成員'], ...data.people.filter(p => !p.archive).map(p => [p.id, `${p.name}（${p.location || '所在地未填'}・${p.id}）`])];
+    const options = [['','請選擇成員'], ...data.people.filter(p => !p.archive).map(p => [p.id, window.familyPersonLabel(p,data)])];
     const keep = field(ui.content, '保留的成員', select(options)), remove = field(ui.content, '併入後移除的成員', select(options));
+    keep.dataset.personPicker = remove.dataset.personPicker = '';
     const fields = el('div'), preview = el('div'); ui.content.append(fields, preview);
     let choices = new Map(), staged = null;
+    const radioPrefix = 'merge-' + crypto.randomUUID();
     const commit = button('確認合併', () => { if (staged) save(ui, {...staged,version:snapshot.version}); }, 'primary-button'); commit.disabled = true;
     function resetPreview() { staged = null; commit.disabled = true; preview.replaceChildren(); }
     function draw() {
       resetPreview(); fields.replaceChildren(); choices = new Map(); ui.error.textContent = '';
       const a = data.people.find(p => p.id === keep.value), b = data.people.find(p => p.id === remove.value);
       if (!a || !b || a.id === b.id) return;
+      const comparison = el('div', undefined, 'merge-identities');
+      comparison.append(el('p', '保留：' + window.familyPersonLabel(a,data)), el('p', '併入：' + window.familyPersonLabel(b,data))); fields.append(comparison);
+      const identical = el('details', undefined, 'merge-identical'), same = el('div'); let sameCount = 0;
       for (const [key,label] of Object.entries({name:'姓名',gender:'性別',location:'所在地',position:'職位',notes:'備註',siblingOrder:'手足排行',discipleOrder:'師門排行'})) {
         const show = v => v === '' || v == null ? '未填寫' : key === 'gender' ? ({M:'男',F:'女',U:'未填寫'})[v] : String(v);
-        const choice = field(fields, label, select([['keep',`${a.name}：${show(a[key])}`],['remove',`${b.name}：${show(b[key])}`]]));
-        choice.addEventListener('change', resetPreview); choices.set(key, choice);
+        if (show(a[key]) === show(b[key])) { same.append(el('p', label + '：' + show(a[key]))); sameCount++; continue; }
+        const row = el('section', undefined, 'merge-field'); row.append(el('h3', label));
+        const values = el('div', undefined, 'merge-values');
+        for (const [source,person] of [['keep',a],['remove',b]]) {
+          const value = el('label', undefined, 'merge-value'), choice = el('input'); choice.type = 'radio'; choice.name = radioPrefix + '-' + key; choice.value = source; choice.checked = source === 'keep';
+          value.append(choice, el('strong', source === 'keep' ? '保留者資料' : '併入者資料'), el('span', show(person[key]), 'merge-value-text')); values.append(value);
+          choice.addEventListener('change', () => { if (choice.checked) choices.set(key, choice); resetPreview(); });
+          if (choice.checked) choices.set(key, choice);
+        }
+        row.append(values); fields.append(row);
       }
+      identical.append(el('summary', '相同欄位 ' + sameCount + ' 項（維持原資料）'), same); fields.append(identical);
     }
     keep.addEventListener('change', draw); remove.addEventListener('change', draw);
     ui.actions.append(button('預覽合併', () => {
@@ -122,6 +162,7 @@
         const candidate = {action:'merge',keepId:a.id,removeId:b.id,fields:values};
         const result = Model.manageFamily(data,candidate);
         window.renderFamilyDifferences(preview,data,result,{beforeLabel:'目前族譜',afterLabel:'合併後'}); staged = candidate; commit.disabled = false;
+        ui.content.scrollTop += preview.getBoundingClientRect().top - ui.content.getBoundingClientRect().top;
       } catch (error) { ui.error.textContent = error.message; }
     }),commit); keep.value = keepId; remove.value = removeId; draw(); ui.open();
   }

@@ -325,6 +325,7 @@ export function createViewportController({
     const root = canvas();
     if (!root) return;
     root.style.transform = `scale(${scale})`;
+    root.style.setProperty('--canvas-scale',String(scale));
     root.style.left = `${offsetX}px`;
     root.style.top = `${offsetY}px`;
     updateSpacer();
@@ -629,7 +630,7 @@ export function createViewportController({
     out.addEventListener('click', () => setScale(scale - STEP));
     plus?.addEventListener('click', () => setScale(scale + STEP));
     value?.addEventListener('click', () => setScale(1));
-    fit?.addEventListener('click', fitWidth);
+    fit?.addEventListener('click', fitView);
     mobileFit?.addEventListener('click', fitView);
     const view = viewport();
     bindDesktopZoomControlsAttention(view);

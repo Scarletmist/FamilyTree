@@ -132,7 +132,7 @@
       if (!visible.length) list.append(el('p',keyword ? '沒有符合的成員。' : '目前沒有成員。','maintenance-empty'));
       ui.content.scrollTop = top;
     };
-    search.addEventListener('input',draw); ui.actions.append(button('更新資料',async () => { try { await FamilyEditor.reload(); draw(); } catch(e) { ui.error.textContent = e.message; } }));
+    search.addEventListener('input',draw); ui.actions.append(button('重新整理',async () => { try { await FamilyEditor.reload(); draw(); } catch(e) { ui.error.textContent = e.message; } }));
     const changed = () => draw(); window.addEventListener('familyappchange',changed);
     ui.dialog.addEventListener('close',() => { window.removeEventListener('familyappchange',changed); panels.delete(id); });
     panels.set(id,{ ...ui,search }); draw(); ui.open();
@@ -148,7 +148,8 @@
     for (const [key,label] of [['all','全部'],...Object.entries(FamilyMaintenance.categories)]) {
       const control = button(label,() => { category = key; ui.content.scrollTop = 0; draw(); }); control.dataset.category = key; categoryButtons.set(key,{ control,label }); filters.append(control);
     }
-    ui.content.append(el('p','依目前族譜整理需要確認的資料。疑似重複僅提供候選，請確認後再合併。','form-note'),search,filters,count,list);
+    const tools = el('div',undefined,'maintenance-sticky'); tools.append(search,filters,count);
+    ui.content.append(el('p','依目前族譜整理需要確認的資料。疑似重複僅提供候選，請確認後再合併。','form-note'),tools,list);
     function launch(task,action) {
       const restoreFocus = () => { if (ui.dialog.isConnected) search.focus({ preventScroll:true }); };
       const before = new Set(document.querySelectorAll('dialog'));
@@ -168,31 +169,37 @@
       const visible = result.items.filter(task => (category === 'all' || category === task.category)
         && FamilyMaintenance.normalize([task.title,task.reason,...task.personIds].join(' ')).includes(keyword));
       for (const [key,{ control,label }] of categoryButtons) { control.textContent = `${label}（${key === 'all' ? result.total : result.counts[key]}）`; control.setAttribute('aria-pressed',String(key === category)); }
+      const openStates = new Map([...list.querySelectorAll('details[data-category]')].map(node => [node.dataset.category,node.open]));
+      const groups = new Map();
       count.textContent = `共 ${result.total} 項待整理；顯示 ${visible.length} 項`; list.replaceChildren();
       for (const task of visible) {
+        if (!groups.has(task.category)) {
+          const group = el('details',undefined,'maintenance-task-group'); group.dataset.category = task.category; group.open = keyword ? true : openStates.get(task.category) ?? true;
+          group.append(el('summary',FamilyMaintenance.categories[task.category] + '（' + visible.filter(t => t.category === task.category).length + '）')); list.append(group); groups.set(task.category,group);
+        }
         const row = el('section',undefined,'maintenance-item'); row.dataset.taskId = task.id; row.dataset.category = task.category;
         row.append(el('small',FamilyMaintenance.categories[task.category],'maintenance-category'),el('h3',task.title),el('p',task.reason));
         if (task.personIds.length === 1) {
           const person = data.people.find(p => p.id === task.personIds[0]);
           if (person && data.people.some(p => p.id !== person.id && FamilyMaintenance.normalize(p.name) === FamilyMaintenance.normalize(person.name)))
-            row.append(el('p',`${person.id} · ${person.location || '所在地未填寫'}`,'form-note'));
+            row.append(el('p',window.familyPersonLabel(person,data),'form-note'));
         }
-        if (task.locations) row.append(el('p',task.locations.map((location,index) => `${task.personIds[index]}：${location || '所在地未填寫'}`).join('；'),'form-note'));
+        if (task.locations) row.append(el('p',task.locations.map((location,index) => `${data.people.find(p => p.id === task.personIds[index])?.name || '已移除成員'}：${location || '所在地未填寫'}`).join('；'),'form-note'));
         const actions = el('div',undefined,'maintenance-item-actions');
-        const labels = { edit:'編輯成員',intermediate:'補登親屬',location:'修正地點',merge:'比較並合併' };
+        const labels = { edit:'編輯成員',intermediate:'補親屬',location:'修正地點',merge:'核對重複成員' };
         actions.append(button(labels[task.action],() => launch(task,task.action)));
         if (task.action === 'edit') actions.append(button('新增親屬',() => launch(task,'relative')));
         if (task.action === 'intermediate') actions.append(button('忽略此待補項目',async () => {
           try { await FamilyEditor.ignoreIntermediate(task.planId); } catch(e) { ui.error.textContent = e.message; }
         }));
-        row.append(actions); list.append(row);
+        row.append(actions); groups.get(task.category).append(row);
       }
       if (!visible.length) list.append(el('p',keyword ? '沒有符合的待整理資料。' : '這個分類目前沒有待整理項目。','maintenance-empty'));
       ui.content.scrollTop = top;
       if (focusTask) (list.querySelector('[data-task-id="' + CSS.escape(focusTask) + '"] button') || search).focus({ preventScroll:true });
     }
     search.addEventListener('input',draw);
-    ui.actions.append(button('更新資料',async () => { try { await FamilyEditor.reload(); ui.error.textContent = ''; } catch(e) { ui.error.textContent = e.message; } }));
+    ui.actions.append(button('重新整理',async () => { try { await FamilyEditor.reload(); ui.error.textContent = ''; } catch(e) { ui.error.textContent = e.message; } }));
     const changed = () => draw(); window.addEventListener('familyappchange',changed); window.addEventListener('familylocationstatus',changed);
     ui.dialog.addEventListener('close',() => { window.removeEventListener('familyappchange',changed); window.removeEventListener('familylocationstatus',changed); panels.delete(id); });
     panels.set(id,{ ...ui,search }); draw(); ui.open();
@@ -200,5 +207,6 @@
   window.FamilyMaintenanceUI = { openLifecycle,openWorkbench,openArchived:() => library('archive'),openRecycle:() => library('recycle') };
   const list = document.querySelector('#member-list-dialog .member-list-sticky');
   const links = el('div',undefined,'maintenance-library-links');
-  links.append(button('封存成員',() => library('archive')),button('回收區',() => library('recycle')),button('待整理資料',openWorkbench)); list.after(links);
+  links.setAttribute('aria-label','資料管理');
+  links.append(el('span','資料管理','form-note'),button('回收區',() => library('recycle')),button('待整理資料',openWorkbench)); list.after(links);
 })();

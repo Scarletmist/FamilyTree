@@ -9,16 +9,25 @@
   }
   function sentence(data,from,relation) {
     const people = new Map(data.people.map(p => [p.id,p]));
-    return (people.get(relation.to ?? relation.personId)?.name || '已移除成員') + '是' + (people.get(from)?.name || '已移除成員') + '的' + (E.types[relation.type] || '關係成員') + (relation.kind ? '（' + relation.kind + '）' : '');
+    const target = people.get(relation.to ?? relation.personId);
+    return (target?.name || '已移除成員') + '是' + (people.get(from)?.name || '已移除成員') + '的' + term(relation.type,target?.gender) + (relation.kind ? '（' + relation.kind + '）' : '');
+  }
+  function term(type,gender) {
+    const words = {parent:['父親','母親'],child:['兒子','女兒'],grandparent:['祖父／外祖父','祖母／外祖母'],grandchild:['孫子／外孫','孫女／外孫女']};
+    return words[type] && ['M','F'].includes(gender) ? words[type][gender === 'M' ? 0 : 1] : E.types[type] || '關係成員';
   }
   function render(container,data,items,{ onEdit = id => globalThis.editFamilyMember?.(id) } = {}) {
     container.replaceChildren();
+    const seen = new Set();
     for (const { from,relation,evidence,heading } of items) {
       const section = el('section','evidence-record');
       section.append(el('h3','',heading || sentence(data,from,relation)),badge(evidence));
       const steps = evidence.origin === 'direct' ? [{ from,to:relation.to ?? relation.personId,type:relation.type,seniority:relation.seniority,records:evidence.records }] : evidence.premises;
       if (!steps.length) section.append(el('p','evidence-missing','尚無完整的原始記錄可供核對。'));
       for (const step of steps) {
+        const key = E.stable(step);
+        if (seen.has(key)) { section.append(el('p','form-note','此段依據已列於上方。')); continue; }
+        seen.add(key);
         const row = el('div','evidence-premise');
         if (step.rankGroup || step.rankOrder) {
           const group = step.rankGroup || step.rankOrder;
@@ -39,8 +48,8 @@
         if (!step.records.length) row.append(el('p','evidence-missing','找不到此段原始記錄。'));
         for (const record of step.records) {
           const owner = data.people.find(p => p.id === record.ownerId);
-          const details = el('div','evidence-source');
-          details.append(el('p','','記錄於：' + (owner?.name || record.ownerId)));
+          const details = el('details','evidence-source');
+          details.append(el('summary','','原始記錄：' + (owner?.name || '已移除成員')));
           details.append(el('p','','來源：' + (record.relation.source || '未填')));
           if (record.relation.note) details.append(el('p','','說明：' + record.relation.note));
           if (owner && onEdit) {
@@ -97,5 +106,5 @@
     for (const origin of ['直接記錄','推導']) list.append(el('span','relationship-origin',origin));
     list.append(el('p','','來源與說明可選填，從關係詳情查看原始記錄。')); container.append(list);
   }
-  globalThis.RelationshipEvidenceView = { badge,sentence,render,open,appendLegend };
+  globalThis.RelationshipEvidenceView = { badge,sentence,term,render,open,appendLegend };
 })();

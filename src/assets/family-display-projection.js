@@ -123,9 +123,10 @@
     for (const mentorship of graph.mentorships || []) {
       const freeTeacher = !adjacency.get(mentorship.teacher).length;
       if (!freeTeacher && adjacency.get(mentorship.student).length) continue;
-      const offset = freeTeacher ? 1 : 0;
-      contacts.get(mentorship.teacher).push([mentorship.student, offset]);
-      contacts.get(mentorship.student).push([mentorship.teacher, -offset]);
+      // Only the unplaced side follows the school hierarchy. Existing family
+      // generations stay authoritative, including when a teacher has relatives.
+      contacts.get(mentorship.teacher).push([mentorship.student, 1]);
+      contacts.get(mentorship.student).push([mentorship.teacher, -1]);
     }
 
     const placed = new Set(people.filter(person => adjacency.get(person.id).length).map(person => person.id));

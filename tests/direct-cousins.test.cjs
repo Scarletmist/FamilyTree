@@ -34,7 +34,7 @@ test('later fathers and their sibling relation coexist with direct cousin and kn
   assert.ok(Model.relationshipsFor(data, 'A').some(r => r.type === 'tangCousin'));
   data.people.find(p => p.id === 'C').gender = 'F';
   const mismatch = Kinship.query(Model.build(data), 'A', 'B');
-  assert.equal(mismatch.paths[0].title, '表兄弟');
+  assert.equal(mismatch.paths[0].title, '表兄', 'the recorded age ordering remains true when the cousin branch differs');
   assert.ok(mismatch.paths[0].notes.some(note => note.includes('類型不同')));
   assert.ok(mismatch.paths.some(path => path.title === '堂兄'));
 });

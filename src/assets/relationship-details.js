@@ -98,9 +98,9 @@
     }
     const direct = FamilyModel.relationshipsFor(graph, personId);
     const automatic = (graph.inferredRelations || []).filter(r => r.from === personId);
-    const automaticCategories = { tangCousin: 'cousins', biaoCousin: 'cousins', grandparent: 'grandparents', grandchild: 'grandchildren', uncleAunt: 'unclesAunts', nephewNiece: 'nephewsNieces' };
+    const automaticCategories = { sibling:'siblings', tangCousin: 'cousins', biaoCousin: 'cousins', grandparent: 'grandparents', grandchild: 'grandchildren', uncleAunt: 'unclesAunts', nephewNiece: 'nephewsNieces' };
     for (const relation of automatic) {
-      add(automaticCategories[relation.type], relation.personId, { kind: relation.kind,
+      add(automaticCategories[relation.type], relation.personId, { kind: relation.kind, ordinary:relation.type === 'sibling',
         context: '推導依據：' + [relation.from, ...relation.path.map(edge => edge.to)].map(id => byId.get(id).name).join(' → ') });
     }
     return CATEGORIES.map(category => {
@@ -121,7 +121,7 @@
           const order = FamilyModel.dependentRank(graph, target, person, 'fellowDisciple');
           role = order ? (order === 1 ? '大' : chineseNumber(order)) + '徒弟' : '徒弟';
         }
-        if (category.id === 'cousins') role = FamilyModel.relationshipsFor(graph, personId).filter(r => r.personId === entry.personId && FamilyModel.isCousin(r.type)).map(r => FamilyModel.cousinRole(target, r.type, r.seniority)).join('、');
+        if (category.id === 'cousins') role = FamilyModel.relationshipsFor(graph, personId).filter(r => r.personId === entry.personId && FamilyModel.isCousin(r.type)).map(r => FamilyModel.peerPresentation(graph,target,person,r.type,r).role).join('、');
         if (category.id === 'fellowDisciples') {
           const presentation = FamilyModel.peerPresentation(graph, target, person, 'fellowDisciple');
           role = presentation.role;
@@ -147,7 +147,7 @@
             entry.contexts.add('直接記錄與推導的堂／表類型不同，請核對原始關係。');
           }
         }
-        if (inferred.length && (!recorded.length || ['grandparents', 'grandchildren'].includes(category.id) && [...entry.kinds].every(kind => kind === '親生'))) {
+        if (inferred.length && category.id !== 'siblings' && (!recorded.length || ['grandparents', 'grandchildren'].includes(category.id) && [...entry.kinds].every(kind => kind === '親生'))) {
           role = [...new Set(inferred.map(r => FamilyModel.inferredRole(r, target)))].join('、');
         }
         if (inferred.some(r => !r.recorded)) badges.push('自動辨別');

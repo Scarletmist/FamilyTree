@@ -13,23 +13,28 @@
   }
   function render(container,data,items,{ onEdit = id => globalThis.editFamilyMember?.(id) } = {}) {
     container.replaceChildren();
-    for (const { from,relation,evidence } of items) {
+    for (const { from,relation,evidence,heading } of items) {
       const section = el('section','evidence-record');
-      section.append(el('h3','',sentence(data,from,relation)),badge(evidence));
-      const steps = evidence.origin === 'direct' ? [{ from,to:relation.to ?? relation.personId,type:relation.type,records:evidence.records }] : evidence.premises;
+      section.append(el('h3','',heading || sentence(data,from,relation)),badge(evidence));
+      const steps = evidence.origin === 'direct' ? [{ from,to:relation.to ?? relation.personId,type:relation.type,seniority:relation.seniority,records:evidence.records }] : evidence.premises;
       if (!steps.length) section.append(el('p','evidence-missing','尚無完整的原始記錄可供核對。'));
       for (const step of steps) {
         const row = el('div','evidence-premise');
-        if (step.rankGroup) {
-          const group = step.rankGroup;
+        if (step.rankGroup || step.rankOrder) {
+          const group = step.rankGroup || step.rankOrder;
           const name = id => data.people.find(person => person.id === id)?.name || '已移除成員';
           const rank = value => value == null ? '排行未知' : '排行 ' + value;
-          row.append(el('p','evidence-premise__title','排行群組：' + group.name),
+          const title = step.rankGroup ? '排行群組：' + group.name : group.field === 'siblingOrder' ? '同家庭的手足排行' : '同師門的排行';
+          row.append(el('p','evidence-premise__title',title),
             el('p','',name(step.from) + '：' + rank(group.fromOrder) + '；' + name(step.to) + '：' + rank(group.toOrder)));
           section.append(row); continue;
         }
         if (evidence.origin === 'inferred') {
           row.append(el('p','evidence-premise__title',sentence(data,step.from,step)),badge(E.describe(data,step.from,{...step,personId:step.to})));
+        }
+        if (['older','younger'].includes(step.seniority) && ['sibling','swornSibling','tangCousin','biaoCousin'].includes(step.type)) {
+          const name = id => data.people.find(person => person.id === id)?.name || '已移除成員';
+          row.append(el('p','',name(step.to) + '比' + name(step.from) + (step.seniority === 'older' ? '年長' : '年幼')));
         }
         if (!step.records.length) row.append(el('p','evidence-missing','找不到此段原始記錄。'));
         for (const record of step.records) {

@@ -38,13 +38,22 @@
   function describe(data, from, relation, index = records(data)) {
     const direct = relation.type && index.get(canonical(from,relation).key);
     const derived = !direct;
-    const steps = relation.path || (relation.rankGroup ? [{ ...relation, from, to:relation.to ?? relation.personId }] : []);
+    const sourceSteps = relation.path || (relation.rankGroup ? [{ ...relation, from, to:relation.to ?? relation.personId }] : []);
+    const seenSteps = new Set();
+    const steps = [...sourceSteps,...(relation.seniorityPath || [])].filter(step => {
+      const key = canonical(step.from,step).key + ':' + (step.groupId || '') + ':' + (step.rankOrder?.field || '');
+      if (seenSteps.has(key)) return false;
+      seenSteps.add(key); return true;
+    });
     const premises = derived ? steps.map(step => {
       const entry = index.get(canonical(step.from,step).key);
       const group = step.rankGroup && (data.rankGroups || []).find(group => group.id === step.groupId && group.type === step.type
         && group.members.some(member => member.personId === step.from) && group.members.some(member => member.personId === (step.to ?? step.personId)));
       return { key:canonical(step.from,step).key, from:step.from, to:step.to ?? step.personId,
-        type:step.type, ...(step.kind ? {kind:step.kind} : {}), records:entry?.records || [],
+        type:step.type, ...(step.kind ? {kind:step.kind} : {}), ...(step.seniority ? {seniority:step.seniority} : {}), records:entry?.records || [],
+        ...(['siblingOrder','discipleOrder'].includes(step.rankOrder?.field) ? { rankOrder:{ field:step.rankOrder.field,
+          fromOrder:data.people.find(person => person.id === step.from)?.[step.rankOrder.field] ?? null,
+          toOrder:data.people.find(person => person.id === (step.to ?? step.personId))?.[step.rankOrder.field] ?? null } } : {}),
         ...(group ? { rankGroup: { id:group.id, name:group.name, type:group.type,
           fromOrder:group.members.find(member => member.personId === step.from).order,
           toOrder:group.members.find(member => member.personId === (step.to ?? step.personId)).order } } : {}) };

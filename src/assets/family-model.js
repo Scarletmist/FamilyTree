@@ -33,6 +33,16 @@
   }
   function sameJsonData(a, b) { return stableJson(a) === stableJson(b); }
   const CHILD_KINDS = ['親生', '過繼', '養子女'];
+  const seniorityResolvers = new WeakMap();
+  function seniorityResolver(data) {
+    if (data.bonds && seniorityResolvers.has(data)) return seniorityResolvers.get(data);
+    const byId = new Map(data.people.map(person => [person.id,person]));
+    const resolver = Inference.createSeniorityResolver(data,(from,to,type,relation) =>
+      peerPresentation(data,byId.get(to),byId.get(from),type,relation,false).order);
+    // Application graphs are rebuilt on every edit. Mutable source JSON is never cached.
+    if (data.bonds) seniorityResolvers.set(data,resolver);
+    return resolver;
+  }
   const knownOrder = p => Number.isInteger(p.siblingOrder) && p.siblingOrder > 0;
   const orderKey = p => knownOrder(p) ? p.siblingOrder : Infinity;
   const compareOrder = (a, b) => knownOrder(a) && knownOrder(b) ? a.siblingOrder - b.siblingOrder : a.siblingOrder === 1 ? -1 : b.siblingOrder === 1 ? 1 : 0;
@@ -324,13 +334,17 @@
     for (const [a, b] of siblings.values()) {
       if (!hasRankGroup(data, a, 'sibling') && !hasRankGroup(data, b, 'sibling') && knownOrder(byId.get(a)) && knownOrder(byId.get(b)) && compareOrder(byId.get(a), byId.get(b)) === 0) fail('手足次序重複，請填入其他數字或留空。');
     }
-    const inferredRelations = Inference.derive(data, (base, target) => peerPresentation(data, byId.get(target), byId.get(base), 'sibling').order);
+    const seniority = seniorityResolver(data);
+    const inferredRelations = Inference.derive(data, (base, target) =>
+      peerPresentation(data,byId.get(target),byId.get(base),'sibling',undefined,false).order || seniority.compare(base,target).order,seniority);
     const inferredCousins = inferredRelations.filter(r => isCousin(r.type) && !r.recorded && r.from < r.personId)
       .map(r => ({ members: [r.from, r.personId], kind: r.type === 'tangCousin' ? '堂親' : '表親', inferred: true }));
+    const inferredSiblings = inferredRelations.filter(r => r.type === 'sibling' && !r.recorded && r.from < r.personId)
+      .map(r => ({ members:[r.from,r.personId],kind:'手足',inferred:true }));
     const bonds = [...cousins.values()].concat(inferredCousins)
       .concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' })))
       .concat([...sworn.values()].map(members => ({ members, kind: '契手足' })))
-      .concat([...siblings.values()].map(members => ({ members, kind: '手足' })));
+      .concat([...siblings.values()].map(members => ({ members, kind: '手足' }))).concat(inferredSiblings);
     const bondIndex = new Map(bonds.map(bond => [intermediateKey(bond.kind, bond.members), bond]));
     // Group membership establishes peers only. These rebuildable display bonds
     // never become recorded relationships or biological inference premises.
@@ -414,13 +428,18 @@
     const d = '零一二三四五六七八九';
     return n < 10 ? d[n] : n < 100 ? (n < 20 ? '' : d[Math.floor(n / 10)]) + '十' + (n % 10 ? d[n % 10] : '') : String(n);
   }
-  function peerPresentation(data, target, base, type = 'sibling', relation) {
+  function peerPresentation(data, target, base, type = 'sibling', relation, inferSeniority = true) {
     relation ||= base.id ? relationshipsFor(data || { people: [] }, base.id).find(r => r.personId === target.id && r.type === type) || {} : {};
     const ranks = peerRanks(data, target, base, type, relation.groupId);
     const valid = n => Number.isInteger(n) && n > 0;
     let order = valid(ranks.target) && valid(ranks.base) ? Math.sign(ranks.target - ranks.base) : 0;
     if (!order && type === 'sibling') order = ranks.target === 1 && ranks.base !== 1 ? -1 : ranks.base === 1 && ranks.target !== 1 ? 1 : 0;
     if (!order && hasSeniority(type)) order = relation.seniority === 'older' ? -1 : relation.seniority === 'younger' ? 1 : 0;
+    let inferred;
+    if (!order && inferSeniority && !ranks.ambiguous && data?.people && target.id && base.id) {
+      inferred = seniorityResolver(data).compare(base.id,target.id,type,relation.groupId);
+      order = inferred.order;
+    }
     const missing = [];
     if (target.gender === 'U') missing.push('未填性別');
     if (!order) missing.push('長幼未確認');
@@ -434,7 +453,8 @@
       else if (target.gender === 'U') role = (order < 0 ? '年長' : '年幼') + (type === 'fellowDisciple' ? '同門' : prefix + '手足');
       else role = prefix + rank + (order < 0 ? (target.gender === 'M' ? '兄' : '姊') : (target.gender === 'M' ? '弟' : '妹'));
     }
-    return { role, missing, order, rank: ranks.target, group: ranks.group?.name };
+    return { role, missing, order, rank: ranks.target, group: ranks.group?.name,
+      ...(inferred?.order ? { seniorityPath:inferred.path } : {}) };
   }
   function siblingEvidence(data, a, b) {
     const parents = id => relationshipsFor(data, id).filter(r => r.type === 'parent' && CHILD_KINDS.includes(r.kind));

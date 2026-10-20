@@ -59,7 +59,12 @@
   }
   function term(edge, byId) {
     if (['sibling','swornSibling','fellowDisciple'].includes(edge.type)) return Model.peerPresentation(byId.graph, byId.get(edge.to), byId.get(edge.from), edge.type, edge).role;
-    return evaluate(config.direct[edge.type] ?? config.display.fallbackTerm, contextFor([edge], byId));
+    const context = contextFor([edge],byId);
+    if (Model.isCousin(edge.type)) {
+      const order = Model.peerPresentation(byId.graph,byId.get(edge.to),byId.get(edge.from),edge.type,edge).order;
+      context.edge.seniority = order < 0 ? 'older' : order > 0 ? 'younger' : 'unknown';
+    }
+    return evaluate(config.direct[edge.type] ?? config.display.fallbackTerm, context);
   }
   function ruleNotes(rule, context) {
     return (rule?.notes || []).filter(note => typeof note === 'string' || matches(note.when, context))
@@ -182,7 +187,12 @@
     // A direct social relationship can coexist with a family relationship (e.g. father/teacher).
     const direct = adjacency.get(bId).filter(e => e.to === aId);
     for (const edge of direct) if (!result.paths.some(p => p.edges.length === 1 && p.edges[0].key === edge.key)) result.paths.push({ nodes: [bId, aId], edges: [edge], familyRoute: false });
-    const paths = result.paths.map(p => ({ ...p, ...describe(p, byId) }));
+    const paths = result.paths.map(p => {
+      const edge = p.edges.length === 1 && p.edges[0];
+      const peer = edge && ['sibling','swornSibling','fellowDisciple','tangCousin','biaoCousin'].includes(edge.type)
+        ? Model.peerPresentation(graph,byId.get(aId),byId.get(bId),edge.type,edge) : null;
+      return { ...p, ...describe(p, byId), ...(peer?.seniorityPath ? {seniorityPath:peer.seniorityPath,seniorityType:edge.type} : {}) };
+    });
     for (const relation of (graph.inferredRelations || []).filter(r => r.from === bId && r.personId === aId)) {
       if (relation.recorded) {
         if (['grandparent', 'grandchild'].includes(relation.type) && relation.lineage !== 'unknown') {
@@ -196,22 +206,32 @@
       if (edges.some(edge => !edge)) continue;
       const inferredPath = { nodes: [bId, ...edges.map(edge => edge.to)], edges, familyRoute: true, automatic: true };
       const description = describe(inferredPath, byId);
-      const title = description.confidence === 3 ? description.title : Model.isCousin(relation.type)
+      const knownSeniority = Model.isCousin(relation.type) && ['older','younger'].includes(relation.seniority);
+      const title = relation.type === 'sibling' ? Model.peerPresentation(graph,byId.get(aId),byId.get(bId),'sibling',relation).role
+        : knownSeniority ? Model.inferredRole(relation,byId.get(aId)) : description.confidence === 3 ? description.title : Model.isCousin(relation.type)
         ? term({ from: bId, to: aId, type: relation.type }, byId) : Model.inferredRole(relation, byId.get(aId));
-      const notes = [...description.notes.filter(note => note !== config.notes.fallback), '此關係由既有親屬關係自動辨別'];
-      if (Model.isCousin(relation.type) && !notes.includes(config.notes.cousinAge)) notes.push(config.notes.cousinAge);
+      const notes = [...description.notes.filter(note => note !== config.notes.fallback && (!knownSeniority || note !== config.notes.cousinAge)), '此關係由既有親屬關係自動辨別'];
+      if (Model.isCousin(relation.type) && !knownSeniority && !notes.includes(config.notes.cousinAge)) notes.push(config.notes.cousinAge);
+      if (knownSeniority) notes.push(config.notes.inferredSeniority);
       const existing = paths.find(path => path.edges.map(edge => edge.key).join(';') === edges.map(edge => edge.key).join(';'));
-      const value = { ...inferredPath, title, notes, confidence: 3 };
+      const value = { ...inferredPath, title, notes:notes.filter(Boolean), confidence: 3,
+        ...(relation.seniorityPath ? {seniorityPath:relation.seniorityPath,seniorityType:relation.type} : {}),
+        ...(Model.isCousin(relation.type) ? {cousinType:relation.type} : {}) };
       if (existing) Object.assign(existing, value);
       else paths.push(value);
     }
     for (const path of paths) if (path.cousinType && path.edges.length > 1) {
       const recorded = direct.find(e => e.type === path.cousinType && ['older', 'younger'].includes(e.seniority));
-      if (recorded) {
+      const peer = Model.peerPresentation(graph,byId.get(aId),byId.get(bId),path.cousinType,recorded || {});
+      const order = peer.order;
+      if (peer.seniorityPath) { path.seniorityPath = peer.seniorityPath; path.seniorityType = path.cousinType; }
+      if (recorded || order) {
         const suffix = path.title.indexOf(config.display.nonBiologicalPrefix);
-        path.title = term(recorded, byId) + (suffix < 0 ? '' : path.title.slice(suffix));
+        const relation = recorded || { from:bId,to:aId,type:path.cousinType,seniority:order < 0 ? 'older' : 'younger' };
+        path.title = term(relation, byId) + (suffix < 0 ? '' : path.title.slice(suffix));
         path.notes = path.notes.filter(note => note !== config.notes.cousinAge);
-        path.notes.push(config.notes.recordedCousinAge);
+        const note = recorded ? config.notes.recordedCousinAge : config.notes.inferredSeniority;
+        if (note && !path.notes.includes(note)) path.notes.push(note);
       }
       if (direct.some(e => Model.isCousin(e.type) && e.type !== path.cousinType)) path.notes.push(config.notes.cousinMismatch);
     }

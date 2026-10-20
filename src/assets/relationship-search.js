@@ -118,7 +118,10 @@
           container.append(RelationshipEvidenceView.badge(proof));
           const records = el('div'); records.className = 'relationship-path-evidence';
           const resolver = RelationshipEvidence.create(graph);
-          RelationshipEvidenceView.render(records,graph,path.edges.map(edge => ({ from:edge.from,relation:edge,evidence:resolver.describe(edge.from,edge) })),{onEdit:id => { closeResultDetails(); globalThis.editFamilyMember?.(id); }});
+          const items = path.edges.map(edge => ({ from:edge.from,relation:edge,evidence:resolver.describe(edge.from,edge) }));
+          if (path.seniorityPath?.length) items.push({ from:path.nodes[0],relation:{ type:path.seniorityType,personId:path.nodes.at(-1) },
+            heading:'長幼依據',evidence:resolver.describe(path.nodes[0],{path:path.seniorityPath}) });
+          RelationshipEvidenceView.render(records,graph,items,{onEdit:id => { closeResultDetails(); globalThis.editFamilyMember?.(id); }});
           container.append(records);
         }
         path.notes.filter(note => !/^來源：|^關係說明：/.test(note)).forEach(note => container.append(el('p', note)));

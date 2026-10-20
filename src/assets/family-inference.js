@@ -6,16 +6,143 @@
 })(globalThis, function () {
   'use strict';
   const inverse = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent',
-    sibling: 'sibling', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt' };
+    sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple',
+    tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt' };
   const flip = edge => ({ ...edge, from: edge.to, to: edge.from, type: inverse[edge.type],
-    ...(edge.seniority ? { seniority: edge.seniority === 'older' ? 'younger' : edge.seniority === 'younger' ? 'older' : 'unknown' } : {}) });
+    ...(edge.seniority ? { seniority: edge.seniority === 'older' ? 'younger' : edge.seniority === 'younger' ? 'older' : 'unknown' } : {}),
+    ...(edge.rankOrder ? { rankOrder:{ ...edge.rankOrder, fromOrder:edge.rankOrder.toOrder, toOrder:edge.rankOrder.fromOrder } } : {}) });
   const reverse = path => path.slice().reverse().map(flip);
   const pairKey = (a, b) => [a, b].sort().join('|');
   const edgeKey = edge => [edge.from, edge.to, edge.type, edge.kind || ''].join('|');
   const pathKey = path => path.map(edgeKey).join(';');
   const lineageOf = person => person.gender === 'M' ? 'paternal' : person.gender === 'F' ? 'maternal' : 'unknown';
 
-  function derive(data, siblingOrder = () => 0) {
+  // A partial order supplies seniority, never relationship membership. Numeric
+  // ranks enter only through a recorded peer/family or their own rank group.
+  function createSeniorityResolver(data, sourceOrder = () => 0) {
+    const people = new Map(data.people.map(person => [person.id,person]));
+    const domains = new Map(), families = new Map(), teachers = new Map();
+    const peers = new Set(['sibling','swornSibling','fellowDisciple','tangCousin','biaoCousin']);
+    const groups = data.rankGroups || [];
+    function family(type, anchor, member) {
+      const key = type + ':' + anchor;
+      if (!families.has(key)) families.set(key,{ type,members:new Set() });
+      families.get(key).members.add(member);
+      if (type === 'fellowDisciple') {
+        if (!teachers.has(member)) teachers.set(member,new Set());
+        teachers.get(member).add(anchor);
+      }
+    }
+    for (const person of data.people) for (const relation of person.relationships) {
+      if (['parent','child'].includes(relation.type) && ['親生','過繼','養子女'].includes(relation.kind)) {
+        family('sibling',relation.type === 'parent' ? relation.personId : person.id,relation.type === 'parent' ? person.id : relation.personId);
+      }
+      if (['teacher','student'].includes(relation.type)) {
+        family('fellowDisciple',relation.type === 'teacher' ? relation.personId : person.id,relation.type === 'teacher' ? person.id : relation.personId);
+      }
+    }
+    function scope(from, to, type, groupId) {
+      if (['sibling','tangCousin','biaoCousin'].includes(type)) return 'age';
+      if (!peers.has(type)) return null;
+      const shared = groups.filter(group => group.type === type && (!groupId || group.id === groupId)
+        && group.members.some(member => member.personId === from) && group.members.some(member => member.personId === to));
+      if (shared.length === 1) return type + ':group:' + shared[0].id;
+      if (shared.length > 1 || groupId) return null;
+      if (type === 'fellowDisciple') {
+        const common = [...(teachers.get(from) || [])].filter(id => teachers.get(to)?.has(id));
+        if (common.length === 1) return type + ':teacher:' + common[0];
+        if (common.length > 1) return null;
+      }
+      return type;
+    }
+    function add(edge, order) {
+      if (!order || edge.from === edge.to || !people.has(edge.from) || !people.has(edge.to)) return;
+      const key = scope(edge.from,edge.to,edge.type,edge.groupId);
+      if (!key) return;
+      const directed = order < 0 ? flip(edge) : edge; // Elder -> younger.
+      if (!domains.has(key)) domains.set(key,new Map());
+      const graph = domains.get(key);
+      for (const id of [directed.from,directed.to]) if (!graph.has(id)) graph.set(id,new Map());
+      if (!graph.get(directed.from).has(directed.to)) graph.get(directed.from).set(directed.to,directed);
+    }
+    function addPeer(from, to, type, relation = {}) {
+      // Legacy fellowship seniority is not a school rank. Only numeric school
+      // ranks and a selected school group establish that ordering.
+      const relative = type === 'fellowDisciple' ? 0 : relation.seniority === 'older' ? -1 : relation.seniority === 'younger' ? 1 : 0;
+      const order = sourceOrder(from,to,type,relation) || relative;
+      if (!order) return;
+      const edge = { from,to,type,...(relative ? {seniority:relation.seniority} : {}),...(relation.groupId ? {groupId:relation.groupId} : {}) };
+      if (!relative) {
+        const shared = groups.filter(group => group.type === type && (!relation.groupId || group.id === relation.groupId)
+          && group.members.some(member => member.personId === from) && group.members.some(member => member.personId === to));
+        if (shared.length === 1) { edge.groupId = shared[0].id; edge.rankGroup = true; }
+        else {
+          const field = type === 'sibling' ? 'siblingOrder' : type === 'fellowDisciple' ? 'discipleOrder' : null;
+          if (field) edge.rankOrder = { field,fromOrder:people.get(from)[field] ?? null,toOrder:people.get(to)[field] ?? null };
+        }
+      }
+      add(edge,order);
+    }
+    for (const person of data.people) for (const relation of person.relationships) {
+      if (peers.has(relation.type)) addPeer(person.id,relation.personId,relation.type,relation);
+    }
+    for (const {type,members} of families.values()) {
+      const ids = [...members].sort();
+      for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) addPeer(ids[i],ids[j],type);
+    }
+    for (const group of groups) {
+      const ranked = group.members.filter(member => member.order !== null).slice().sort((a,b) => a.order - b.order);
+      for (let i = 1; i < ranked.length; i++) add({ from:ranked[i-1].personId,to:ranked[i].personId,type:group.type,groupId:group.id,rankGroup:true },1);
+      if (group.type === 'sibling' && ranked[0]?.order === 1) {
+        for (const member of group.members.filter(member => member.order === null)) add({ from:ranked[0].personId,to:member.personId,type:group.type,groupId:group.id,rankGroup:true },1);
+      }
+    }
+    // Exclude cyclic evidence instead of drawing new conclusions from conflicting
+    // orders. Tarjan components keep unrelated, consistent branches usable.
+    const blocked = new Map();
+    for (const [key,graph] of domains) {
+      const index = new Map(), low = new Map(), stack = [], active = new Set(), invalid = new Set();
+      let serial = 0;
+      function visit(id) {
+        index.set(id,serial); low.set(id,serial++); stack.push(id); active.add(id);
+        for (const next of graph.get(id).keys()) {
+          if (!index.has(next)) { visit(next); low.set(id,Math.min(low.get(id),low.get(next))); }
+          else if (active.has(next)) low.set(id,Math.min(low.get(id),index.get(next)));
+        }
+        if (low.get(id) !== index.get(id)) return;
+        const component = [];
+        let next;
+        do { next = stack.pop(); active.delete(next); component.push(next); } while (next !== id);
+        if (component.length > 1) component.forEach(member => invalid.add(member));
+      }
+      for (const id of graph.keys()) if (!index.has(id)) visit(id);
+      blocked.set(key,invalid);
+    }
+    const searches = new Map();
+    function paths(key, start) {
+      const cacheKey = key + '|' + start;
+      if (searches.has(cacheKey)) return searches.get(cacheKey);
+      const found = new Map(), graph = domains.get(key), invalid = blocked.get(key);
+      if (graph?.has(start) && !invalid.has(start)) {
+        found.set(start,[]);
+        const queue = [start];
+        for (let i = 0; i < queue.length; i++) for (const [next,edge] of [...graph.get(queue[i])].sort(([a],[b]) => a.localeCompare(b))) {
+          if (found.has(next) || invalid.has(next)) continue;
+          found.set(next,[...found.get(queue[i]),edge]); queue.push(next);
+        }
+      }
+      searches.set(cacheKey,found); return found;
+    }
+    return { compare(from,to,type = 'sibling',groupId) {
+      const key = scope(from,to,type,groupId);
+      if (!key || from === to) return { order:0,path:[] };
+      const younger = paths(key,from).get(to), older = paths(key,to).get(from);
+      if (!!younger === !!older) return { order:0,path:[] };
+      return younger ? { order:1,path:younger } : { order:-1,path:reverse(older) };
+    } };
+  }
+
+  function derive(data, siblingOrder = () => 0, seniority = createSeniorityResolver(data)) {
     const people = new Map(data.people.map(person => [person.id, person]));
     const parents = new Map(data.people.map(person => [person.id, new Map()]));
     const children = new Map(data.people.map(person => [person.id, new Map()]));
@@ -71,13 +198,18 @@
         addSibling(ids[i], ids[j], [flip(family.get(ids[i])), family.get(ids[j])]);
       }
     }
+    function conflictingParents(a, b) {
+      const pa = [...parents.get(a).keys()], pb = [...parents.get(b).keys()];
+      for (const gender of ['M', 'F']) {
+        const left = pa.filter(id => people.get(id).gender === gender), right = pb.filter(id => people.get(id).gender === gender);
+        if (left.length && right.length && !left.some(id => right.includes(id))) return true;
+      }
+      return false;
+    }
     function fullSibling(a, b) {
       const pa = [...parents.get(a).keys()], pb = [...parents.get(b).keys()];
       if (pa.length === 2 && pb.length === 2) return pa.every(id => pb.includes(id));
-      for (const gender of ['M', 'F']) {
-        const left = pa.filter(id => people.get(id).gender === gender), right = pb.filter(id => people.get(id).gender === gender);
-        if (left.length && right.length && !left.some(id => right.includes(id))) return false;
-      }
+      if (conflictingParents(a,b)) return false;
       return directSiblings.has(pairKey(a, b));
     }
     function siblingPaths(start, type, branchParent) {
@@ -129,6 +261,14 @@
       if (type === 'uncleAunt') delete inverseExtra.seniority;
       add(to, from, inverse[type], reverse(path), inverseExtra);
     }
+    // Declared full-sibling chains can establish another sibling relationship.
+    // Shared-parent proofs stay with the existing evidence resolver, which keeps
+    // every known parent inspectable. Half-sibling conflicts cannot bridge chains.
+    for (const person of data.people) for (const [sibling,proof] of siblingPaths(person.id,'sibling')) {
+      if (person.id >= sibling || proof.length < 2 || !proof.every(edge => edge.type === 'sibling') || conflictingParents(person.id,sibling)) continue;
+      if ([...parents.get(person.id).keys()].some(parent => parents.get(sibling).has(parent))) continue;
+      both(person.id,sibling,'sibling',proof);
+    }
     for (const [child, family] of parents) for (const [parent, childParent] of family) {
       const lineage = lineageOf(people.get(parent));
       for (const [grandparent, parentGrandparent] of parents.get(parent)) {
@@ -168,7 +308,11 @@
         both(a, b, seed.type, [...reverse(before), ...seed.path, ...after]);
       }
     }
-    return [...relations.values()].map(relation => ({ ...relation, recorded: recorded.has([relation.from, relation.personId, relation.type, relation.kind || ''].join('|')) }))
+    return [...relations.values()].map(relation => {
+      const order = ['sibling','tangCousin','biaoCousin'].includes(relation.type) ? seniority.compare(relation.from,relation.personId,relation.type) : null;
+      return { ...relation,...(order?.order ? { seniority:order.order < 0 ? 'older' : 'younger',seniorityPath:order.path } : {}),
+        recorded:recorded.has([relation.from,relation.personId,relation.type,relation.kind || ''].join('|')) };
+    })
       .sort((a, b) => [a.from, a.type, a.personId, a.kind || ''].join('|').localeCompare([b.from, b.type, b.personId, b.kind || ''].join('|')));
   }
 
@@ -202,7 +346,11 @@
     if (relation.type === 'nephewNiece') return relation.lineage === 'unknown' ? ({ M: '姪子／外甥', F: '姪女／外甥女', U: '姪甥子女' })[gender]
       : ({ M: outer ? '外甥' : '姪子', F: outer ? '外甥女' : '姪女', U: outer ? '甥子女' : '姪子女' })[gender];
     const prefix = relation.type === 'tangCousin' ? '堂' : '表';
+    if (relation.type === 'sibling') return relation.seniority === 'older' ? { M:'兄',F:'姊',U:'年長手足' }[gender]
+      : relation.seniority === 'younger' ? { M:'弟',F:'妹',U:'年幼手足' }[gender] : '手足（長幼待確認）';
+    if (['older','younger'].includes(relation.seniority)) return prefix + (relation.seniority === 'older'
+      ? { M:'兄',F:'姊',U:'年長手足' } : { M:'弟',F:'妹',U:'年幼手足' })[gender];
     return prefix + ({ M: '兄弟', F: '姊妹', U: '兄弟姊妹' })[gender];
   }
-  return { derive, normalize, role };
+  return { derive, normalize, role, createSeniorityResolver };
 });

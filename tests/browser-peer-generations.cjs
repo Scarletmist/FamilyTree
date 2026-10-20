@@ -35,7 +35,11 @@ const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelati
       }
       async function checkGenerations(expected) {
         await page.waitForFunction(expected => Object.entries(expected).every(([id, gen]) =>
-          Number(document.querySelector(`.person[data-person-id="${id}"]`)?.closest('.generation')?.dataset.gen) === gen), expected);
+          Number(document.querySelector(`.person[data-person-id="${id}"]`)?.closest('.generation')?.dataset.gen) === gen), expected).catch(async error => {
+          console.error({mode,width,expected,actual:await page.locator('.person').evaluateAll(nodes => Object.fromEntries(nodes.map(node =>
+            [node.dataset.personId,Number(node.closest('.generation').dataset.gen)]))),errors});
+          throw error;
+        });
         const actual = await page.locator('.person').evaluateAll(nodes => Object.fromEntries(nodes.map(node =>
           [node.dataset.personId, Number(node.closest('.generation').dataset.gen)])));
         for (const [id, gen] of Object.entries(expected)) assert.equal(actual[id], gen, `${mode}, ${width}: ${id}`);
@@ -67,10 +71,42 @@ const sourceData = data => ({ ...data, people: data.people.map(({ inferredRelati
       await page.reload();
       await checkGenerations({ C: 4, A: 4, B: 5 });
       assert.deepEqual(await page.evaluate(() => FamilyModel.relationshipsFor(FamilyApp.snapshot().data, 'A').filter(relation => ['parent', 'grandparent'].includes(relation.type))), []);
+
+      // School-only students follow their teacher by one generation; peers stay together.
+      const school = {schemaVersion:3,people:[person('T'),person('A',[{type:'teacher',personId:'T'}]),
+        person('B',[{type:'teacher',personId:'T'}]),person('C',[{type:'fellowDisciple',personId:'B'}]),
+        person('D',[{type:'teacher',personId:'A'}]),person('X'),person('Y',[parent('X')])]};
+      await page.evaluate(data => FamilyApp.importFamily({data,version:FamilyApp.snapshot().version}),school);
+      await checkGenerations({ T:1,A:2,B:2,C:2,D:3,X:1,Y:2 });
+      // A teacher with recorded ancestors must still put otherwise unplaced students below it.
+      const anchoredSchool = {...school,people:[person('G'),...school.people.map(p => p.id === 'T' ? {...p,relationships:[parent('G')]} : p)]};
+      await page.evaluate(data => FamilyApp.importFamily({data,version:FamilyApp.snapshot().version}),anchoredSchool);
+      await checkGenerations({ G:1,T:2,A:3,B:3,C:3,D:4,X:1,Y:2 });
+      const schoolSnapshot = await page.evaluate(() => FamilyApp.snapshot());
+      assert.deepEqual(sourceData(schoolSnapshot.data),anchoredSchool);
+      const studentRows = await page.locator('.person[data-person-id="A"],.person[data-person-id="B"],.person[data-person-id="C"]').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
+      assert(studentRows.every(top => Math.abs(top-studentRows[0]) < 1),'students and fellow disciples share the actual rendered row');
+      await page.reload();
+      await checkGenerations({ G:1,T:2,A:3,B:3,C:3,D:4 });
+      const reloaded = await page.evaluate(() => FamilyApp.snapshot());
+      assert.deepEqual(reloaded.data,schoolSnapshot.data,'projection and reload do not alter saved relationships');
+      assert.equal(reloaded.version,schoolSnapshot.version,'projection and reload do not create a new data version');
+
+      // Adding A's own family relationship overrides the school placement for its branch.
+      await page.evaluate(() => {
+        const snapshot = FamilyApp.snapshot(), member = snapshot.data.people.find(p => p.id === 'A');
+        return FamilyApp.updateMember('A',{version:snapshot.version,member:{...member,relationships:[...FamilyModel.relationshipsFor(snapshot.data,'A'),{type:'parent',personId:'G',kind:'親生'}]}});
+      });
+      await checkGenerations({ G:1,T:2,A:2,B:3,C:3,D:3,X:1,Y:2 });
+      await page.reload();
+      await checkGenerations({ G:1,T:2,A:2,B:3,C:3,D:3 });
+      await page.evaluate(() => FamilyApp.undo(FamilyApp.snapshot().version));
+      await checkGenerations({ G:1,T:2,A:3,B:3,C:3,D:4 });
+      assert.deepEqual(sourceData(await page.evaluate(() => FamilyApp.snapshot().data)),anchoredSchool);
       assert.deepEqual(errors, []);
       await context.close();
     }
-    console.log('PASS: fellow-disciple generations, descendant placement, new ancestors, undo and reload in API/static desktop/mobile');
+    console.log('PASS: school-only and anchored-teacher generations, same-generation peers, family priority, descendant placement, new ancestors, undo and reload in API/static desktop/mobile');
   } finally {
     await browser?.close();
     await new Promise(resolve => server.close(resolve));

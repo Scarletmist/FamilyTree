@@ -71,50 +71,70 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     svg.setAttribute('width', rect.width);
     svg.setAttribute('height', rect.height);
     addMarkers(svg, 'edge-');
-    function box(id) {
-      const r = nodes.get(id).getBoundingClientRect();
-      return { x: r.left - rect.left + r.width / 2, top: r.top - rect.top, bottom: r.bottom - rect.top };
-    }
-    const cardBoxes = [...nodes.values()].map(node => {
+    const measuredBoxes = new Map([...nodes].map(([id,node]) => {
       const r = node.getBoundingClientRect();
-      return { left: r.left - rect.left, right: r.right - rect.left, top: r.top - rect.top, bottom: r.bottom - rect.top };
-    });
+      return [id,{ id,gen:byId.get(id).gen,x:r.left - rect.left + r.width / 2,
+        left:r.left - rect.left,right:r.right - rect.left,top:r.top - rect.top,bottom:r.bottom - rect.top }];
+    }));
+    const box = id => measuredBoxes.get(id);
+    const cardBoxes = [...measuredBoxes.values()];
     const connectorSegments = [];
     const portReservations = new Map();
     let connectorSerial = 0;
     const pathDecorations = new Map();
-    function reservePort(id, side, group, baseOffset = 0) {
-      const key = `${id}:${side}:${baseOffset}`;
-      if (!portReservations.has(key)) portReservations.set(key, new Set());
-      portReservations.get(key).add(group);
+    function reservePort(id, side, group, target = box(id)) {
+      const key = `${id}:${side}`;
+      if (!portReservations.has(key)) portReservations.set(key, new Map());
+      const ports = portReservations.get(key);
+      const coordinate = side === 'left' || side === 'right' ? (target.top + target.bottom) / 2 : target.x;
+      const existing = ports.get(group);
+      ports.set(group,{group,coordinate:Math.min(existing?.coordinate ?? Infinity,coordinate)});
     }
     unions.forEach(u => {
       const group = `union:${u.id}`;
-      u.partners.forEach(id => reservePort(id, 'bottom', group));
-      childrenOf(u).forEach(d => reservePort(d.child, 'top', group));
+      const children = childrenOf(u);
+      const targetX = ids => ({x:ids.reduce((sum,id) => sum + box(id).x,0) / ids.length});
+      u.partners.forEach(id => reservePort(id, 'bottom', group,children.length ? targetX(children.map(d => d.child)) : targetX(u.partners)));
+      children.forEach(d => reservePort(d.child, 'top', group,targetX(u.partners)));
+    });
+    const extraPlans = extra.map(r => {
+      const plans = intermediatePlans.filter(p => r.planId ? p.id === r.planId : p.edgeKey === FamilyModel.intermediateKey(r.kind,[r.from,r.to]));
+      return r.kind === '手足' || r.planId ? plans : [...plans.filter(p => p.near === r.from),...plans.filter(p => p.near === r.to)];
+    });
+    const extraSides = extra.map((r,index) => {
+      const plans = extraPlans[index], a = box(r.from), b = box(r.to);
+      if (!plans.length) return FamilyConnectorRouting.endpointSides(a,b,cardBoxes);
+      return {from:FamilyConnectorRouting.endpointSides(a,{gen:plans[0].generation + displayShift}).from,
+        to:FamilyConnectorRouting.endpointSides({gen:plans.at(-1).generation + displayShift},b).to};
     });
     extra.forEach((r, index) => {
       const group = sharing[index].group;
-      reservePort(r.from, 'top', group, -42);
-      reservePort(r.to, 'top', group, -42);
+      reservePort(r.from, extraSides[index].from, group,box(r.to));
+      reservePort(r.to, extraSides[index].to, group,box(r.from));
     });
-    function memberPort(id, side, group, baseOffset = 0, preferredSpacing = 18) {
-      const key = `${id}:${side}:${baseOffset}`;
-      const groups = [...(portReservations.get(key) || new Set([group]))];
-      if (!groups.includes(group)) groups.push(group);
-      const index = groups.indexOf(group), count = groups.length;
-      const node = nodes.get(id);
-      const width = node?.getBoundingClientRect().width || 160;
-      const limit = Math.max(12, width / 2 - 12);
-      if (count <= 1) return box(id).x + Math.max(-limit, Math.min(limit, baseOffset));
+    function memberPort(id, side, group, preferredSpacing = 18) {
+      const ports = portReservations.get(`${id}:${side}`);
+      const groups = [...ports.values()].sort((a,b) => a.coordinate - b.coordinate || a.group.localeCompare(b.group));
+      const index = groups.findIndex(port => port.group === group), count = groups.length;
+      const bounds = box(id), horizontal = side === 'top' || side === 'bottom';
+      const center = horizontal ? bounds.x : (bounds.top + bounds.bottom) / 2;
+      const length = horizontal ? bounds.right - bounds.left : bounds.bottom - bounds.top;
+      const limit = Math.max(0, length / 2 - 14);
+      if (count <= 1) return center;
       const span = Math.min((count - 1) * preferredSpacing, limit * 2);
       const step = span / (count - 1);
-      const desiredStart = baseOffset - span / 2;
-      const start = Math.max(-limit, Math.min(limit - span, desiredStart));
-      return box(id).x + start + index * step;
+      return center - span / 2 + index * step;
+    }
+    function memberEndpoint(id,side,group,distance = 24) {
+      const bounds = box(id), port = memberPort(id,side,group);
+      const horizontal = side === 'left' || side === 'right';
+      const direction = ({top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]})[side];
+      const point = horizontal ? [bounds[side],port] : [port,bounds[side]];
+      const clearance = horizontal ? 12 : distance;
+      return {point,escape:point.map((value,index) => value + direction[index] * clearance),direction};
     }
     const otherSegments = group => connectorSegments.filter(segment => segment.group !== group);
-    const route = (start, end, group) => FamilyConnectorRouting.route(start, end, cardBoxes, otherSegments(group));
+    const route = (start, end, group, directions) => FamilyConnectorRouting.route(start, end, cardBoxes, otherSegments(group),directions);
     function path(points, kind, ids, role, union, group, crossingSegments, inferred = false, detailsOnly = false) {
       const connectorGroup = group || (union ? `union:${union}` : `edge:${connectorSerial++}`);
       const logicalPoints = FamilyConnectorRouting.simplify(points);
@@ -188,11 +208,11 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
       const familyIds = u.partners.concat(kids.map(d => d.child));
       // Join both parents below their cards; the child stem starts ON this line.
       if (u.partners.length === 1) {
-        { const groupKey = `union:${u.id}`; const portX = memberPort(u.partners[0], 'bottom', groupKey); const escapeY = Math.min(marriageY, a.bottom + 10); path([[portX, a.bottom], ...route([portX, escapeY], [a.x, marriageY], groupKey)], 'family', familyIds, 'parent-origin', u.id, groupKey); }
+        { const groupKey = `union:${u.id}`; const portX = memberPort(u.partners[0], 'bottom', groupKey); const escapeY = Math.min(marriageY, a.bottom + 10); path([[portX, a.bottom], ...route([portX, escapeY], [a.x, marriageY], groupKey,{startDirection:[0,1]})], 'family', familyIds, 'parent-origin', u.id, groupKey); }
       } else {
         const originXs = origins.map(p => p.x);
         path([[Math.min(...originXs), marriageY], [Math.max(...originXs), marriageY]], u.married ? 'spouse' : 'family', familyIds, 'marriage', u.id);
-        origins.forEach((p, partnerIndex) => { const groupKey = `union:${u.id}`; const portX = memberPort(u.partners[partnerIndex], 'bottom', groupKey); const escapeY = Math.min(marriageY, p.bottom + 10); path([[portX, p.bottom], ...route([portX, escapeY], [p.x, marriageY], groupKey)], u.married ? 'spouse' : 'family', familyIds, 'parent-origin', u.id, groupKey); });
+        origins.forEach((p, partnerIndex) => { const groupKey = `union:${u.id}`; const portX = memberPort(u.partners[partnerIndex], 'bottom', groupKey); const escapeY = Math.min(marriageY, p.bottom + 10); path([[portX, p.bottom], ...route([portX, escapeY], [p.x, marriageY], groupKey,{startDirection:[0,1]})], u.married ? 'spouse' : 'family', familyIds, 'parent-origin', u.id, groupKey); });
         const marriageProofs = u.married ? u.partners.flatMap((id,i) => u.partners.slice(i + 1).flatMap(to => evidenceResolver.between(id,to,['spouse']))) : [];
         label(anchor + 8, marriageY - 8, u.married ? '婚姻' : kids.every(d => d.generations === 2) ? '共同祖父母' : '共同父母', u.married ? 'spouse' : 'family', familyIds, false, marriageProofs);
       }
@@ -204,8 +224,9 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
         const stemX = anchor;
         const groupKey = `union:${u.id}`;
         const childPorts = new Map(group.map(d => {
-          const c = box(d.child), width = nodes.get(d.child).getBoundingClientRect().width;
-          return [d.child, FamilyConnectorRouting.attachmentX(memberPort(d.child, 'top', groupKey), c.x - width / 2 + 12, c.x + width / 2 - 12, barY, c.top, otherSegments(groupKey))];
+          const c = box(d.child);
+          const reserved = [...portReservations.get(`${d.child}:top`).keys()].filter(key => key !== groupKey).map(key => memberPort(d.child,'top',key));
+          return [d.child, FamilyConnectorRouting.attachmentX(memberPort(d.child, 'top', groupKey), c.left + 14, c.right - 14, barY, c.top, otherSegments(groupKey),reserved)];
         }));
         const xs = [...childPorts.values(), stemX];
         const stem = route([anchor, marriageY], [stemX, barY], groupKey);
@@ -216,7 +237,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
           const c = box(d.child);
           const portX = childPorts.get(d.child);
           const escapeY = Math.max(barY, c.top - 10);
-          const childPath = [...route([portX, barY], [portX, escapeY], groupKey), [portX, c.top]];
+          const childPath = [...route([portX, barY], [portX, escapeY], groupKey,{endDirection:[0,-1]}), [portX, c.top]];
           path(childPath, d.kind, familyIds, 'child', u.id, groupKey);
           const proofs = u.partners.flatMap(id => evidenceResolver.between(d.child,id,[d.generations === 2 ? 'grandparent' : 'parent']).filter(p => p.relation.kind === d.kind));
           label(portX + 10, c.top - 14, d.kind + (d.generations === 2 ? '（祖孫）' : ''), d.kind, familyIds, false, proofs);
@@ -227,20 +248,17 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     extra.forEach((r, index) => {
       const evidenceTypes = r.planId ? ['grandchild','grandparent'] : ({'師徒':['student'],'手足':['sibling'],'契手足':['swornSibling'],'堂親':['tangCousin'],'表親':['biaoCousin'],'師兄弟姊妹':['fellowDisciple']})[r.kind] || [];
       const proofs = evidenceResolver.between(r.from,r.to,evidenceTypes);
-      const plans = intermediatePlans.filter(p => r.planId ? p.id === r.planId : p.edgeKey === FamilyModel.intermediateKey(r.kind, [r.from, r.to]));
+      const plans = extraPlans[index];
       const from = r.from, to = r.to;
-      const a = box(from), b = box(to);
       if (plans.length) {
         const groupKey = sharing[index].group;
-        const real = id => ({ ...box(id), x: memberPort(id, 'top', groupKey, -42), gen: byId.get(id).gen, id });
         const virtual = plan => {
           const slot = slots.get(plan.slotId).getBoundingClientRect();
           const row = slots.get(plan.slotId).parentElement.getBoundingClientRect();
           return { x: slot.left - rect.left + slot.width / 2, y: slot.top - rect.top + slot.height / 2,
             top: row.top - rect.top, bottom: row.bottom - rect.top, gen: plan.generation + displayShift, plan };
         };
-        const ordered = r.kind === '手足' || r.planId ? plans : [...plans.filter(p => p.near === r.from), ...plans.filter(p => p.near === r.to)];
-        const chain = [real(from), ...ordered.map(virtual), real(to)];
+        const chain = [box(from), ...plans.map(virtual), box(to)];
         chain.forEach(node => { if (node.plan) intermediateButton(node.plan, node.x, node.y); });
         const ids = [...new Set([r.from, r.to, from, to])];
         for (let i = 1; i < chain.length; i++) {
@@ -248,11 +266,12 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
           const same = left.gen === right.gen;
           const endpoint = (node, other) => {
             const upward = same || node.gen > other.gen;
-            return { x: node.x, y: node.plan ? node.y : upward ? node.top : node.bottom,
-              escape: upward ? node.top - 24 - lane * auxiliaryLaneStep : node.bottom + 24 + lane * auxiliaryLaneStep };
+            const side = upward ? 'top' : 'bottom', distance = 24 + lane * auxiliaryLaneStep;
+            if (!node.plan) return memberEndpoint(node.id,side,groupKey,distance);
+            return {point:[node.x,node.y],escape:[node.x,upward ? node.top - distance : node.bottom + distance],direction:[0,upward ? -1 : 1]};
           };
           const start = endpoint(left, right), end = endpoint(right, left);
-          const points = [[start.x, start.y], ...route([start.x, start.escape], [end.x, end.escape], groupKey), [end.x, end.y]];
+          const points = [start.point, ...route(start.escape,end.escape,groupKey,{startDirection:start.direction,endDirection:end.direction}),end.point];
           path(points, r.kind, ids, 'auxiliary', null, groupKey, undefined, r.inferred, r.detailsOnly);
         }
         const last = chain.at(-1);
@@ -260,13 +279,15 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
         return;
       }
       const offset = 24 + auxiliaryLanes[index] * auxiliaryLaneStep;
-      const fromY = a.top - offset, toY = b.top - offset;
       const groupKey = sharing[index].group;
-      const fromX = memberPort(from, 'top', groupKey, -42), toX = memberPort(to, 'top', groupKey, -42);
-      const points = [[fromX, a.top], ...route([fromX, fromY], [toX, toY], groupKey), [toX, b.top]];
+      const start = memberEndpoint(from,extraSides[index].from,groupKey,offset), end = memberEndpoint(to,extraSides[index].to,groupKey,offset);
+      const points = [start.point,...route(start.escape,end.escape,groupKey,{startDirection:start.direction,endDirection:end.direction}),end.point];
       const routeIds = [...new Set([r.from, r.to, from, to])];
       path(points, r.kind, routeIds, 'auxiliary', null, groupKey, undefined, r.inferred, r.detailsOnly);
-      label(b.x - 135, toY - (plans.length ? 24 : 8), r.kind === '師徒' ? '師父 → 徒弟' : from !== r.from || to !== r.to ? r.kind + '（補親生父母）' : r.kind, r.kind, routeIds, r.inferred, proofs, r.detailsOnly);
+      const horizontal = FamilyConnectorRouting.segments(points).filter(segment => segment.axis === 'h').sort((a,b) => (b.max - b.min) - (a.max - a.min))[0];
+      const labelX = horizontal ? (horizontal.min + horizontal.max) / 2 + 8 : end.escape[0] + 12;
+      const labelY = horizontal ? horizontal.fixed - 8 : (start.escape[1] + end.escape[1]) / 2;
+      label(labelX,labelY, r.kind === '師徒' ? '師父 → 徒弟' : r.kind, r.kind, routeIds, r.inferred, proofs, r.detailsOnly);
     });
     // Replace overlapping strokes with disjoint intervals, retaining exactly the
     // people represented by each interval for selection highlighting.

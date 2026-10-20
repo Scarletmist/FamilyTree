@@ -81,14 +81,27 @@
 
   // Choose one attachment column for the entire child stem. Moving only its
   // middle leaves a misleading short horizontal stub at the junction.
-  function attachmentX(preferred, left, right, top, bottom, occupied = []) {
+  function attachmentX(preferred, left, right, top, bottom, occupied = [], reserved = []) {
     const vertical = occupied.filter(s => s.axis === 'v' && Math.min(s.max, bottom) > Math.max(s.min, top));
-    const candidates = [preferred, left, right, ...vertical.flatMap(s => [s.fixed - LANE_GAP, s.fixed + LANE_GAP])];
-    return candidates.filter(x => x >= left && x <= right && vertical.every(s => Math.abs(x - s.fixed) >= LANE_GAP - .01))
+    const candidates = [preferred, left, right, ...vertical.flatMap(s => [s.fixed - LANE_GAP, s.fixed + LANE_GAP]), ...reserved.flatMap(x => [x - LANE_GAP,x + LANE_GAP])];
+    return candidates.filter(x => x >= left && x <= right && [...vertical.map(s => s.fixed),...reserved].every(used => Math.abs(x - used) >= LANE_GAP - .01))
       .sort((a, b) => Math.abs(a - preferred) - Math.abs(b - preferred) || a - b)[0] ?? preferred;
   }
 
-  function route(start, end, cards, occupied = []) {
+  // Generation determines vertical attachments even when family placement puts
+  // a teacher below a student. Only unobstructed peers use the facing side edges.
+  function endpointSides(a, b, cards = []) {
+    if (a.gen < b.gen) return { from:'bottom',to:'top' };
+    if (a.gen > b.gen) return { from:'top',to:'bottom' };
+    const [left,right] = a.x < b.x ? [a,b] : [b,a];
+    const clear = Number.isFinite(left.right) && right.left - left.right >= 24
+      && !cards.some(card => card !== a && card !== b && !(a.id !== undefined && card.id === a.id) && !(b.id !== undefined && card.id === b.id)
+        && card.left < right.left && card.right > left.right
+        && card.top < Math.max(a.bottom,b.bottom) + 8 && card.bottom > Math.min(a.top,b.top) - 8);
+    return clear ? a.x < b.x ? {from:'right',to:'left'} : {from:'left',to:'right'} : {from:'top',to:'top'};
+  }
+
+  function route(start, end, cards, occupied = [], { startDirection, endDirection } = {}) {
     const obstacles = cards.map(r => ({ left: r.left - 8, right: r.right + 8, top: r.top - 8, bottom: r.bottom + 8 }));
     const xs = new Set([start[0], end[0], (start[0] + end[0]) / 2]);
     const ys = new Set([start[1], end[1], (start[1] + end[1]) / 2]);
@@ -102,6 +115,13 @@
     let best = null, score = Infinity;
     function consider(points) {
       const simple = simplify(points);
+      // Keep the clear outward stub at each card; a route must not double back
+      // along it before its first bend or just before entering the destination.
+      if (simple.length > 1) {
+        const next = simple[1], prior = simple.at(-2);
+        if (startDirection && (next[0]-start[0])*startDirection[0] + (next[1]-start[1])*startDirection[1] < 0) return;
+        if (endDirection && (prior[0]-end[0])*endDirection[0] + (prior[1]-end[1])*endDirection[1] < 0) return;
+      }
       let length = 0;
       for (let i = 1; i < simple.length; i++) {
         length += Math.abs(simple[i][0] - simple[i - 1][0]) + Math.abs(simple[i][1] - simple[i - 1][1]);
@@ -120,11 +140,9 @@
     }
     for (const x of xs) consider([start, [x, start[1]], [x, end[1]], end]);
     for (const y of ys) consider([start, [start[0], y], [end[0], y], end]);
-    // A one-lane route can be forced to share a horizontal/vertical lane when the
-    // other endpoint is behind cards. Only in that case, try a bounded set of
-    // three-bend combinations: move to a neighboring lane first, then use a
-    // separate safe cross-lane near either endpoint.
-    if (best && overlapCost(best, occupied) > 0) {
+    // If a one-lane route is blocked or overlaps another connector, try a bounded
+    // set of three-bend combinations while keeping both outward stubs clear.
+    if (!best || overlapCost(best, occupied) > 0) {
       const nearest = (values, anchors, limit = 28) => [...values]
         .sort((a, b) => Math.min(...anchors.map(x => Math.abs(a - x))) - Math.min(...anchors.map(x => Math.abs(b - x))))
         .slice(0, limit);
@@ -234,5 +252,5 @@
     }
     return result;
   }
-  return { route, intersects, simplify, segments, overlapLength, crossingPoint, crossings, bridgePath, sharedSegments, attachmentX };
+  return { route, intersects, simplify, segments, overlapLength, crossingPoint, crossings, bridgePath, sharedSegments, attachmentX, endpointSides };
 });

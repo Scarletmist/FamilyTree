@@ -2,6 +2,40 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { route, intersects } = require('../src/assets/connector-routing');
 const length = points => points.slice(1).reduce((n, p, i) => n + Math.abs(p[0] - points[i][0]) + Math.abs(p[1] - points[i][1]), 0);
+
+test('cross-generation endpoints follow actual generations in either relationship direction', () => {
+  const {endpointSides} = require('../src/assets/connector-routing');
+  assert.deepEqual(endpointSides({gen:2},{gen:3}),{from:'bottom',to:'top'});
+  assert.deepEqual(endpointSides({gen:3},{gen:2}),{from:'top',to:'bottom'});
+  assert.deepEqual(endpointSides({gen:2},{gen:2}),{from:'top',to:'top'},'virtual nodes have no facing card edges');
+});
+
+test('same-generation neighbors use facing edges while intervening cards keep peers in the upper gutter', () => {
+  const {endpointSides} = require('../src/assets/connector-routing');
+  const a = {gen:1,x:60,left:0,right:120,top:100,bottom:180};
+  const b = {gen:1,x:360,left:300,right:420,top:100,bottom:220};
+  assert.deepEqual(endpointSides(a,b,[a,b]),{from:'right',to:'left'});
+  assert.deepEqual(endpointSides(b,a,[a,b]),{from:'left',to:'right'});
+  const blocker = {left:160,right:260,top:100,bottom:200};
+  assert.deepEqual(endpointSides(a,b,[a,blocker,b]),{from:'top',to:'top'});
+  assert.deepEqual(endpointSides(a,{...b,left:140},[a]),{from:'top',to:'top'},'a narrow gap cannot fit both escape stubs');
+});
+
+test('repositioned child attachments respect ports reserved for other relationship kinds', () => {
+  const {attachmentX,segments} = require('../src/assets/connector-routing');
+  const x = attachmentX(62,0,140,20,200,segments([[50,0],[50,190]]),[68]);
+  assert.equal(x,86);
+});
+
+test('routing preserves outward card stubs instead of retracing them to avoid an occupied lane', () => {
+  const {segments} = require('../src/assets/connector-routing');
+  const cards = [{left:0,right:100,top:-100,bottom:0},{left:200,right:300,top:224,bottom:304}];
+  const start = [50,24],end = [250,200],occupied = segments([[20,24],[220,24]]);
+  const points = route(start,end,cards,occupied,{startDirection:[0,1],endDirection:[0,-1]});
+  assert(points[1][1] >= start[1]);
+  assert(points.at(-2)[1] <= end[1]);
+  for (let i = 1; i < points.length; i++) assert(cards.every(card => !intersects(points[i-1],points[i],card)));
+});
 test('attachment moves together with the stem to maintain spacing without an endpoint jog', () => {
   const { attachmentX, segments } = require('../src/assets/connector-routing');
   const occupied = segments([[50, 0], [50, 190]]);

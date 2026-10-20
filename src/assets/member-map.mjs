@@ -6,7 +6,7 @@ const activePeople = () => (FamilyApp.snapshot()?.data.people || []).filter(pers
 const dialog = document.createElement('dialog');
 dialog.id = 'member-map-dialog'; dialog.className = 'member-map-dialog';
 dialog.setAttribute('aria-labelledby', 'member-map-title');
-dialog.innerHTML = `<div class="dialog-header member-map-header"><button type="button" id="member-map-back" class="details-icon" hidden></button><h2 id="member-map-title">成員地圖</h2><button type="button" id="member-map-status" class="member-map-counts" aria-label="查看待定位成員"></button><button type="button" id="close-member-map" class="details-icon"></button></div>
+dialog.innerHTML = `<div class="dialog-header member-map-header"><button type="button" id="member-map-back" class="details-icon" hidden></button><div class="member-map-heading"><h2 id="member-map-title">成員地圖</h2><span id="member-map-located" class="member-map-located"></span></div><button type="button" id="member-map-status" class="member-map-counts" aria-label="查看待定位成員"></button><button type="button" id="close-member-map" class="details-icon"></button></div>
   <div class="member-map-body"><div id="member-map-canvas" class="member-map-canvas" role="region" aria-label="成員所在地地圖"></div>
     <aside id="member-map-panel" class="member-map-panel" aria-label="所在地與成員"><button type="button" id="member-map-sheet-handle" class="member-map-sheet-handle" aria-label="調整清單高度，點擊切換高度，方向鍵展開或收合"></button>
       <section id="member-map-browse" class="member-map-panel-content"><div class="member-map-panel-heading"><h3 id="member-map-list-title">所在地</h3><p id="member-map-list-caption"></p></div><div class="member-map-panel-scroll" id="member-map-scroll"><input type="search" id="member-map-filter" class="member-map-filter" aria-label="尋找地點或成員" placeholder="尋找地點或成員" autocomplete="off" /><div id="member-map-list" aria-label="地圖成員清單"></div></div><footer class="member-map-panel-footer"><p class="member-map-legend"><span></span>手動修正位置</p></footer></section>
@@ -54,7 +54,8 @@ function refreshStatus() {
   const people = activePeople();
   const count = people.filter(person => Location.effective(person)).length;
   const pending = people.filter(person => Location.eligible(person) && !Location.effective(person)).length;
-  status.textContent = `${count} 已定位 · ${pending} 待定位`;
+  get('member-map-located').textContent = `已定位 ${count} 位`;
+  status.textContent = `待定位 ${pending} ›`;
   status.setAttribute('aria-label', `${count} 位成員已定位，${pending} 位待定位，查看待定位成員`);
   status.title = backgroundMessage();
   const note = get('member-map-background'); if (note) note.textContent = backgroundMessage();
@@ -73,8 +74,8 @@ function select(key) {
   draw();
   [...list.querySelectorAll('[data-location-key]')].find(node => node.dataset.locationKey === key)?.scrollIntoView({ block:'nearest' });
 }
-function correctionButton(person) {
-  const correct = mapIconButton('correct', `修正${person.name}的地點`); correct.dataset.correctPerson = person.id;
+function correctionButton(person, label = '修正') {
+  const correct = mapIconButton('correct', `修正${person.name}的地點`, label); correct.dataset.correctPerson = person.id;
   correct.addEventListener('click', () => openCorrection(person.id)); return correct;
 }
 function personSummary(person, trigger) {
@@ -86,7 +87,7 @@ function personSummary(person, trigger) {
   const details = mapIconButton('person', `查看${person.name}的詳細資料`, '查看成員'); details.addEventListener('click', () => {
     dialog.close(); window.dispatchEvent(new CustomEvent('familytreeselect', { detail:{ id:person.id, options:{ expandDetails:true } } }));
   });
-  actions.append(details, correctionButton(person)); summary.append(actions); close.focus({ preventScroll:true });
+  actions.append(details, correctionButton(person, '修正地點')); summary.append(actions); close.focus({ preventScroll:true });
 }
 function drawPlace(group) {
   const section = el('section', '', 'member-map-place'); section.dataset.locationKey = group.key;
@@ -110,13 +111,13 @@ function drawPending(people) {
     const label = el('div', '', 'member-map-pending-label'); label.append(el('strong', person.name), el('small', `${person.location} · ${reason || '待定位'}`));
     row.append(label, correctionButton(person));
     if (Location.current(person)) {
-      const retry = mapIconButton('retry', `重新查詢${person.name}的所在地`);
+      const retry = mapIconButton('retry', `重新查詢${person.name}的所在地`, '重新查詢');
       retry.addEventListener('click', async () => { retry.disabled = true; try { await FamilyMemberLocations.retry(person.id); } catch (error) { errorMessage = error.message; refreshStatus(); } finally { retry.disabled = false; } }); row.append(retry);
     }
     list.append(row);
   }
   const note = el('p', backgroundMessage(), 'form-note'); note.id = 'member-map-background'; note.setAttribute('role', 'status'); list.append(note);
-  const takeover = mapIconButton('takeover', '由此裝置接手定位'); takeover.id = 'member-map-takeover';
+  const takeover = mapIconButton('takeover', '由此裝置接手定位', '由此裝置接手定位'); takeover.id = 'member-map-takeover';
   takeover.addEventListener('click', async () => { takeover.disabled = true; try { await FamilyMemberLocations.takeOver(); } catch (error) { errorMessage = error.message; refreshStatus(); } finally { takeover.disabled = false; } }); list.append(takeover);
 }
 function drawPrivate(people) {

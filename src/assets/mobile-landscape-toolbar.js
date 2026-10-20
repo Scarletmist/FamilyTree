@@ -17,6 +17,13 @@
       eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       'eye-off':'<path d="m3 3 18 18M10.6 5.1A11 11 0 0 1 12 5c6 0 10 7 10 7a17.5 17.5 0 0 1-3.2 3.9M6.5 6.5C3.7 8.5 2 12 2 12s4 7 10 7a11 11 0 0 0 5.5-1.5M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
       list:'<path d="M9 5h12M9 12h12M9 19h12M3 5h1M3 12h1M3 19h1"/>',
+      workbench:'<path d="m3 6 2 2 3-4m3 2h10M3 13l2 2 3-4m3 2h10M3 20l2 2 3-4m3 2h10"/>',
+      archive:'<path d="M3 4h18v5H3zM5 9v11h14V9M10 13h4"/>',
+      recycle:'<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5m4-5v5"/>',
+      rank:'<path d="M4 4h2v5M4 9h4m3-3h10M4 14c0-3 4-3 4 0 0 2-4 2-4 5h4m3-3h10"/>',
+      minimap:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v4m-5 2v4m10-4v4M7 13v-2h10v2"/>',
+      branches:'<circle cx="12" cy="4" r="2"/><circle cx="5" cy="20" r="2"/><circle cx="19" cy="20" r="2"/><path d="M12 6v5M5 18v-7h14v7"/>',
+      print:'<path d="M7 8V3h10v5M7 17H4V9h16v8h-3M7 14h10v7H7zM17 11h.01"/>',
       merge:'<path d="M5 3v4c0 5 7 5 7 9v5M19 3v4c0 5-7 5-7 9m-4 1 4 4 4-4"/>',
       undo:'<path d="M4 5v6h6M4 11a8 8 0 1 1 2 9"/>',
       cloud:'<path d="M7 18h11a4 4 0 0 0 0-8 6 6 0 0 0-11-2 5 5 0 0 0 0 10Z"/>',
@@ -45,9 +52,9 @@
     dialog.setAttribute('aria-labelledby','landscape-more-title');
     dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;
     const sections = [
-      ['備份、同步與輸出',[['diagram-export','列印／下載向量圖','export'],['export','匯出族譜備份','export'],['import','匯入族譜','import'],['cloud','Google Drive 同步','cloud']]],
-      ['成員管理',[['workbench','待整理資料','list'],['archived','封存成員','list'],['recycle','回收區','list'],['groups','排行群組','list'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','list'],['undo','復原','undo']]],
-      ['檢視',[['relationship','查兩人關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','map'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','query'],['legend','關係圖例','legend']]],
+      ['備份、同步與輸出',[['diagram-export','列印／下載向量圖','print'],['export','匯出族譜備份','export'],['import','匯入族譜','import'],['cloud','Google Drive 同步','cloud']]],
+      ['成員管理',[['workbench','待整理資料','workbench'],['archived','封存成員','archive'],['recycle','回收區','recycle'],['groups','排行群組','rank'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','eye-off'],['undo','復原','undo']]],
+      ['檢視',[['relationship','查兩人關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','minimap'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','branches'],['legend','關係圖例','legend']]],
       ['族譜設定',[['family-name','編輯家族名稱','edit']]]
     ];
     const menuSearch = document.createElement('input'); menuSearch.type = 'search'; menuSearch.className = 'workspace-menu-search'; menuSearch.placeholder = '搜尋功能'; menuSearch.setAttribute('aria-label','搜尋功能');
@@ -63,7 +70,7 @@
         button.append(text); section.append(button);
         if (name === 'inferred-lines') {
           const hint = document.createElement('p'); hint.id = 'inferred-lines-hint'; hint.className = 'workspace-menu-hint';
-          hint.textContent = '全覽可切換；選取成員時自動顯示詳細線段。i 查看依據，＋補登親屬。'; section.append(hint);
+          hint.textContent = '全覽可切換；選取成員時自動顯示詳細線段。從成員詳情或查詢路徑查看關係依據；＋補登親屬。'; section.append(hint);
         }
       }
       if (title === '備份、同步與輸出') {

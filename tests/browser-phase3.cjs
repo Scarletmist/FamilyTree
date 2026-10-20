@@ -83,7 +83,7 @@ const fixture = () => ({schemaVersion:3,familyName:'第三階段驗證',people:[
       const siblings = page.locator('[data-group=siblings]'); await siblings.evaluate(el => el.open = true);
       const inferredBadge = siblings.locator('.relationship-entry').filter({has:page.locator('[data-person-id=S]')}).locator('.relationship-entry__badge--inferred');
       assert.equal(await inferredBadge.count(),1,'two shared parents produce one inferred badge');
-      assert.equal(await inferredBadge.textContent(),'推導'); await activate(inferredBadge);
+      assert.equal(await inferredBadge.textContent(),'推導・查看依據'); await activate(inferredBadge);
       const siblingProof = page.locator('#relationship-proof-dialog');
       assert.doesNotMatch(await siblingProof.textContent(),/確認狀態|已確認|待確認|未標記/);
       assert.equal(await siblingProof.locator('.evidence-record').count(),2,'both parent paths remain available');
@@ -100,7 +100,7 @@ const fixture = () => ({schemaVersion:3,familyName:'第三階段驗證',people:[
       assert.equal(await siblingProof.locator('.evidence-source').count(),4);
       assert.match(await siblingProof.textContent(),/訪談來源 Q/);
       await proofClose();
-      assert.equal(await inferredBadge.count(),1); assert.equal(await inferredBadge.textContent(),'推導');
+      assert.equal(await inferredBadge.count(),1); assert.equal(await inferredBadge.textContent(),'推導・查看依據');
       await page.waitForFunction(() => document.activeElement?.classList.contains('relationship-entry__badge--inferred'));
       assert(await inferredBadge.evaluate(node => node === document.activeElement),'refresh returns focus to the new badge');
       if (mode === 'static' && width === 390) {await inferredBadge.scrollIntoViewIfNeeded(); await page.screenshot({path:path.join(dir,'inferred-badge-mobile.png')});}
@@ -134,6 +134,7 @@ const fixture = () => ({schemaVersion:3,familyName:'第三階段驗證',people:[
         await page.locator('.details-back').click();
         assert.equal(await page.locator('.relationship-details__body').evaluate(n => n.scrollTop),scroll,JSON.stringify(await page.evaluate(() => ({id:document.getElementById('relationship-details').dataset.memberId,reading:document.getElementById('relationship-details').dataset.reading,back:document.querySelector('.details-back').getAttribute('aria-label'),info:document.querySelector('.member-information')?.open,scrollHeight:document.querySelector('.relationship-details__body').scrollHeight,clientHeight:document.querySelector('.relationship-details__body').clientHeight}))));
         assert(await page.locator('.member-information').evaluate(n => n.open));
+        await page.locator('.relationship-details__more-summary').click();
         await page.locator('.details-collapse').click(); assert.equal(await page.locator('#relationship-details').getAttribute('data-collapsed'),'true');
         await page.locator('.relationship-details__tab').click();
         await select('U'); assert(await page.locator('.relationship-details__empty').isVisible());

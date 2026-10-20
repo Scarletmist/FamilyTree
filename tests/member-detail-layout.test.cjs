@@ -25,7 +25,7 @@ function withInspector(run) {
   const header = new Node(), tree = new Node(), panel = new Node(), expand = new Node(), path = new Node(), top = new Node();
   let body = new Node(); body.scrollTop = 0;
   tree.inert = true; panel.dataset = { memberId: 'A', collapsed: 'false' }; panel.hidden = false;
-  panel.querySelector = selector => selector === '.detail-expand' ? expand : selector === '.relationship-details__body' ? body : top;
+  panel.querySelector = selector => selector === '.detail-expand' ? expand : selector === '.relationship-details__body' ? body : selector === '.relationship-details__top' ? top : null;
   panel.contains = node => node === expand || node === body;
   expand.querySelector = () => path;
   const media = new Map();

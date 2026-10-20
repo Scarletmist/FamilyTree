@@ -55,6 +55,7 @@ with tempfile.TemporaryDirectory(prefix='ux4679-') as temp:
       if name=='portrait':
         # 4. Portrait selection opens a useful peek rather than a near-empty 50px tab.
         page.evaluate("window.selectFamilyMember('p11')")
+        page.locator('.relationship-details__more-summary').click()
         page.locator(".details-collapse").click()
         panel=page.locator('#relationship-details'); page.wait_for_function("document.querySelector('#relationship-details').dataset.collapsed==='true'")
         summary=panel.locator('.relationship-details__tab-summary'); assert summary.is_visible(); assert summary.inner_text().strip()

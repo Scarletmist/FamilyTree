@@ -24,7 +24,7 @@ export function configureCorrection(workspace) {
     ['location-mode-search', 'search', '搜尋地點'], ['location-mode-map', 'pick', '在地圖上指定'],
     ['location-search-submit', 'search', '查詢'], ['location-more-button', 'more', '更多地點操作'],
     ['save-location-correction', 'save', '使用此位置']
-  ]) setMapIcon(get(id), icon, label, id === 'save-location-correction' ? label : '');
+  ]) setMapIcon(get(id), icon, label, id === 'location-mode-map' ? '地圖指定' : ['location-mode-search','save-location-correction'].includes(id) ? label : '');
   const scope = text('div', '', 'location-scope-controls');
   const names = text('p', '', 'location-scope-names'); names.id = 'location-visible-members';
   scope.append(get('location-apply-group'), names, get('location-apply-scope'));

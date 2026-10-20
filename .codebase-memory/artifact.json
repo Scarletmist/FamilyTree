@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "b759dae72166555242fad81a93be13a13bf77f39",
-    "indexed_at": "2026-10-20T07:28:54Z",
+    "commit": "4376acd412e55eb55b0c27ef801bc753619410bc",
+    "indexed_at": "2026-10-20T08:41:43Z",
     "project": "D-FamilyTree",
-    "nodes": 2835,
-    "edges": 9280,
-    "original_size": 12255232,
-    "compressed_size": 2460302,
+    "nodes": 2856,
+    "edges": 9340,
+    "original_size": 12320768,
+    "compressed_size": 2470445,
     "compression_level": 3
 }

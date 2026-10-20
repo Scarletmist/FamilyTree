@@ -37,6 +37,19 @@
   closeName.addEventListener('click', () => fullName.close()); fullName.append(fullHeading,closeName); document.body.append(fullName);
   document.getElementById('family-title').addEventListener('click', () => { fullHeading.textContent = document.getElementById('family-title').textContent; fullName.showModal(); });
   fullName.addEventListener('close', () => document.getElementById('family-title').focus({preventScroll:true}));
+  const titleTrigger = document.getElementById('family-title');
+  let titleDisclosureFrame = 0;
+  function syncTitleDisclosure() {
+    const range = document.createRange(); range.selectNodeContents(titleTrigger);
+    const truncated = String(range.getBoundingClientRect().width > titleTrigger.parentElement.clientWidth + 1);
+    if (titleTrigger.dataset.truncated !== truncated) titleTrigger.dataset.truncated = truncated;
+  }
+  function scheduleTitleDisclosure() {
+    cancelAnimationFrame(titleDisclosureFrame); titleDisclosureFrame = requestAnimationFrame(syncTitleDisclosure);
+  }
+  new ResizeObserver(scheduleTitleDisclosure).observe(titleTrigger.parentElement);
+  new MutationObserver(scheduleTitleDisclosure).observe(titleTrigger, {childList:true,characterData:true,subtree:true});
+  document.fonts.ready.then(scheduleTitleDisclosure);
   const selector = '#family-filter, #relationship-search select, #relationship-summary select, #member-form select, select[data-person-picker]';
   const controls = new WeakMap();
   let active = null, nextId = 0;

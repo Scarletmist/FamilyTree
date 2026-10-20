@@ -126,7 +126,7 @@ test('one inferred badge opens every shared-parent proof while direct rows retai
       const buttons = sibling.querySelectorAll('.relationship-entry__badge--inferred');
       assert.equal(buttons.length, 1, 'one inferred badge per person, regardless of number of paths');
       assert.equal(buttons[0].tagName,'button');
-      assert.equal(buttons[0].textContent,'推導');
+      assert.equal(buttons[0].textContent,'推導・查看依據');
       assert.doesNotMatch(buttons[0].textContent + buttons[0].attributes['aria-label'], /來源與說明/);
       assert.equal(buttons[0].dataset.origin,'inferred');
       buttons[0].click();

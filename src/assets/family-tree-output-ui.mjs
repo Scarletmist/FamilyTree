@@ -6,7 +6,7 @@ import { serializeSVG,paginateScene,printDocument,wrapText,svgHeaderHeight } fro
 
 export function createExportController({getContext,getGraph}) {
   const dialog = element('dialog','tree-output-dialog');dialog.id = 'tree-output-dialog';dialog.setAttribute('aria-labelledby','tree-output-title');
-  dialog.innerHTML = `<header class="tree-output-header"><h2 id="tree-output-title">族譜輸出</h2><button type="button" class="details-icon" data-close aria-label="關閉族譜輸出">×</button></header>
+  dialog.innerHTML = `<header class="tree-output-header"><h2 id="tree-output-title">族譜輸出</h2><button type="button" class="details-icon" data-close aria-label="關閉族譜輸出"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></header>
     <div class="tree-output-body"><div class="tree-output-options">
       <label>輸出範圍<select id="tree-output-scope"><option value="all">全家族</option><option value="current">目前顯示範圍</option><option value="path">目前比較路徑</option></select></label>
       <label class="tree-output-check"><input type="checkbox" id="tree-output-archived">包含封存成員</label>
@@ -17,7 +17,7 @@ export function createExportController({getContext,getGraph}) {
       <label>方向<select id="tree-output-orientation"><option value="landscape">橫式</option><option value="portrait">直式</option></select></label>
     </div><p class="tree-output-hint" id="tree-output-privacy"></p><p class="tree-output-hint">封存成員預設省略；需要銜接的成員會保留並標示。回收區成員不會輸出。</p>
     <p id="tree-output-dirty" class="tree-output-hint" role="status"></p>
-    <div class="tree-output-preview-tools"><label>預覽頁面<select id="tree-output-page" disabled><option value="all">完整圖</option></select></label><button type="button" class="plain-button" id="tree-output-fit" aria-pressed="true">適應範圍</button></div>
+    <div class="tree-output-preview-tools"><label>預覽頁面<select id="tree-output-page" disabled><option value="all">完整圖</option></select></label><div class="tree-output-preview-mode" role="group" aria-label="預覽縮放"><button type="button" class="plain-button" id="tree-output-fit" aria-pressed="true">適應預覽</button><button type="button" class="plain-button" id="tree-output-original" aria-pressed="false">原尺寸</button></div></div>
     <div class="tree-output-preview is-fit" id="tree-output-preview"><p>建立預覽後，可下載向量圖或開啟列印版。</p></div>
     <p id="tree-output-status" role="status" aria-live="polite"></p></div>
     <footer class="tree-output-actions"><button type="button" class="plain-button" id="tree-output-generate">更新預覽</button><button type="button" class="plain-button" id="tree-output-svg" disabled>下載向量圖（SVG）</button><button type="button" class="primary-button" id="tree-output-print" disabled>列印／PDF</button></footer>`;
@@ -49,10 +49,12 @@ export function createExportController({getContext,getGraph}) {
   dialog.querySelector('[data-close]').addEventListener('click',() => dialog.close());
   dialog.addEventListener('close',() => opener?.focus({preventScroll:true}));
   dialog.querySelector('.tree-output-options').addEventListener('change',() => invalidate());
-  get('fit').addEventListener('click', () => {
-    const fit = !preview.classList.contains('is-fit'); preview.classList.toggle('is-fit',fit);
-    get('fit').setAttribute('aria-pressed',String(fit)); get('fit').textContent = fit ? '適應範圍' : '原尺寸';
-  });
+  function setFit(fit) {
+    preview.classList.toggle('is-fit',fit);
+    get('fit').setAttribute('aria-pressed',String(fit)); get('original').setAttribute('aria-pressed',String(!fit));
+  }
+  get('fit').addEventListener('click', () => setFit(true));
+  get('original').addEventListener('click', () => setFit(false));
   addEventListener('familyappchange',() => invalidate('族譜資料已更新，請重新產生預覽後再輸出。'));
   new MutationObserver(() => {if (dialog.open) {syncPrivacy();invalidate('姓名顯示設定已變更，請更新預覽。');}})
     .observe(document.getElementById('toggle-canvas-names'),{attributes:true,attributeFilter:['aria-pressed']});

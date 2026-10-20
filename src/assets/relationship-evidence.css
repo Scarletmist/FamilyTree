@@ -26,11 +26,10 @@ button.relationship-entry__badge--inferred{display:inline-flex;align-items:cente
 @media(max-width:700px),(max-width:950px) and (max-height:520px){
  .relationship-details .relationship-entry{display:block;padding:6px 0}.relationship-details .relationship-entry__main{justify-content:space-between;gap:8px}.relationship-details .relationship-entry__badges{display:flex;gap:4px;margin-top:5px}
  .relationship-details button.relationship-entry__badge--inferred{min-height:44px}
- .relationship-details .relationship-details__navigation{grid-template-columns:44px minmax(0,1fr) repeat(3,44px);align-items:start;touch-action:none}
- .detail-nav-identity{min-width:0;align-self:center;padding:4px 2px}.detail-nav-identity .profile-eyebrow{display:none}
- #relationship-details .detail-nav-identity #relationship-details-title{font-size:17px;line-height:1.35;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:left}
+ .detail-nav-identity{min-width:0;align-self:center;padding:2px}.detail-nav-identity .profile-eyebrow{display:none}
+ #relationship-details .detail-nav-identity #relationship-details-title{font-size:16px;line-height:1.25;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:left}
  .detail-nav-identity .profile-generation{font-size:11px;margin:2px 0 0}.detail-nav-identity .member-archive-badge{font-size:10px;margin:2px 0 0;display:inline-block}
- .relationship-details .relationship-details__top{padding-bottom:6px}.relationship-details .relationship-details__actions{padding:4px 6px 0;margin:0;border:0;gap:6px}
+ .relationship-details .relationship-details__top{padding-bottom:6px}.relationship-details .relationship-details__actions{padding:4px 0 0;margin:0;border:0;gap:6px}
  .relationship-details .relationship-details__body{padding-top:0}.relationship-details .relationship-group{padding-top:4px}.relationship-details .relationship-group__summary{min-height:40px}
  .relationship-details .relationship-category-nav{top:0}
  .relationship-details .member-information{margin-top:12px;padding-top:8px}.member-information .relationship-details__profile{padding-top:8px}

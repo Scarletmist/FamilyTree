@@ -87,7 +87,7 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
       const plus=await canvas.getByRole('button',{name:'放大地圖',exact:true}).boundingBox();
       const minus=await canvas.getByRole('button',{name:'縮小地圖',exact:true}).boundingBox();
       const map=await canvas.boundingBox();
-      assert(Math.abs(layer.x-plus.x)<1 && Math.abs(plus.x-minus.x)<1,'all map controls share one horizontal position');
+      assert(Math.abs(layer.x+layer.width-plus.x-plus.width)<1 && Math.abs(plus.x-minus.x)<1,'the labeled layers control and zoom buttons share their right edge');
       assert(Math.abs(map.x+map.width-layer.x-layer.width-16)<1,'controls stay inset 16px from the map edge');
       assert(Math.abs(plus.y-layer.y-layer.height-12)<1,'layers and zoom have a consistent 12px gap');
       assert.equal(await canvas.locator('.pigeon-overlays .member-map-zoom').count(),0,'chrome does not inherit a map overlay coordinate system');
@@ -148,9 +148,10 @@ const results = query => [{ name:query, display_name:query + ', 新竹市', lat:
     await otherTemple.click();await page.clock.runFor(100);
     assert(Math.abs(await separation()/at15-1)<0.01,'clicking below the default focus zoom still zooms to level 15');
     const correct=page.locator('#member-map-dialog [data-correct-person="A"]');
-    assert.equal(await correct.locator('svg').count(),1);assert.equal(await correct.textContent(),'');
+    assert.equal(await correct.locator('svg').count(),1);assert.equal(await correct.textContent(),'修正');
     assert.equal(await correct.getAttribute('aria-label'),'修正A的地點');
-    assert.match(await page.locator('#member-map-status').textContent(),/3 已定位 · 0 待定位/);
+    assert.match(await page.locator('#member-map-located').textContent(),/已定位 3 位/);
+    assert.match(await page.locator('#member-map-status').textContent(),/待定位 0/);
     assert.equal(await page.locator('.member-map-unlocated').count(),2);
     await page.screenshot({path:path.join(dir,'map-desktop.png'),animations:'disabled'});
     await page.setViewportSize({width:390,height:844});

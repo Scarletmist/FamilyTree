@@ -129,7 +129,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
   minimap = createMinimap({camera:treeZoom,getSelectedId:() => selectedId});
   createExportController({getContext:() => diagramContext,getGraph:() => FAMILY});
   const guide = element('details','canvas-guide');
-  guide.append(element('summary','','圖譜操作說明'),element('p','','拖曳空白處移動畫面；手機可用雙指縮放。i 查看關係依據，＋補登缺少的親屬。'));
+  guide.append(element('summary','','圖譜操作說明'),element('p','','拖曳空白處移動畫面；手機可用雙指縮放。從成員詳情或查詢路徑查看關係依據，＋補登缺少的親屬。'));
   const guideActions = element('div','canvas-guide-actions');
   for (const [label,action] of [['看全圖',() => treeZoom.fitView()],['定位人物',() => document.getElementById('show-member-list').click()],['知道了',() => { guide.open = false; }]]) {
     const button = element('button','plain-button',label); button.type = 'button'; button.addEventListener('click',action); guideActions.append(button);

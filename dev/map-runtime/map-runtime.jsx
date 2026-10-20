@@ -128,6 +128,7 @@ function MemberMap({ groups, focusKey, selectedKey = focusKey, onSelect, onClust
   </Map><div className="member-map-controls pigeon-drag-block"><div className="member-map-layers">
     <button ref={layersButton} type="button" className="map-icon-button" aria-label="底圖與群組設定" title="底圖與群組設定" aria-expanded={layersOpen} aria-controls="member-map-layer-options" onClick={() => { setLayersOpen(value => !value); setClusterPopup(null); }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5" /></svg>
+      <span className="map-layer-label-full">底圖與標記</span><span className="map-layer-label-short">圖層</span>
     </button>
     {layersOpen && createPortal(<div ref={layersPanel} id="member-map-layer-options" className="member-map-layer-options pigeon-drag-block" role="group" aria-label="底圖與顯示設定" style={{ left:Math.max(12, (shell.current?.clientWidth || 360) - 340), right:'auto' }}>
       <h3>地圖顯示</h3>
@@ -139,7 +140,7 @@ function MemberMap({ groups, focusKey, selectedKey = focusKey, onSelect, onClust
     <button type="button" aria-label="放大地圖" disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(1)}>＋</button>
     <button type="button" aria-label="縮小地圖" disabled={zoom <= 2} onClick={() => changeZoom(-1)}>−</button>
   </div></div>{clusterPopup && <div className="member-map-cluster-popup pigeon-drag-block" role="region" aria-label="此區域的所在地與成員" style={{ left:Math.max(12, Math.min(clusterPopup.point[0] - 138, (shell.current?.clientWidth || 300) - 288)), top:Math.max(12, Math.min(clusterPopup.point[1] + 30, (shell.current?.clientHeight || 400) - bottomInset - 220)) }}>
-    <div className="member-map-popup-heading"><h3>此區域共 {clusterPopup.marker.count} 位成員</h3><button type="button" aria-label="關閉區域清單" className="map-icon-button" onClick={() => { setClusterPopup(null); shell.current?.focus({ preventScroll:true }); }}>×</button></div>
+    <div className="member-map-popup-heading"><h3>此區域共 {clusterPopup.marker.count} 位成員</h3><button type="button" aria-label="關閉區域清單" className="map-icon-button" onClick={() => { setClusterPopup(null); shell.current?.focus({ preventScroll:true }); }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18 M6 6l12 12" /></svg></button></div>
     {clusterPopup.marker.groups.map(group => <section key={group.key}><h4>{group.label}</h4>{group.people.map(person => <button key={person.id || person.name} type="button" onClick={() => { setClusterPopup(null); onSelect?.(group.key); }}>{person.name}<span aria-hidden="true">›</span></button>)}</section>)}
   </div>}{tileError && <div className="member-map-tile-error pigeon-drag-block" role="status"><span>{basemap.label}部分底圖載入失敗</span><button type="button" onClick={() => { selectBasemap('osm'); setTileError(false); }}>切回街道圖</button></div>}
   {picking && <svg className="location-correction-crosshair" viewBox="0 0 48 48" aria-hidden="true" focusable="false">

@@ -103,7 +103,10 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .tree__rows { position:relative; z-index:1; }
 .intermediate-node { position:absolute; z-index:3; transform:translate(-50%,-50%); width:var(--intermediate-size); height:var(--intermediate-size); padding:0; border:2px solid #347045; border-radius:50%; background:white; color:#347045; font:bold var(--intermediate-font-size)/1 sans-serif; cursor:pointer; }
 .intermediate-slot { flex:none; width:var(--intermediate-slot-width); min-height:var(--intermediate-slot-height); }
-.intermediate-node:hover { background:#e2f0e4; }
+.intermediate-node::after { content:''; position:absolute; left:50%; top:50%; width:max(44px,calc(44px / var(--canvas-scale,1))); height:max(44px,calc(44px / var(--canvas-scale,1))); transform:translate(-50%,-50%); border-radius:50%; }
+.intermediate-node::before { content:'補登親屬'; position:absolute; left:50%; top:calc(100% + 6px); transform:translateX(-50%); padding:4px 8px; border-radius:6px; background:#34452d; color:#fff; font:13px/1.4 var(--font-sans); white-space:nowrap; pointer-events:none; opacity:0; }
+.intermediate-node:focus-visible::before { opacity:1; }
+@media(hover:hover) and (pointer:fine) { .intermediate-node:hover { background:#e2f0e4; } .intermediate-node:hover::before { opacity:1; } }
 .intermediate-node:focus-visible { outline:3px solid #286e86; outline-offset:3px; }
 .generation { display:flex; justify-content:center; align-items:stretch; gap:var(--generation-gap); }
 .generation:last-child { margin-bottom:0 !important; }

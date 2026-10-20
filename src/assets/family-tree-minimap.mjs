@@ -15,13 +15,15 @@ export function createMinimap({camera,getSelectedId}) {
   let expanded = !mobile.matches,scene = null,frame = 0,drag = null;
   const panel = element('aside','tree-minimap'); panel.id = 'tree-minimap';panel.setAttribute('aria-label','全圖導覽');
   const header = element('div','tree-minimap__header'),label = element('span','','全圖');
-  const close = element('button','details-icon','×');close.type = 'button';close.setAttribute('aria-label','收合全圖導覽');
+  const close = element('button','details-icon');close.type = 'button';close.setAttribute('aria-label','收合全圖導覽');
+  close.append(svgElement('svg',{viewBox:'0 0 24 24',width:18,height:18,fill:'none',stroke:'currentColor','stroke-width':1.8,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}));
+  close.firstChild.append(svgElement('path',{d:'M18 6 6 18 M6 6l12 12'}));
   header.append(label,close);
-  const svg = svgElement('svg',{class:'tree-minimap__surface',tabindex:'0',role:'group','aria-label':'全圖導覽：點選定位、拖曳視窗，方向鍵移動，Home 適應畫面'});
+  const svg = svgElement('svg',{class:'tree-minimap__surface',tabindex:'0',role:'group','aria-label':'全圖導覽：點選定位、拖曳視窗，方向鍵移動，Home 看全圖'});
   const geometry = svgElement('g'),selected = svgElement('rect',{class:'tree-minimap__selected',fill:'none',stroke:'#a33e2c','stroke-width':3,'vector-effect':'non-scaling-stroke'});
   const viewport = svgElement('rect',{class:'tree-minimap__viewport',fill:'#286e861c',stroke:'#286e86','stroke-width':2,'vector-effect':'non-scaling-stroke'});
   svg.append(geometry,selected,viewport);
-  const actions = element('div','tree-minimap__actions'),fit = element('button','plain-button','適應畫面'),member = element('button','plain-button','目前人物');
+  const actions = element('div','tree-minimap__actions'),fit = element('button','plain-button','看全圖'),member = element('button','plain-button','定位目前人物');
   fit.type = member.type = 'button';actions.append(fit,member);panel.append(header,svg,actions);document.querySelector('.workspace').append(panel);
   const toggle = document.getElementById('toggle-tree-minimap');
   function sync() {toggle?.setAttribute('aria-pressed',String(expanded));refresh();}

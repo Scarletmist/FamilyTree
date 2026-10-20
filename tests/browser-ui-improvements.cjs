@@ -65,11 +65,12 @@ async function openGroups(page) { await page.evaluate(() => FamilyManagement.ope
       assert(await page.locator('details[data-group=siblings]').evaluate(node => node.open));
       if (viewport.width < 950) {
         const nav = page.locator('.relationship-details__navigation');
-        assert(await nav.getByText('閱讀',{exact:true}).isVisible());
+        assert(await nav.getByText('完整閱讀',{exact:true}).isVisible());
         await nav.locator('.detail-expand').click(); await nav.locator('.detail-expand').click();
       }
       await page.evaluate(() => document.getElementById('tree-zoom-out').click()); await page.waitForTimeout(200);
       await aligned(page,'zoom with dock');
+      if (!await page.locator('.details-collapse').isVisible()) await page.locator('.relationship-details__more-summary').click();
       await page.locator('.details-collapse').click(); await aligned(page,'collapsed dock');
       await page.locator('.relationship-details__tab').click(); await aligned(page,'reopened dock');
       await page.locator('.details-close').click(); await aligned(page,'closed dock');

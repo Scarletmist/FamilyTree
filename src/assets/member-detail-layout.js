@@ -24,6 +24,20 @@
     const backgroundStates = new Map(), scrollPositions = new Map();
     let reading = false, frame = 0, drag = null;
 
+    function syncControls() {
+      const collapse = panel.querySelector('.details-collapse');
+      const navigation = panel.querySelector('.relationship-details__navigation');
+      const more = panel.querySelector('.relationship-details__more-body');
+      if (!collapse || !navigation || !more) return;
+      collapse.classList.toggle('details-action', mobile.matches);
+      const label = collapse.querySelector('.detail-nav-label,.details-action__label');
+      if (label) label.className = mobile.matches ? 'details-action__label' : 'detail-nav-label';
+      if (mobile.matches) more.prepend(collapse);
+      else navigation.insertBefore(collapse, navigation.querySelector('.details-close'));
+      const labelText = mobile.matches && !landscape.matches ? '收合關係詳情至底部' : '收合關係詳情至右側';
+      collapse.setAttribute('aria-label', labelText); collapse.title = labelText;
+    }
+
     function setReading(value, { focus = false } = {}) {
       const previous = reading;
       reading = Boolean(value) && mobile.matches && !panel.hidden && panel.dataset.collapsed !== 'true';
@@ -42,10 +56,10 @@
       }
       const button = panel.querySelector('.detail-expand');
       if (button) {
-        const label = reading ? '返回瀏覽面板' : '展開完整閱讀';
+        const label = reading ? '返回圖譜' : '展開完整閱讀';
         button.setAttribute('aria-label', label); button.title = label;
         button.setAttribute('aria-pressed', String(reading));
-        const text = button.querySelector('.detail-nav-label'); if (text) text.textContent = reading ? '返回' : '閱讀';
+        const text = button.querySelector('.detail-nav-label'); if (text) text.textContent = reading ? '返回圖譜' : '完整閱讀';
         button.querySelector('path').setAttribute('d', reading ? restorePath : expandPath);
         if (focus || (reading && !previous && !panel.contains(document.activeElement))) button.focus({ preventScroll: true });
       }
@@ -88,6 +102,7 @@
     }
 
     function afterRender() {
+      syncControls();
       setReading(reading);
       const body = panel.querySelector('.relationship-details__body');
       if (!body || panel.hidden) return;
@@ -171,7 +186,7 @@
     }, true);
     addEventListener('resize', () => { cancelMotion(); setReading(reading); }, { passive: true });
     reduced.addEventListener('change', () => { if (reduced.matches) cancelMotion(); });
-    mobile.addEventListener('change', () => { cancelMotion(); setReading(reading); });
+    mobile.addEventListener('change', () => { cancelMotion(); syncControls(); setReading(reading); });
 
     return { beforeRender, afterRender, sync: () => setReading(reading),
       leaveReading: () => { if (!reading) return false; cancelMotion(); setReading(false, { focus: true }); return true; } };

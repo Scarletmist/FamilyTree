@@ -78,6 +78,7 @@ with tempfile.TemporaryDirectory(prefix='family-p0-mobile-') as temp:
                     person = page.locator('.person').first
                     person_id = person.get_attribute('data-person-id')
                     page.evaluate("id => selectFamilyMember(id)", person_id)
+                    page.locator('.relationship-details__more-summary').click()
                     page.locator(".details-collapse").click()
                     page.wait_for_timeout(120)
                     page.evaluate("document.getElementById('save-status').textContent='已儲存，可復原上一項修改。'")

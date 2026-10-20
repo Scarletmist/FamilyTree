@@ -247,7 +247,8 @@
       const button = content.querySelector('.details-collapse');
       if (button) button.setAttribute('aria-expanded', String(!collapsed));
       if (changed && reveal && !panel.hidden) globalThis.FamilyMotion?.reveal(collapsed ? tab : content);
-      if (focus) (collapsed ? tab : button)?.focus({ preventScroll: true });
+      const expandedFocus = button?.closest('.relationship-details__more-body') ? content.querySelector('.detail-expand') : button;
+      if (focus) (collapsed ? tab : expandedFocus)?.focus({ preventScroll: true });
     }
     function render(panel, graph, personId, { onEdit, onSelect, onQuery, onLocate, onClose, onReturnList } = {}) {
       layout ||= globalThis.FamilyMemberDetailLayout?.create(panel, {
@@ -335,7 +336,7 @@
       locate.appendChild(element('span', 'details-action__label', '定位'));
       locate.addEventListener('click', () => onLocate?.(person.id));
       const collapse = iconButton('details-collapse', '收合關係詳情至右側', 'M9 6l6 6-6 6');
-      collapse.append(element('span','detail-nav-label','收合'));
+      collapse.append(element('span','detail-nav-label','收合詳情'));
       const landscapeMobile = globalThis.matchMedia?.('(max-width:950px) and (max-height:520px) and (orientation:landscape)').matches;
       const portraitMobile = globalThis.matchMedia?.('(max-width:700px)').matches;
       if (portraitMobile && !landscapeMobile) {
@@ -352,7 +353,7 @@
       const navigation = element('div','relationship-details__navigation'); navigation.append(back,collapse,close);
       if (mobile) {
         const expand = iconButton('detail-expand', '展開完整閱讀', globalThis.FamilyMemberDetailLayout?.expandPath || 'M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5');
-        expand.append(element('span','detail-nav-label','閱讀'));
+        expand.append(element('span','detail-nav-label','完整閱讀'));
         expand.setAttribute('aria-controls', content.id);
         navigation.replaceChildren(back, element('div', 'detail-nav-identity'), expand, collapse, close);
         const grabber = element('div', 'detail-grabber'); grabber.setAttribute('aria-hidden', 'true');
@@ -494,7 +495,7 @@
               entry.badges.filter(badge => badge !== '自動辨別' || !inferredProofs.length)
                 .forEach(badge => badges.appendChild(element('span', 'relationship-entry__badge', badge)));
               if (inferredProofs.length) {
-                const badge = element('button','relationship-entry__badge relationship-entry__badge--inferred',entry.badges.includes('自動辨別') ? '自動辨別' : '推導');
+                const badge = element('button','relationship-entry__badge relationship-entry__badge--inferred',(entry.badges.includes('自動辨別') ? '自動辨別' : '推導') + '・查看依據');
                 badge.type = 'button'; badge.dataset.origin = 'inferred'; badge.title = '查看推導依據';
                 badge.dataset.evidenceKey = [...new Set(inferredProofs.map(proof => Evidence.canonical(person.id,proof.relation).key))].sort().join(';');
                 badge.setAttribute('aria-label',entry.name + '：查看推導依據'); badge.setAttribute('aria-haspopup','dialog');
@@ -537,7 +538,7 @@
         const target = collapsed ? tab : focused.group ?
           [...panel.querySelectorAll('details[data-group]')].find(group => group.dataset.group === focused.group)?.querySelector('summary') :
           focused.className ? panel.querySelector('.' + focused.className) : null;
-        (target || content.querySelector('.details-collapse'))?.focus({ preventScroll: true });
+        (target || content.querySelector('.detail-expand,.details-collapse'))?.focus({ preventScroll: true });
       }
     }
     return { render, setCollapsed, isCollapsed: () => collapsed, leaveReading: () => layout?.leaveReading() || false };

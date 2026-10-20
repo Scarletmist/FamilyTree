@@ -44,7 +44,7 @@ const fixture = () => ({schemaVersion:3,familyName:'導覽輸出驗證',people:[
       if (mode === 'static') await page.screenshot({path:path.join(out,`phase4-navigation-${width}x${height}.png`)});
       const canvasContent = await page.locator('#tree-canvas').innerHTML();
       await page.evaluate(() => {window.mapMutations = 0;new MutationObserver(rows => mapMutations += rows.length).observe(document.querySelector('.tree-minimap__surface > g'),{subtree:true,childList:true,attributes:true});});
-      const surface = minimap.locator('svg'),box = await surface.boundingBox();
+      const surface = minimap.locator('.tree-minimap__surface'),box = await surface.boundingBox();
       await page.mouse.click(box.x + box.width * .9,box.y + box.height * .75);await page.waitForTimeout(60);
       assert.equal(await page.evaluate(() => mapMutations),0,'panning changes only viewport/selection rects');
       assert.equal(await page.locator('#tree-canvas').innerHTML(),canvasContent,'map pan does not rebuild graph');

@@ -45,7 +45,7 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     assert.equal(await page.locator('#toggle-canvas-names').getAttribute('aria-pressed'), 'true');
     assert.ok(await page.locator('.person__name').evaluateAll(nodes => nodes.every(n => n.textContent === 'OOO')));
     assert.equal(await page.evaluate(() => JSON.stringify(FAMILY)), originalGraph);
-    assert.equal(await page.locator('#relationship-a option[value=A]').textContent(), 'A · 第 3 代');
+    assert.equal(await page.locator('#relationship-a option[value=A]').textContent(), 'A（第 3 代 · 父母：P）');
     await page.evaluate(() => window.selectFamilyMember('A'));
     assert.match(await page.locator('#relationship-details-title').textContent(), /A/);
     await page.click('#mobile-search-open');
@@ -73,8 +73,9 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
     await page.waitForTimeout(250);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     const headingBox = await page.locator('#relationship-summary h2').boundingBox(), editBox = await page.locator('#relationship-result-edit').boundingBox();
-    assert(editBox.x >= headingBox.x + headingBox.width, 'modify sits beside the summary');
+    assert(editBox.x >= headingBox.x + headingBox.width || editBox.y >= headingBox.y + headingBox.height, 'modify remains separate from the summary when actions wrap');
     await page.evaluate(() => window.selectFamilyMember('A'));
+    if (!await page.locator('.details-collapse').isVisible()) await page.click('.relationship-details__more-summary');
     await page.click('.details-collapse');
     assert.equal(await page.locator('#relationship-details').getAttribute('data-collapsed'), 'true');
     assert((await page.locator('#relationship-details').boundingBox()).height <= 92);
@@ -91,6 +92,7 @@ const p = (id, parent) => ({ id, name: id, gender: 'M', location: '', position: 
       assert(contained, 'detail header buttons remain inside panel');
     }
     await page.evaluate(() => window.selectFamilyMember('B'));
+    if (!await page.locator('.details-collapse').isVisible()) await page.click('.relationship-details__more-summary');
     await page.click('.details-collapse');
     assert.equal(await page.locator('#relationship-details').getAttribute('data-collapsed'), 'true');
     await page.click('.relationship-details__tab');

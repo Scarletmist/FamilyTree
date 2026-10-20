@@ -70,7 +70,8 @@
       dialog = el('dialog','relationship-proof-dialog'); dialog.id = 'relationship-proof-dialog';
       dialog.setAttribute('aria-labelledby','relationship-proof-title');
       const header = el('header','dialog-header'),title = el('h2','','關係依據'); title.id = 'relationship-proof-title';
-      const close = el('button','details-icon','×'); close.type = 'button'; close.setAttribute('aria-label','關閉關係依據');
+      const close = el('button','details-icon'); close.type = 'button'; close.setAttribute('aria-label','關閉關係依據');
+      close.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18 M6 6l12 12" /></svg>';
       close.addEventListener('click',() => dialog.close()); header.append(title,close);
       body = el('div','relationship-proof-body'); dialog.append(header,body); document.body.append(dialog);
       dialog.addEventListener('click',event => { if (event.target === dialog) dialog.close(); });

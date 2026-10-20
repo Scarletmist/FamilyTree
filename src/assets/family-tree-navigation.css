@@ -22,6 +22,7 @@
 .tree-output-preview__diagram { overflow:auto;max-height:420px; }
 .tree-output-preview__diagram > svg { display:block;width:100%;height:auto;min-width:660px; }
 .tree-output-preview-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.tree-output-preview-tools label{display:flex;align-items:center;gap:8px;font-size:14px}.tree-output-preview-tools :is(select,button){min-height:44px;font-size:16px}
+.tree-output-preview-mode{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;background:#eef2e9;border-radius:10px}.tree-output-preview-mode button{padding:6px 10px;border:0;background:transparent}.tree-output-preview-mode [aria-pressed=true]{background:#fff;color:#405536;box-shadow:0 1px 4px #26331c18}
 .tree-output-preview.is-fit .tree-output-preview__diagram>svg{width:100%;min-width:0;height:clamp(180px,45dvh,420px)}
 .tree-output-preview[data-stale=true]{opacity:.55}.tree-output-preview[data-stale=true]::before{content:'預覽待更新';display:block;font-size:14px;font-weight:600;margin-bottom:8px;color:var(--color-accent)}
 #tree-output-dirty{padding:8px 10px;background:#f0f4e9;border-radius:8px}

@@ -22,7 +22,8 @@
       svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
       const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path'); shape.setAttribute('d', path); svg.appendChild(shape); node.appendChild(svg); return node;
     };
-    const open = button('', 'mobile-search-open'), end = iconButton('結束查詢，顯示全部', 'mobile-search-end');
+    const open = button('', 'mobile-search-open'), end = button('結束查詢', 'mobile-search-end');
+    end.setAttribute('aria-label', '結束查詢，顯示全部');
     const openLabel = el('span', '查關係'); open.append(openLabel);
     end.hidden = true; bar.append(open, end);
 
@@ -199,9 +200,13 @@
         summary.classList.add('relationship-summary--compact');
         const compactTitle = el('h2', titleText);
         const actions = el('div'); actions.className = 'relationship-summary__actions';
-        const details = button('路徑'); details.className = 'plain-button relationship-result-details'; details.setAttribute('aria-label', '查看完整關係路徑'); details.addEventListener('click', openResultDetails);
+        const details = button('查看路徑'); details.className = 'plain-button relationship-result-details'; details.setAttribute('aria-label', '查看完整關係路徑'); details.addEventListener('click', openResultDetails);
         const modify = button('更換成員', 'relationship-result-edit'); modify.className = 'plain-button mobile-result-edit'; modify.addEventListener('click', openSheet);
-        const finish = iconButton('結束比較，顯示全部', undefined, 'plain-button relationship-result-end'); finish.addEventListener('click', () => document.getElementById('relationship-reset').click());
+        const finish = button(''); finish.className = 'plain-button relationship-result-end';
+        finish.setAttribute('aria-label','結束查詢，顯示全部');
+        const finishFull = el('span','結束查詢'); finishFull.className = 'control-label-full';
+        const finishShort = el('span','結束'); finishShort.className = 'control-label-short';
+        finish.append(finishFull,finishShort); finish.addEventListener('click', () => document.getElementById('relationship-reset').click());
         const titleBody = el('div'); titleBody.className = 'relationship-summary__identity'; titleBody.append(compactTitle);
         if (path?.edges.length) titleBody.append(RelationshipEvidenceView.badge(RelationshipEvidence.create(graph).path(path.edges)));
         actions.append(details, modify, finish); summary.append(titleBody, actions);

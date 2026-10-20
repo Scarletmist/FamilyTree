@@ -12,6 +12,7 @@
     "test:phase3:browser": "node tests/browser-phase3.cjs",
     "test:phase4:browser": "node tests/browser-phase4.cjs",
     "test:ui:browser": "node tests/browser-ui-improvements.cjs",
+    "test:buttons:browser": "node tests/browser-button-layout.cjs",
     "test:relationships:browser": "node tests/browser-relationship-policy.cjs && node tests/browser-family-inference.cjs && node tests/browser-seniority-inference.cjs",
     "test:generations:browser": "node tests/browser-peer-generations.cjs && node tests/browser-grandparents.cjs",
     "test:routing:browser": "node tests/browser-routing.cjs && node tests/browser-connector-endpoints.cjs && node tests/browser-labels.cjs",

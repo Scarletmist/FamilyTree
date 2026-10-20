@@ -25,6 +25,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
       [1440, 900, false, 'reduce']
     ]) {
       const context = await browser.newContext({ viewport: { width, height }, isMobile: touch, hasTouch: touch, reducedMotion });
+      await context.addInitScript(() => localStorage.setItem('family-tree:canvas-guide:v1','seen'));
       const page = await context.newPage();
       const errors = [];
       page.on('pageerror', error => errors.push(error.stack || error.message));
@@ -121,6 +122,7 @@ const { createFamilyServer } = require('../dev/server.cjs');
         await settle();
       }
       await clear();
+      if (!await page.locator('.details-collapse').isVisible()) await activate('.relationship-details__more-summary');
       await activate('.details-collapse');
       await settle();
       assert(await page.evaluate(() => window.motionEvents.some(event => String(event.cls).includes('motion-details-reveal'))), 'Collapse should reveal the compact summary');

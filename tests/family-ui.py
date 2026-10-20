@@ -119,6 +119,8 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     siblings = panel.locator('details[data-group="siblings"]')
                     siblings.locator('summary').click()
                     assert siblings.locator('.relationship-entry__role').all_text_contents() == ['二妹','三弟','契手足']
+                    if not page.locator('.details-collapse').is_visible():
+                        page.locator('.relationship-details__more-summary').click()
                     page.locator('.details-collapse').focus()
                     page.keyboard.press('Enter')
                     assert panel.get_attribute('data-collapsed') == 'true'
@@ -146,12 +148,17 @@ with tempfile.TemporaryDirectory(prefix='family-ui-') as temp:
                     assert panel.get_attribute('data-collapsed') == 'false'
                     assert siblings.is_visible()
                     assert siblings.locator('.relationship-entry__role').all_text_contents() == ['二妹','三弟','契手足']
-                    assert page.locator('.details-collapse').evaluate('(el) => el === document.activeElement')
+                    focus_target = '.detail-expand' if device == 'mobile' else '.details-collapse'
+                    assert page.locator(focus_target).evaluate('(el) => el === document.activeElement')
+                    if not page.locator('.details-collapse').is_visible():
+                        page.locator('.relationship-details__more-summary').click()
                     page.locator('.details-collapse').click()
                     page.evaluate('window.renderFamilyTree()')
                     assert panel.get_attribute('data-collapsed') == 'true'
                     page.evaluate("window.selectFamilyMember('p17')")
                     if device == 'mobile':
+                        if not panel.locator('.details-collapse').is_visible():
+                            panel.locator('.relationship-details__more-summary').click()
                         panel.locator('.details-collapse').click()
                         assert panel.get_attribute('data-collapsed') == 'true'
                         panel.locator('.relationship-details__tab').click()

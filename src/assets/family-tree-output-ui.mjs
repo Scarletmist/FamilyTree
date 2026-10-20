@@ -65,11 +65,12 @@ export function createExportController({getContext,getGraph}) {
       if (!original || (options.scope === 'path' && !context?.queryView.active)) throw new Error('請先選擇兩人成員並查詢關係。');
       const {graph:projected,bridges} = projectOutputGraph(original,{ids:options.scope === 'current' ? context?.ids : null,includeArchived:options.includeArchived});
       const graph = {...projected,rankGroups:options.hideNames ? [] : projected.rankGroups,
+        bonds:projected.bonds.filter(bond => !bond.rankGroupIds || options.scope === 'path'),
         people:projected.people.map(p => ({...p,name:options.hideNames ? 'OOO' : p.name,
           location:options.location ? p.location : '',position:options.position ? p.position : ''}))};
       if (!graph.people.length) throw new Error('此範圍沒有可輸出的成員。');
       const {FamilyModel:M,FamilyDisplayProjection:P} = globalThis;
-      const connectedIds = M.relationshipMemberIds(graph.people),displayShift = P.generationOffset(graph);
+      const connectedIds = M.relationshipMemberIds(graph.people, graph.bonds),displayShift = P.generationOffset(graph);
       const keys = new Set((graph.bonds || []).map(b => M.intermediateKey(b.kind,b.members)));
       for (const d of graph.descents || []) if (d.kind === '親生' && d.generations === 2) graph.unions.find(u => u.id === d.union)?.partners.forEach(id => keys.add(M.intermediateKey('親生祖孫',[id,d.child])));
       const ids = new Set(graph.people.map(p => p.id));

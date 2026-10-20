@@ -226,7 +226,7 @@
   function renderMemberList() {
     const previousScroll = listScroll.scrollTop;
     const graph = FamilyApp.graph();
-    const allPeople = graph?.people || [], people = allPeople.filter(p => memberFilter === 'archived' ? p.archive : !p.archive), linked = FamilyModel.relationshipMemberIds(allPeople);
+    const allPeople = graph?.people || [], people = allPeople.filter(p => memberFilter === 'archived' ? p.archive : !p.archive), linked = FamilyModel.relationshipMemberIds(allPeople, graph?.bonds);
     const generationOffset = graph ? FamilyDisplayProjection.generationOffset(graph) : 0;
     const keyword = normalized(searchMembers?.value.trim() || '');
     const visible = people.filter(person => {

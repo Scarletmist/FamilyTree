@@ -38,10 +38,16 @@
   function describe(data, from, relation, index = records(data)) {
     const direct = relation.type && index.get(canonical(from,relation).key);
     const derived = !direct;
-    const premises = derived ? (relation.path || []).map(step => {
+    const steps = relation.path || (relation.rankGroup ? [{ ...relation, from, to:relation.to ?? relation.personId }] : []);
+    const premises = derived ? steps.map(step => {
       const entry = index.get(canonical(step.from,step).key);
+      const group = step.rankGroup && (data.rankGroups || []).find(group => group.id === step.groupId && group.type === step.type
+        && group.members.some(member => member.personId === step.from) && group.members.some(member => member.personId === (step.to ?? step.personId)));
       return { key:canonical(step.from,step).key, from:step.from, to:step.to ?? step.personId,
-        type:step.type, ...(step.kind ? {kind:step.kind} : {}), records:entry?.records || [] };
+        type:step.type, ...(step.kind ? {kind:step.kind} : {}), records:entry?.records || [],
+        ...(group ? { rankGroup: { id:group.id, name:group.name, type:group.type,
+          fromOrder:group.members.find(member => member.personId === step.from).order,
+          toOrder:group.members.find(member => member.personId === (step.to ?? step.personId)).order } } : {}) };
     }) : [];
     return { origin:derived ? 'inferred' : 'direct', originLabel:derived ? '推導' : '直接記錄',
       premises, records:direct?.records || premises.flatMap(p => p.records) };
@@ -70,9 +76,16 @@
         seen.add(signature); result.push({ from,relation,evidence:explain(from,relation) });
       }
       directed(from).filter(r => r.personId === to).forEach(add);
+      const directTypes = new Set(result.map(item => item.relation.type));
+      for (const group of data.rankGroups || []) {
+        if (from === to || directTypes.has(group.type) || !allowed.includes(group.type)
+          || !group.members.some(member => member.personId === from) || !group.members.some(member => member.personId === to)) continue;
+        add({ type:group.type, personId:to, groupId:group.id, rankGroup:true,
+          path:[{ from, to, type:group.type, groupId:group.id, rankGroup:true }] });
+      }
       for (const r of data.inferredRelations || []) if (r.from === from && r.personId === to && !index.has(canonical(from,r).key)) add(r);
       for (const [type,premise,reverse] of [['sibling','parent','child'],['fellowDisciple','teacher','student']]) {
-        if (!allowed.includes(type) || result.some(item => item.relation.type === type)) continue;
+        if (!allowed.includes(type) || result.some(item => item.relation.type === type && !item.relation.rankGroup)) continue;
         const eligible = r => r.type === premise && (type !== 'sibling' || ['親生','過繼','養子女'].includes(r.kind));
         const left = directed(from).filter(eligible), right = directed(to).filter(eligible);
         for (const a of left) for (const b of right.filter(r => r.personId === a.personId)) add({ type,personId:to,path:[

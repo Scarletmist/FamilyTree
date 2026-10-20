@@ -54,7 +54,7 @@
     const name = field(ui.content, '群組名稱', el('input')); name.maxLength = 80;
     const type = field(ui.content, '排行類型', select([['sibling','家庭手足'],['swornSibling','契手足'],['fellowDisciple','師門']]));
     const anchor = field(ui.content, '所屬父母或師父（選填，供子女／徒弟排行顯示）', select([['','未指定']]));
-    ui.content.append(el('p', '勾選所屬成員，排行未知可留空。群組不會自動建立親屬或師徒關係；成員有群組時，稱謂使用群組排行。同一對成員有多個群組時，請在關係表單指定使用哪一組。', 'form-note'));
+    ui.content.append(el('p', '勾選所屬成員，排行未知可留空。群組會依類型自動連接手足、契手足或同門，在選取成員或查詢關係時顯示。稱謂使用群組排行；所屬父母或師父僅用於子女／徒弟排行。同一對成員有多個群組時，可在關係表單指定使用哪一組。', 'form-note'));
     const search = field(ui.content, '搜尋成員', el('input')); search.type = 'search';
     const members = el('div', undefined, 'rank-members'); ui.content.append(members);
     function draw() {

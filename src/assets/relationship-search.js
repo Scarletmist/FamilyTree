@@ -158,7 +158,7 @@
     function update(fullGraph) {
       graph = fullGraph;
       const names = FamilyModel.memberOptionLabels(fullGraph.people);
-      const relationshipMemberIds = FamilyModel.relationshipMemberIds(fullGraph.people);
+      const relationshipMemberIds = FamilyModel.relationshipMemberIds(fullGraph.people, fullGraph.bonds);
       const relationshipPeople = fullGraph.people.filter(person => !person.archive && relationshipMemberIds.has(person.id));
       const generationOffset = FamilyDisplayProjection.generationOffset(fullGraph);
       const optionLabels = new Map(relationshipPeople.map(person => [person.id, `${names.get(person.id)} · 第 ${person.gen + generationOffset} 代`]));
@@ -207,7 +207,7 @@
       return { active: true, graph: engine.project(fullGraph, path, [a.value, b.value]), scope: [a.value, b.value, pathIndex].join('|'), aId: a.value, bId: b.value };
     }
     function startWithMember(personId) {
-      if (!graph?.people.some(person => person.id === personId && !person.archive) || !FamilyModel.relationshipMemberIds(graph.people).has(personId)) return false;
+      if (!graph?.people.some(person => person.id === personId && !person.archive) || !FamilyModel.relationshipMemberIds(graph.people, graph.bonds).has(personId)) return false;
       a.value = '';
       b.value = personId;
       active = false;

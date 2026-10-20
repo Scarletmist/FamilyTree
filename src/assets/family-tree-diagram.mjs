@@ -115,7 +115,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     }
     const otherSegments = group => connectorSegments.filter(segment => segment.group !== group);
     const route = (start, end, group) => FamilyConnectorRouting.route(start, end, cardBoxes, otherSegments(group));
-    function path(points, kind, ids, role, union, group, crossingSegments, inferred = false) {
+    function path(points, kind, ids, role, union, group, crossingSegments, inferred = false, detailsOnly = false) {
       const connectorGroup = group || (union ? `union:${union}` : `edge:${connectorSerial++}`);
       const logicalPoints = FamilyConnectorRouting.simplify(points);
       const bridgePoints = FamilyConnectorRouting.crossings(logicalPoints, crossingSegments || otherSegments(connectorGroup), 2.5);
@@ -130,6 +130,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
       el.dataset.role = role;
       el.dataset.group = connectorGroup;
       if (inferred) el.dataset.inferred = 'true';
+      if (detailsOnly) el.dataset.detailsOnly = 'true';
       el.dataset.points = logicalPoints.map(p => p.join(',')).join(' ');
       if (bridgePoints.length) el.dataset.bridges = bridgePoints.map(p => `${p.x},${p.y}`).join(' ');
       if (union) el.dataset.union = union;
@@ -139,6 +140,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
         inner.dataset.people = ids.join(' ');
         inner.dataset.group = connectorGroup;
         if (inferred) inner.dataset.inferred = 'true';
+        if (detailsOnly) inner.dataset.detailsOnly = 'true';
         svg.appendChild(inner);
         pathDecorations.set(el, inner);
       }
@@ -148,11 +150,12 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     const lineLabels = [];
     const canvasEvidence = [], labelProofs = new Map();
     const evidenceResolver = interactive ? globalThis.RelationshipEvidence.create(FAMILY) : {between:() => []};
-    function label(x, y, text, kind, ids, inferred = false, proofs = []) {
+    function label(x, y, text, kind, ids, inferred = false, proofs = [], detailsOnly = false) {
       const el = svgElement('text', { x, y, class: 'relation-label', fill: (STYLES[kind] || STYLES.unknown).color });
       el.textContent = text + (!interactive && inferred ? '（推導）' : '');
       el.dataset.people = ids.join(' ');
       if (inferred) el.dataset.inferred = 'true';
+      if (detailsOnly) el.dataset.detailsOnly = 'true';
       svg.appendChild(el);
       lineLabels.push(el);
       if (proofs.some(p => p.evidence.records.some(r => r.relation.source || r.relation.note))) labelProofs.set(el,proofs);
@@ -250,10 +253,10 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
           };
           const start = endpoint(left, right), end = endpoint(right, left);
           const points = [[start.x, start.y], ...route([start.x, start.escape], [end.x, end.escape], groupKey), [end.x, end.y]];
-          path(points, r.kind, ids, 'auxiliary', null, groupKey, undefined, r.inferred);
+          path(points, r.kind, ids, 'auxiliary', null, groupKey, undefined, r.inferred, r.detailsOnly);
         }
         const last = chain.at(-1);
-        label(last.x + 12, last.top - 12, r.planId ? '親生（補中間一代）' : r.kind + '（補親生父母）', r.kind, ids, r.inferred, proofs);
+        label(last.x + 12, last.top - 12, r.planId ? '親生（補中間一代）' : r.kind + '（補親生父母）', r.kind, ids, r.inferred, proofs, r.detailsOnly);
         return;
       }
       const offset = 24 + auxiliaryLanes[index] * auxiliaryLaneStep;
@@ -262,14 +265,16 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
       const fromX = memberPort(from, 'top', groupKey, -42), toX = memberPort(to, 'top', groupKey, -42);
       const points = [[fromX, a.top], ...route([fromX, fromY], [toX, toY], groupKey), [toX, b.top]];
       const routeIds = [...new Set([r.from, r.to, from, to])];
-      path(points, r.kind, routeIds, 'auxiliary', null, groupKey, undefined, r.inferred);
-      label(b.x - 135, toY - (plans.length ? 24 : 8), r.kind === '師徒' ? '師父 → 徒弟' : from !== r.from || to !== r.to ? r.kind + '（補親生父母）' : r.kind, r.kind, routeIds, r.inferred, proofs);
+      path(points, r.kind, routeIds, 'auxiliary', null, groupKey, undefined, r.inferred, r.detailsOnly);
+      label(b.x - 135, toY - (plans.length ? 24 : 8), r.kind === '師徒' ? '師父 → 徒弟' : from !== r.from || to !== r.to ? r.kind + '（補親生父母）' : r.kind, r.kind, routeIds, r.inferred, proofs, r.detailsOnly);
     });
     // Replace overlapping strokes with disjoint intervals, retaining exactly the
     // people represented by each interval for selection highlighting.
     for (const group of new Set(sharing.filter(s => s.root).map(s => s.group))) {
       const precedingSegments = connectorSegments.slice(0, connectorSegments.findIndex(s => s.group === group));
       const originals = [...svg.querySelectorAll('path[data-points]')].filter(el => el.dataset.group === group);
+      // Connector groups keep detail-only and overview strokes separate.
+      const detailsOnly = originals.every(el => el.dataset.detailsOnly === 'true');
       const records = originals.map(el => ({ points: el.dataset.points.split(' ').map(p => p.split(',').map(Number)), people: el.dataset.people.split(' '), inferred: el.dataset.inferred === 'true' }));
       const markers = new Map();
       originals.forEach((el, i) => {
@@ -285,7 +290,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
       const kind = originals[0]?.dataset.kind;
       originals.forEach(el => el.remove());
       FamilyConnectorRouting.sharedSegments(records).forEach(segment => {
-        const el = path(segment.points, kind, segment.people, 'auxiliary', null, group, precedingSegments, segment.inferred);
+        const el = path(segment.points, kind, segment.people, 'auxiliary', null, group, precedingSegments, segment.inferred, detailsOnly);
         el.removeAttribute('marker-start'); el.removeAttribute('marker-end');
       });
       // Endpoint symbols belong to relationship endpoints, never split intervals.
@@ -295,6 +300,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
         const el = svgElement('path', { d: `M ${point[0] - dx / length * .1} ${point[1] - dy / length * .1} L ${point[0]} ${point[1]}`, stroke: STYLES[kind].color, 'marker-end': marker, 'vector-effect': 'non-scaling-stroke' });
         el.dataset.people = people.join(' '); el.dataset.group = group;
         if (inferred) el.dataset.inferred = 'true';
+        if (detailsOnly) el.dataset.detailsOnly = 'true';
         svg.appendChild(el);
       }
     }
@@ -327,6 +333,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
         button.dataset.evidenceKey = proofs.map(p => E.canonical(p.from,p.relation).key).sort().join(';');
         button.dataset.people = [...new Set(proofs.flatMap(p => [p.from,p.relation.personId]))].join(' ');
         button.dataset.inferred = String(proofs.every(p => p.evidence.origin === 'inferred'));
+        if (el.dataset.detailsOnly === 'true') button.dataset.detailsOnly = 'true';
         button.setAttribute('aria-label',`查看${proofs.length}筆關係來源與說明：` + proofs.map(p => E.text(p.evidence)).join('；'));
         const description = element('span','canvas-evidence-description',proofs.map(p => (hideCanvasNames ? '這段關係' : V.sentence(FAMILY,p.from,p.relation)) + '，' + E.text(p.evidence) + (hideCanvasNames ? '' : '。' + p.evidence.records.map(r => '來源：' + (r.relation.source || '未填') + (r.relation.note ? '，說明：' + r.relation.note : '')).join('；'))).join('\n'));
         description.id = 'canvas-proof-' + i; button.setAttribute('aria-describedby',description.id);

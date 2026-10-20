@@ -1,6 +1,6 @@
 /* Taiwan common kinship terms, based on the MOE 親朋稱呼表:
  * https://dict.concised.moe.edu.tw/appendix.jsp?ID=12&la=1&powerMode=0
- * Searches recorded edges only. No parents, marriages or cousin ages are invented.
+ * Searches recorded edges and rank group peer links. No parents, marriages or cousin ages are invented.
  */
 (function (root, factory) {
   const model = typeof module === 'object' && module.exports ? require('./family-model.js') : root.FamilyModel;
@@ -52,13 +52,13 @@
     const base = byId.get(steps[0].from);
     const stepsContext = steps.map((edge, i) => {
       const p = byId.get(edge.to), previous = byId.get(edge.from);
-      const peer = ['sibling','swornSibling','fellowDisciple'].includes(edge.type) ? Model.peerPresentation(byId.graph, p, previous, edge.type) : null;
+      const peer = ['sibling','swornSibling','fellowDisciple'].includes(edge.type) ? Model.peerPresentation(byId.graph, p, previous, edge.type, edge) : null;
       return { gender: p.gender, discipleOrderToBase: peer && edge.type === 'fellowDisciple' ? peer.order : Math.sign(Model.compareDiscipleOrder(p, base)), rankPrefix: rank(peer ? peer.rank : p.siblingOrder), orderToBase: peer && edge.from === base.id ? peer.order : Math.sign(Model.compareOrder(p, base)), orderToPrevious: peer ? peer.order : Math.sign(Model.compareOrder(p, i ? byId.get(steps[i - 1].to) : base)) };
     });
     return { edge: { ...steps.at(-1), seniority: steps.at(-1).seniority || 'unknown' }, target: stepsContext.at(-1), steps: stepsContext };
   }
   function term(edge, byId) {
-    if (['sibling','swornSibling','fellowDisciple'].includes(edge.type)) return Model.peerPresentation(byId.graph, byId.get(edge.to), byId.get(edge.from), edge.type).role;
+    if (['sibling','swornSibling','fellowDisciple'].includes(edge.type)) return Model.peerPresentation(byId.graph, byId.get(edge.to), byId.get(edge.from), edge.type, edge).role;
     return evaluate(config.direct[edge.type] ?? config.display.fallbackTerm, contextFor([edge], byId));
   }
   function ruleNotes(rule, context) {
@@ -103,7 +103,7 @@
       if (edge.source) notes.push('來源：' + edge.source);
       if (edge.note) notes.push('關係說明：' + edge.note);
     }
-    if (steps.length === 1 && ['sibling','swornSibling','fellowDisciple'].includes(steps[0].type)) notes.push(...Model.peerPresentation(byId.graph, byId.get(steps[0].to), byId.get(steps[0].from), steps[0].type).missing);
+    if (steps.length === 1 && ['sibling','swornSibling','fellowDisciple'].includes(steps[0].type)) notes.push(...Model.peerPresentation(byId.graph, byId.get(steps[0].to), byId.get(steps[0].from), steps[0].type, steps[0]).missing);
     notes.push(...ruleNotes(rule, context));
     if (notes.includes(config.notes.unknownSide)) confidence = 2;
     if (!title) {
@@ -133,6 +133,14 @@
       const forward = { ...r, from: p.id, to: r.personId, type: r.type, key };
       adjacency.get(p.id).push(forward);
       adjacency.get(r.personId).push({ ...forward, from: r.personId, to: p.id, type: INVERSE[r.type], ...(r.seniority ? { seniority: Model.inverseSeniority(r.seniority) } : {}) });
+    }
+    const rankGroups = new Map((graph.rankGroups || []).map(group => [group.id, group]));
+    for (const bond of graph.bonds || []) for (const groupId of bond.rankGroupIds || []) {
+      const group = rankGroups.get(groupId), [from, to] = bond.members;
+      if (!group || !byId.has(from) || !byId.has(to)) continue;
+      const key = ['rank-group', groupId, from, to].join('|');
+      adjacency.get(from).push({ from, to, type:group.type, groupId, rankGroup:true, key });
+      adjacency.get(to).push({ from:to, to:from, type:group.type, groupId, rankGroup:true, key });
     }
     const priority = type => ['parent', 'grandparent', 'sibling', 'spouse', 'child', 'grandchild'].indexOf(type);
     adjacency.forEach(edges => edges.sort((a, b) => priority(a.type) - priority(b.type) || ({ M: 0, F: 1, U: 2 }[byId.get(a.to).gender] - { M: 0, F: 1, U: 2 }[byId.get(b.to).gender]) || a.to.localeCompare(b.to)));
@@ -213,6 +221,7 @@
   function project(graph, path, isolatedIds = []) {
     const ids = new Set(path ? path.nodes : isolatedIds), relations = new Map([...ids].map(id => [id, []]));
     for (const edge of path?.edges || []) {
+      if (edge.rankGroup) continue;
       const relation = { type: edge.type, personId: edge.to };
       for (const key of ['kind','seniority','groupId','status','note','source']) if (edge[key] !== undefined) relation[key] = edge[key];
       relations.get(edge.from).push(relation);

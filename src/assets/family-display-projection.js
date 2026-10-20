@@ -33,7 +33,7 @@
       for (let i = 1; i < union.partners.length; i++) link(union.partners[0], union.partners[i], 0);
     }
     for (const bond of graph.bonds || []) {
-      if (!FAMILY_PEER_KINDS.has(bond.kind) || bond.members.length < 2) continue;
+      if (bond.rankGroupIds || !FAMILY_PEER_KINDS.has(bond.kind) || bond.members.length < 2) continue;
       link(bond.members[0], bond.members[1], 0);
     }
 
@@ -190,7 +190,7 @@
     }
     const incomingPeers = [];
     for (const bond of graph.bonds || []) {
-      if (bond.kind !== '師兄弟姊妹' && !COUSIN_KINDS.has(bond.kind)) continue;
+      if (!bond.rankGroupIds && bond.kind !== '師兄弟姊妹' && !COUSIN_KINDS.has(bond.kind)) continue;
       const [a, b] = bond.members;
       const componentA = placementComponentOf.get(a), componentB = placementComponentOf.get(b);
       if (componentA === componentB) continue;

@@ -1,4 +1,4 @@
-/* Shared by the browser and local server. JSON member relationships are the only source of truth. */
+/* Shared by the browser and local server. Relationships and rank groups are source records. */
 (function (root, factory) {
   const model = factory(typeof module === 'object' && module.exports ? require('./family-location.js') : root.FamilyLocation,
     typeof module === 'object' && module.exports ? require('./family-inference.js') : root.FamilyInference,
@@ -50,12 +50,13 @@
     people.forEach(person => { const name = person.name.trim(); counts.set(name, (counts.get(name) || 0) + 1); });
     return new Map(people.map(person => [person.id, person.name + (counts.get(person.name.trim()) > 1 ? '（' + (person.location.trim() || '所在地未填寫') + '）' : '')]));
   }
-  function relationshipMemberIds(people) {
+  function relationshipMemberIds(people, bonds = []) {
     const ids = new Set();
     for (const person of people || []) for (const relation of person.relationships || []) {
       ids.add(person.id);
       if (relation?.personId) ids.add(relation.personId);
     }
+    for (const bond of bonds) bond.members.forEach(id => ids.add(id));
     return ids;
   }
   const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', teacher: 'student', student: 'teacher' };
@@ -100,7 +101,7 @@
     const unions = new Map(graph.unions.map(u => [u.id, u]));
     const people = new Map(graph.people.map(p => [p.id, p]));
     for (const d of graph.descents) if (d.kind === '親生' && d.generations !== 2) unions.get(d.union).partners.forEach(id => parents.get(d.child).add(id));
-    const siblings = new Set(graph.bonds.filter(b => b.kind === '手足').map(b => intermediateKey('手足', b.members)));
+    const siblings = new Set(graph.bonds.filter(b => b.kind === '手足' && !b.rankGroupIds).map(b => intermediateKey('手足', b.members)));
     const result = new Set();
     for (const b of graph.bonds.filter(b => ['堂親', '表親'].includes(b.kind))) {
       for (const a of parents.get(b.members[0])) for (const c of parents.get(b.members[1])) {
@@ -156,7 +157,7 @@
     // Separate cousin edges can refer to the same missing father. Share the
     // display slot when their other endpoints are known biological siblings and
     // their suggested relationships agree; retain each edge's own plan identity.
-    const siblingPairs = new Set(graph.bonds.filter(b => b.kind === '手足').map(b => intermediateKey('手足', b.members)));
+    const siblingPairs = new Set(graph.bonds.filter(b => b.kind === '手足' && !b.rankGroupIds).map(b => intermediateKey('手足', b.members)));
     const siblingsOf = (a, b) => siblingPairs.has(intermediateKey('手足', [a, b])) || parents.get(a).some(id => parents.get(b).includes(id));
     const roots = plans.map((_, i) => i);
     const rootOf = i => { while (roots[i] !== i) i = roots[i]; return i; };
@@ -326,8 +327,28 @@
     const inferredRelations = Inference.derive(data, (base, target) => peerPresentation(data, byId.get(target), byId.get(base), 'sibling').order);
     const inferredCousins = inferredRelations.filter(r => isCousin(r.type) && !r.recorded && r.from < r.personId)
       .map(r => ({ members: [r.from, r.personId], kind: r.type === 'tangCousin' ? '堂親' : '表親', inferred: true }));
+    const bonds = [...cousins.values()].concat(inferredCousins)
+      .concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' })))
+      .concat([...sworn.values()].map(members => ({ members, kind: '契手足' })))
+      .concat([...siblings.values()].map(members => ({ members, kind: '手足' })));
+    const bondIndex = new Map(bonds.map(bond => [intermediateKey(bond.kind, bond.members), bond]));
+    // Group membership establishes peers only. These rebuildable display bonds
+    // never become recorded relationships or biological inference premises.
+    for (const group of data.rankGroups || []) {
+      const kind = { sibling: '手足', swornSibling: '契手足', fellowDisciple: '師兄弟姊妹' }[group.type];
+      const members = group.members.map(member => member.personId).sort();
+      for (let i = 0; i < members.length; i++) for (let j = i + 1; j < members.length; j++) {
+        const pair = [members[i], members[j]], key = intermediateKey(kind, pair);
+        let bond = bondIndex.get(key);
+        if (!bond) {
+          bond = { members: pair, kind, inferred: true, rankGroupIds: [] };
+          bondIndex.set(key, bond); bonds.push(bond);
+        }
+        if (bond.rankGroupIds) bond.rankGroupIds.push(group.id);
+      }
+    }
     return { schemaVersion: data.schemaVersion, familyName, ignoredIntermediatePlans, rankGroups: data.rankGroups || [], people, unions: [...groups.values()], descents, inferredRelations,
-      bonds: [...cousins.values()].concat(inferredCousins).concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' }))).concat([...sworn.values()].map(members => ({ members, kind: '契手足' }))).concat([...siblings.values()].map(members => ({ members, kind: '手足' }))),
+      bonds,
       mentorships: [...mentors.values()] };
   }
   // A shared stroke asserts a common source, so require evidence, not merely
@@ -337,9 +358,10 @@
       .flatMap(d => graph.unions.find(u => u.id === d.union)?.partners || []);
     const teachers = id => (graph.mentorships || []).filter(m => m.student === id).map(m => m.teacher);
     const common = (a, b) => a.some(id => b.includes(id));
-    const siblings = (a, b) => common(parents(a), parents(b)) || (graph.bonds || []).some(r => r.kind === '手足' && r.members.includes(a) && r.members.includes(b));
+    const siblings = (a, b) => common(parents(a), parents(b)) || (graph.bonds || []).some(r => r.kind === '手足' && !r.rankGroupIds && r.members.includes(a) && r.members.includes(b));
     function compatible(root, a, b) {
       const x = a.from === root ? a.to : a.from, y = b.from === root ? b.to : b.from;
+      if (Boolean(a.detailsOnly) !== Boolean(b.detailsOnly)) return false;
       if (a.kind !== b.kind) return false;
       if (a.kind === '師徒') return a.from === root && b.from === root;
       if (a.kind === '堂親') return siblings(x, y);

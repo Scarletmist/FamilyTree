@@ -10,7 +10,7 @@
   const normalize = text => String(text || '').normalize('NFKC').trim().replace(/\s+/g,'').toLocaleLowerCase();
   function tasks(data,{ locationState = {} } = {}) {
     const graph = Model.build(data), active = new Map(graph.people.filter(p => !p.archive).map(p => [p.id,p]));
-    const linked = Model.relationshipMemberIds(graph.people), items = [];
+    const linked = Model.relationshipMemberIds(graph.people, graph.bonds), items = [];
     const add = (category,id,title,reason,personIds,action,extra = {}) => items.push({ category,id,title,reason,personIds,action,...extra });
     for (const p of active.values()) {
       if (!linked.has(p.id)) add('unlinked',p.id,p.name,'尚無入向或出向的直接關係。',[p.id],'edit',{ ownerId:p.id });

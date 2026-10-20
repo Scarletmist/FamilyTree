@@ -79,9 +79,10 @@
     for (const bond of graph.bonds || []) {
       if (!bond.members.includes(personId)) continue;
       const other = bond.members.find(id => id !== personId);
+      const context = bond.rankGroupIds?.map(id => '排行群組：' + graph.rankGroups.find(group => group.id === id)?.name).join('、');
       if (['堂親', '表親'].includes(bond.kind)) { add('cousins', other, { context: '直接記錄，可再補上父母與父母間的手足關係。' }); continue; }
-      if (bond.kind === '師兄弟姊妹') { add('fellowDisciples', other); continue; }
-      add('siblings', other, { ordinary: bond.kind === '手足', sworn: bond.kind === '契手足' });
+      if (bond.kind === '師兄弟姊妹') { add('fellowDisciples', other, { context }); continue; }
+      add('siblings', other, { ordinary: bond.kind === '手足', sworn: bond.kind === '契手足', context });
     }
     for (const mentorship of graph.mentorships || []) {
       if (mentorship.teacher === personId) add('students', mentorship.student);
@@ -316,9 +317,9 @@
       const edit = iconButton('edit-member details-action', '編輯' + person.name + '的成員與關係', 'M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5z');
       edit.appendChild(element('span', 'details-action__label', '編輯'));
       edit.addEventListener('click', () => onEdit?.(person.id));
-      const hasRecordedRelationships = FamilyModel.relationshipMemberIds(graph.people).has(person.id);
+      const hasRelationships = FamilyModel.relationshipMemberIds(graph.people, graph.bonds).has(person.id);
       let query;
-      if (hasRecordedRelationships) {
+      if (hasRelationships) {
         query = iconButton('query-relationship details-action', '查詢其他成員與' + person.name + '的關係', 'M4 7h13m-4-4 4 4-4 4M20 17H7m4 4-4-4 4-4');
         query.appendChild(element('span', 'details-action__label', '查關係'));
         query.addEventListener('click', () => onQuery?.(person.id));

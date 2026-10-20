@@ -198,7 +198,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
     const focusedIds = focus ? new Set(focus.partners.concat((graph.descents || []).filter(d => d.union === focus.id).map(d => d.child))) : null;
     // Inspect the full dataset, including inverse relationships. A member does
     // not become "unconnected" merely because a filter hides their relatives.
-    const connectedIds = FamilyModel.relationshipMemberIds(FAMILY.people);
+    const connectedIds = FamilyModel.relationshipMemberIds(FAMILY.people, FAMILY.bonds);
     const visibleIds = new Set(graph.people.filter(p => !focusedIds || focusedIds.has(p.id)).map(p => p.id));
     const visibleEdges = new Set((graph.bonds || []).map(b => FamilyModel.intermediateKey(b.kind, b.members)));
     for (const d of graph.descents || []) if (d.kind === '親生' && d.generations === 2) {
@@ -261,6 +261,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
       el, original: el.getAttribute('d'), group: el.dataset.group,
       people: el.dataset.people.split(' '),
       inferred: el.dataset.inferred === 'true',
+      detailsOnly: el.dataset.detailsOnly === 'true',
       points: el.dataset.points.split(' ').map(p => p.split(',').map(Number)),
       bridges: (el.dataset.bridges || '').split(' ').filter(Boolean).map(p => { const [x, y] = p.split(',').map(Number); return { x, y }; })
     }));
@@ -270,22 +271,24 @@ let FAMILY = FamilyApp?.graph?.() || null;
       // Selection and relationship queries reveal inferred paths without
       // changing the user's overview preference or rebuilding the canvas.
       const revealInferred = showInferredLines || !!visibleId || queryView.active;
+      const revealDetails = !!visibleId || queryView.active;
+      const connectorVisible = (inferred, detailsOnly) => (!inferred || revealInferred) && (!detailsOnly || revealDetails);
       nodes.forEach((node, id) => node.setAttribute('aria-pressed', String(id === visibleId)));
       svg.querySelectorAll('[data-people]').forEach(line => {
-        line.style.display = line.dataset.inferred === 'true' && !revealInferred ? 'none' : '';
+        line.style.display = connectorVisible(line.dataset.inferred === 'true', line.dataset.detailsOnly === 'true') ? '' : 'none';
         line.style.opacity = visibleId && !line.dataset.people.split(' ').includes(visibleId) ? '0.12' : '1';
       });
       canvasEvidence.forEach(button => {
         const related = Boolean(visibleId && button.dataset.people.split(' ').includes(visibleId));
         button.dataset.selected = String(related);
-        button.style.display = button.dataset.inferred === 'true' && !revealInferred ? 'none' : '';
+        button.style.display = connectorVisible(button.dataset.inferred === 'true', button.dataset.detailsOnly === 'true') ? '' : 'none';
         button.style.opacity = visibleId && !related ? '0.25' : '1';
       });
-      const visibleSegments = bridgeRecords.filter(r => (!r.inferred || revealInferred) && (!visibleId || r.people.includes(visibleId)))
+      const visibleSegments = bridgeRecords.filter(r => connectorVisible(r.inferred, r.detailsOnly) && (!visibleId || r.people.includes(visibleId)))
         .flatMap(r => FamilyConnectorRouting.segments(r.points, { group: r.group }));
       bridgeRecords.forEach(record => {
         let d = record.original;
-        if ((visibleId || !revealInferred) && (!record.inferred || revealInferred) && (!visibleId || record.people.includes(visibleId)) && record.bridges.length) {
+        if ((visibleId || !revealInferred || !revealDetails) && connectorVisible(record.inferred, record.detailsOnly) && (!visibleId || record.people.includes(visibleId)) && record.bridges.length) {
           const crossings = FamilyConnectorRouting.crossings(record.points, visibleSegments.filter(s => s.group !== record.group), 2.5);
           const bridges = record.bridges.filter(p => crossings.some(c => Math.abs(c.x - p.x) < .1 && Math.abs(c.y - p.y) < .1));
           d = FamilyConnectorRouting.bridgePath(record.points, bridges, 7);

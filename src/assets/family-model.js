@@ -365,42 +365,68 @@
       bonds,
       mentorships: [...mentors.values()] };
   }
-  // A shared stroke asserts a common source, so require evidence, not merely
-  // equal relationship labels. Keep groups as stars with pairwise-compatible leaves.
+  // A shared stroke asserts a common source. Tang branches need a proven
+  // sibling cohort; sibling/school branches need one witness for the whole star.
   function connectorGroups(graph, edges) {
-    const parents = id => (graph.descents || []).filter(d => d.child === id && d.kind === '親生' && (d.generations || 1) === 1)
-      .flatMap(d => graph.unions.find(u => u.id === d.union)?.partners || []);
-    const teachers = id => (graph.mentorships || []).filter(m => m.student === id).map(m => m.teacher);
+    const unions = new Map((graph.unions || []).map(u => [u.id, u]));
+    const parentIds = new Map(), teacherIds = new Map();
+    const add = (map, id, values) => map.set(id, [...new Set([...(map.get(id) || []), ...values])]);
+    (graph.descents || []).filter(d => d.kind === '親生' && (d.generations || 1) === 1)
+      .forEach(d => add(parentIds, d.child, unions.get(d.union)?.partners || []));
+    (graph.mentorships || []).forEach(m => add(teacherIds, m.student, [m.teacher]));
+    const parents = id => parentIds.get(id) || [];
+    const teachers = id => teacherIds.get(id) || [];
     const common = (a, b) => a.some(id => b.includes(id));
-    const siblings = (a, b) => common(parents(a), parents(b)) || (graph.bonds || []).some(r => r.kind === '手足' && !r.rankGroupIds && r.members.includes(a) && r.members.includes(b));
-    function compatible(root, a, b) {
-      const x = a.from === root ? a.to : a.from, y = b.from === root ? b.to : b.from;
-      if (Boolean(a.detailsOnly) !== Boolean(b.detailsOnly)) return false;
-      if (a.kind !== b.kind) return false;
-      if (a.kind === '師徒') return a.from === root && b.from === root;
-      if (a.kind === '堂親') return siblings(x, y);
-      if (a.kind === '手足') return common(parents(root), parents(x).filter(p => parents(y).includes(p)));
-      if (a.kind === '師兄弟姊妹') return common(teachers(root), teachers(x).filter(t => teachers(y).includes(t)));
-      // A biao relationship alone does not identify the paternal/maternal branch.
-      // Fully resolved biological cousin paths are already drawn as parent links.
-      return false;
+    const siblingPairs = new Set((graph.bonds || []).filter(b => b.kind === '手足' && !b.rankGroupIds).map(b => intermediateKey('手足', b.members)));
+    const siblings = (a, b) => common(parents(a), parents(b)) || siblingPairs.has(intermediateKey('手足', [a, b]));
+    const buckets = new Map();
+    edges.forEach((edge, index) => {
+      // Biao cousins can use different paternal/maternal branches even when
+      // their leaves are siblings, so a biao label cannot justify a shared line.
+      if (!['堂親', '手足', '師兄弟姊妹', '師徒'].includes(edge.kind)) return;
+      for (const root of edge.kind === '師徒' ? [edge.from] : [edge.from, edge.to]) {
+        const key = JSON.stringify([edge.kind, Boolean(edge.detailsOnly), root]);
+        if (!buckets.has(key)) buckets.set(key, {key, root, kind:edge.kind, items:[]});
+        buckets.get(key).items.push({index, leaf:edge.from === root ? edge.to : edge.from});
+      }
+    });
+    const candidates = [], seen = new Set();
+    for (const {key, root, kind, items} of buckets.values()) {
+      items.sort((a,b) => a.leaf.localeCompare(b.leaf) || a.index - b.index);
+      const collect = members => {
+        const identity = members.map(m => m.index).sort((a,b) => a-b).join(',') + '|' + root;
+        if (members.length < 2 || seen.has(identity)) return;
+        seen.add(identity);
+        candidates.push({root, members, key:key + JSON.stringify(members.map(m => m.leaf))});
+      };
+      if (kind === '師徒') collect(items);
+      else if (kind === '手足' || kind === '師兄弟姊妹') {
+        const witnesses = kind === '手足' ? parents : teachers;
+        for (const witness of witnesses(root)) collect(items.filter(m => witnesses(m.leaf).includes(witness)));
+      } else {
+        // Tang cousins use the paternal branch. Age and recording direction do
+        // not change whether their leaves are proven biological siblings.
+        for (const seed of items) {
+          const members = [seed];
+          for (const item of items) if (item !== seed && members.every(m => siblings(m.leaf, item.leaf))) members.push(item);
+          collect(members);
+          if (members.length === items.length) break;
+        }
+      }
     }
     const result = edges.map((_, i) => ({ group: `aux:${i}` })), used = new Set();
-    edges.forEach((edge, i) => {
-      if (used.has(i)) return;
-      let best = [];
-      for (const root of [edge.from, edge.to]) {
-        const candidates = [i];
-        edges.forEach((other, j) => {
-          if (j <= i || used.has(j) || ![other.from, other.to].includes(root)) return;
-          if (candidates.every(k => compatible(root, edges[k], other))) candidates.push(j);
-        });
-        if (candidates.length > best.length) best = candidates.map(index => ({ index, root }));
-      }
-      if (best.length > 1) best.forEach(({ index, root }) => {
-        used.add(index); result[index] = { group: `shared:${i}`, root };
+    // Prefer the largest proven star before consuming any edge. Stable ties
+    // prevent record direction, age labels or JSON order from choosing its root.
+    while (candidates.length) {
+      candidates.forEach(c => { c.members = c.members.filter(m => !used.has(m.index)); });
+      candidates.sort((a,b) => b.members.length - a.members.length || a.key.localeCompare(b.key));
+      const best = candidates.shift();
+      if (best.members.length < 2) break;
+      const group = `shared:${Math.min(...best.members.map(m => m.index))}`;
+      best.members.forEach(({index}) => {
+        used.add(index); result[index] = { group, root:best.root };
       });
-    });
+    }
     return result;
   }
   function relationshipError(message, personIds = [], field = 'relationships') {

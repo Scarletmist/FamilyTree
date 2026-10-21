@@ -22,6 +22,63 @@ test('siblings and fellow disciples share only a proven common parent or teacher
   assert(shared(g, [edge('A', 'B', '師兄弟姊妹'), edge('A', 'C', '師兄弟姊妹')]));
   assert(!shared(graph, [edge('A', 'B', '師兄弟姊妹'), edge('A', 'C', '師兄弟姊妹')]));
 });
+
+test('elder and younger tang cousins share the sibling cohort from the same root', () => {
+  const g = {...graph, bonds:[{kind:'手足',members:['A','B']}]};
+  for (const edges of [
+    [{...edge('A','C','堂親'),elderId:'A'}, {...edge('B','C','堂親'),elderId:'C'}],
+    [{...edge('C','B','堂親'),elderId:'C'}, {...edge('C','A','堂親'),elderId:'A'}]
+  ]) {
+    const groups = connectorGroups(g,edges);
+    assert.equal(groups[0].group,groups[1].group);
+    assert(groups.every(group => group.root === 'C'));
+  }
+});
+
+test('biao branches stay separate even with a proven sibling cohort and common parents', () => {
+  const g = {...graph, unions:[{id:'u',partners:['P','Q']}],descents:['B','C'].map(child => ({union:'u',child,kind:'親生'}))};
+  assert(!shared(g,[edge('A','B','表親'),edge('C','A','表親')]));
+  assert(!shared(g,[edge('A','B','堂親'),edge('A','C','表親')]));
+});
+
+test('largest proven star is selected before smaller overlapping stars, independent of record order', () => {
+  const g = {...graph,bonds:[['S','T'],['S','U'],['T','U'],['R','X']].map(members => ({kind:'手足',members}))};
+  const source = [edge('S','X','堂親'),edge('R','S','堂親'),edge('R','T','堂親'),edge('R','U','堂親')];
+  const permutations = items => items.length ? items.flatMap((item,i) => permutations(items.filter((_,j) => i !== j)).map(rest => [item,...rest])) : [[]];
+  for (const edges of permutations(source)) {
+    const groups = connectorGroups(g,edges.map((e,i) => i % 2 ? {...e,from:e.to,to:e.from} : e));
+    const indices = edges.flatMap((e,i) => [e.from,e.to].includes('R') ? [i] : []);
+    assert.equal(new Set(indices.map(i => groups[i].group)).size,1);
+    assert(indices.every(i => groups[i].root === 'R'));
+    assert.equal(groups[edges.findIndex(e => e.from === 'S' && e.to === 'X')].root,undefined);
+  }
+});
+
+test('one teacher must witness the entire fellow-disciple group, not just every pair', () => {
+  const school = {A:['P','Q','R'],B:['P','Q'],C:['Q','R'],D:['P','R']};
+  const g = {...graph,mentorships:Object.entries(school).flatMap(([student,teachers]) => teachers.map(teacher => ({student,teacher})))};
+  const edges = ['B','C','D'].map(id => edge('A',id,'師兄弟姊妹'));
+  const groups = connectorGroups(g,edges);
+  assert.equal(new Set(groups.map(s => s.group)).size,2);
+  for (const group of new Set(groups.map(s => s.group))) {
+    const ids = [...new Set(edges.filter((_,i) => groups[i].group === group).flatMap(e => [e.from,e.to]))];
+    assert(school[ids[0]].some(teacher => ids.every(id => school[id].includes(teacher))));
+  }
+});
+
+test('rank-only or chained sibling evidence does not turn unrelated leaves into one cohort', () => {
+  const edges = ['B','C','D'].map(id => edge('A',id,'堂親'));
+  const g = {...graph,bonds:[['B','C'],['C','D']].map(members => ({kind:'手足',members}))};
+  assert.equal(new Set(connectorGroups(g,edges).map(s => s.group)).size,2);
+  assert(!shared({...graph,bonds:[{kind:'手足',members:['B','C'],rankGroupIds:['rank']}]},edges.slice(0,2)));
+});
+
+test('overview and detail-only branches never share strokes; inferred branches may join manual ones', () => {
+  const a = edge('A','B','堂親'),b = edge('A','C','堂親');
+  assert(!shared(graph,[a,{...b,detailsOnly:true}]));
+  assert(shared(graph,[{...a,detailsOnly:true},{...b,detailsOnly:true}]));
+  assert(shared(graph,[a,{...b,inferred:true}]));
+});
 test('overlapping intervals render once and preserve branch-specific highlighting', () => {
   const result = sharedSegments([{ points: [[0, 0], [0, 20], [30, 20]], people: ['A', 'B'] }, { points: [[0, 0], [0, 20], [60, 20]], people: ['A', 'C'] }]);
   const lines = result.flatMap(p => segments(p.points));

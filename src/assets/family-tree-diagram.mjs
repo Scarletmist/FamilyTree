@@ -112,6 +112,9 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     });
     const extraSides = extra.map((r,index) => {
       const plans = extraPlans[index], a = box(r.from), b = box(r.to);
+      // A proven star must leave its shared member through one port, even when
+      // the leaves sit on opposite sides or have different card heights.
+      if (sharing[index].root && !plans.length && a.gen === b.gen) return {from:'top',to:'top'};
       if (!plans.length) return FamilyConnectorRouting.endpointSides(a,b,cardBoxes);
       return {from:FamilyConnectorRouting.endpointSides(a,{gen:plans[0].generation + displayShift}).from,
         to:FamilyConnectorRouting.endpointSides({gen:plans.at(-1).generation + displayShift},b).to};
@@ -144,6 +147,17 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     }
     const otherSegments = group => connectorSegments.filter(segment => segment.group !== group);
     const route = (start, end, group, directions) => FamilyConnectorRouting.route(start, end, cardBoxes, otherSegments(group),directions);
+    const rowTops = new Map(generations.map(gen => [gen, Math.min(...cardBoxes.filter(b => b.gen === gen).map(b => b.top))]));
+    function auxiliaryPoints(start, end, group, sharedGeneration, distance) {
+      let a = start.escape, b = end.escape;
+      if (sharedGeneration !== undefined) {
+        // Use the whole row's clear gutter, rather than a separate height for
+        // each pair. This preserves the common stem and bus as cards resize.
+        const y = Math.min(rowTops.get(sharedGeneration) ?? Infinity, start.point[1], end.point[1]) - distance;
+        a = [start.point[0], y]; b = [end.point[0], y];
+      }
+      return [start.point, ...route(a,b,group,{startDirection:start.direction,endDirection:end.direction}), end.point];
+    }
     function path(points, kind, ids, role, union, group, crossingSegments, inferred = false, detailsOnly = false) {
       const connectorGroup = group || (union ? `union:${union}` : `edge:${connectorSerial++}`);
       const logicalPoints = FamilyConnectorRouting.simplify(points);
@@ -280,7 +294,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
             return {point:[node.x,node.y],escape:[node.x,upward ? node.top - distance : node.bottom + distance],direction:[0,upward ? -1 : 1]};
           };
           const start = endpoint(left, right), end = endpoint(right, left);
-          const points = [start.point, ...route(start.escape,end.escape,groupKey,{startDirection:start.direction,endDirection:end.direction}),end.point];
+          const points = auxiliaryPoints(start,end,groupKey,sharing[index].root && same ? left.gen : undefined,24 + lane * auxiliaryLaneStep);
           path(points, r.kind, ids, 'auxiliary', null, groupKey, undefined, r.inferred, r.detailsOnly);
         }
         const last = chain.at(-1);
@@ -290,7 +304,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
       const offset = 24 + auxiliaryLanes[index] * auxiliaryLaneStep;
       const groupKey = sharing[index].group;
       const start = memberEndpoint(from,extraSides[index].from,groupKey,offset), end = memberEndpoint(to,extraSides[index].to,groupKey,offset);
-      const points = [start.point,...route(start.escape,end.escape,groupKey,{startDirection:start.direction,endDirection:end.direction}),end.point];
+      const points = auxiliaryPoints(start,end,groupKey,sharing[index].root && box(from).gen === box(to).gen ? box(from).gen : undefined,offset);
       const routeIds = [...new Set([r.from, r.to, from, to])];
       path(points, r.kind, routeIds, 'auxiliary', null, groupKey, undefined, r.inferred, r.detailsOnly);
       const horizontal = FamilyConnectorRouting.segments(points).filter(segment => segment.axis === 'h').sort((a,b) => (b.max - b.min) - (a.max - a.min))[0];

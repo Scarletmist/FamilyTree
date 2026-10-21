@@ -21,6 +21,20 @@ function cousins({type='tangCousin',order=['A','C','B'],inferred=false,related=t
   return {schemaVersion:3,people:[...order.map(id => people.find(p => p.id === id)),...(parents ? [person('P')] : [])]};
 }
 const ignorePlans = data => ({...data,ignoredIntermediatePlans:Model.intermediatePlans(data).map(p => p.id)});
+const ids = ['A','B','C','D','E'];
+const tangCohorts = (order=['A','B','C','D']) => {
+  const people = [person('A',[sibling('B'),cousin('C'),cousin('D')]),person('B',[cousin('C'),cousin('D')]),person('C',[sibling('D')]),person('D')];
+  return {schemaVersion:3,people:order.map(id => people.find(p => p.id === id))};
+};
+function rankedCohorts(cohorts,type='fellowDisciple',{teacher=false,direct=false}={}) {
+  const members = [...new Set(cohorts.flat())].sort();
+  return {schemaVersion:3,people:[...members.map(id => person(id,cohorts.flatMap((cohort,i) => !cohort.includes(id) ? [] : [
+    ...(teacher ? [{type:'teacher',personId:'T'+i}] : []),
+    ...(direct ? cohort.filter(other => other > id).map(personId => ({type,personId})) : [])
+  ]))),...(teacher ? cohorts.map((_,i) => person('T'+i)) : [])],
+  rankGroups:direct ? [] : cohorts.map((members,i) => ({id:'school'+i,name:'同名排行群組',type,members:members.map((personId,j) => ({personId,order:j+1}))}))};
+}
+const tangPeers = {A:['C','D'],B:['C','D'],C:['A','B'],D:['A','B']};
 const fixtures = [
   {id:'tang-pending-parents',data:cousins(),kind:'堂親',root:'C',members:['A','B','C'],groups:1,pending:true},
   ...[['A','C','B'],['C','A','B'],['A','B','C']].map((order,i) => ({id:'tang-position-'+i,data:ignorePlans(cousins({order})),kind:'堂親',root:'C',members:['A','B','C'],groups:1})),
@@ -35,13 +49,22 @@ const fixtures = [
   ]},kind:'師徒',root:'T',members:['A','B','T'],groups:1},
   {id:'siblings-common-parent',data:{schemaVersion:3,people:[
     person('A',[parent('P'),sibling('B'),sibling('C')]),person('B',[parent('P'),sibling('C')]),person('C',[parent('P')]),person('P')
-  ]},kind:'手足',root:'A',members:['A','B','C'],groups:2},
+  ]},kind:'手足',root:'A',members:['A','B','C'],groups:1,whole:true},
   {id:'school-rank-details',data:{schemaVersion:3,people:[
     ...['A','B','C'].map(id => person(id,[{type:'teacher',personId:'T'}])),person('T')
-  ],rankGroups:[{id:'school',name:'師門排行',type:'fellowDisciple',members:['A','B','C'].map((personId,i) => ({personId,order:i+1}))}]},kind:'師兄弟姊妹',root:'A',members:['A','B','C'],groups:2,details:true},
+  ],rankGroups:[{id:'school',name:'師門排行',type:'fellowDisciple',members:['A','B','C'].map((personId,i) => ({personId,order:i+1}))}]},kind:'師兄弟姊妹',root:'A',members:['A','B','C'],groups:1,details:true,whole:true},
   {id:'school-opposite-generations',data:{schemaVersion:3,people:[
     person('A'),person('T',[parent('A'),{type:'student',personId:'A'},{type:'student',personId:'B'}]),person('B')
-  ]},kind:'師徒',root:'T',groups:1,opposite:true}
+  ]},kind:'師徒',root:'T',groups:1,opposite:true},
+  {id:'tang-two-cohorts-pending',data:tangCohorts(),kind:'堂親',groups:1,peers:tangPeers,pending:true,fillPending:true},
+  {id:'tang-two-cohorts-interleaved',data:tangCohorts(['A','C','B','D']),kind:'堂親',groups:1,peers:tangPeers,pending:true},
+  {id:'tang-two-cohorts-direct',data:ignorePlans(tangCohorts()),kind:'堂親',groups:1,peers:tangPeers},
+  {id:'school-five-known-teacher',data:rankedCohorts([ids],'fellowDisciple',{teacher:true}),kind:'師兄弟姊妹',groups:1,sources:[ids],details:true},
+  {id:'school-five-rank-only',data:rankedCohorts([ids]),kind:'師兄弟姊妹',groups:1,sources:[ids],details:true,noAncestors:true},
+  {id:'school-five-direct',data:rankedCohorts([ids],'fellowDisciple',{teacher:true,direct:true}),kind:'師兄弟姊妹',groups:1,sources:[ids]},
+  ...[false,true].map(teacher => ({id:teacher ? 'school-overlapping-teachers' : 'school-overlapping-ranks',data:rankedCohorts([['A','B','C'],['C','D','E']],'fellowDisciple',{teacher,direct:teacher}),kind:'師兄弟姊妹',groups:2,sources:[['A','B','C'],['C','D','E']],details:!teacher})),
+  {id:'school-rank-family-generations',data:{schemaVersion:3,people:[person('A'),person('B',[parent('A')]),person('C',[parent('B')])],rankGroups:[{id:'school',name:'跨代師門',type:'fellowDisciple',members:['A','B','C'].map((personId,i) => ({personId,order:i+1}))}]},kind:'師兄弟姊妹',groups:1,mixed:{A:['bottom'],B:['bottom','top'],C:['top']},details:true},
+  ...[['sibling','手足'],['swornSibling','契手足']].map(([type,kind]) => ({id:'rank-five-'+type,data:rankedCohorts([ids],type),kind,groups:1,sources:[ids],details:true,noAncestors:true}))
 ];
 
 async function geometry(page) {
@@ -139,9 +162,38 @@ async function geometry(page) {
           await page.locator('.person[data-person-id="A"]').evaluate(el => el.click());
           const highlighted = (await geometry(page)).paths.filter(p => p.kind === fixture.kind);
           assert(highlighted.some(p => p.people.length === 3 && p.opacity === '1'),message+' highlights shared trunk');
-          assert(highlighted.some(p => !p.people.includes('A') && p.opacity === '0.12'),message+' dims the other branch');
+          if (fixture.whole) assert(highlighted.every(p => p.opacity === '1'),message+' highlights all related peers');
+          else assert(highlighted.some(p => !p.people.includes('A') && p.opacity === '0.12'),message+' dims the other branch');
           if (fixture.details) assert(highlighted.every(p => p.display !== 'none'),message+' reveals rank branches on selection');
           await page.locator('.person[data-person-id="A"]').evaluate(el => el.click());
+        }
+        if (fixture.peers || fixture.sources || fixture.mixed) {
+          const memberIds = fixture.peers ? Object.keys(fixture.peers) : fixture.mixed ? Object.keys(fixture.mixed) : [...new Set(fixture.sources.flat())];
+          for (const id of memberIds) {
+            const memberContacts = state.contacts.filter(c => c.kind === fixture.kind && c.id === id);
+            const expectedCount = fixture.sources ? fixture.sources.filter(source => source.includes(id)).length : fixture.mixed ? fixture.mixed[id].length : 1;
+            assert.equal(memberContacts.length,expectedCount,message+' every member uses one exit per source and generation direction: '+id);
+            if (fixture.mixed) assert.deepEqual(memberContacts.map(c => c.side).sort(),fixture.mixed[id],message+' keeps family generation directions: '+id);
+            else assert(memberContacts.every(c => c.side === 'top'),message+' uses shared upper ports: '+id);
+            if (fixture.peers) assert.deepEqual([...memberContacts[0].people].sort(),[id,...fixture.peers[id]].sort(),message+' retains cousin branch identities: '+id);
+            if (fixture.sources) for (const contact of memberContacts) assert(fixture.sources.some(source => [...source].sort().join() === [...contact.people].sort().join()),message+' retains distinct source identities: '+id);
+          }
+          if (!fixture.mixed) for (const selected of memberIds) {
+            await page.locator(`.person[data-person-id="${selected}"]`).evaluate(el => el.click());
+            const highlighted = await geometry(page);
+            for (const contact of highlighted.contacts.filter(c => c.kind === fixture.kind)) {
+              const related = fixture.peers ? contact.id === selected || fixture.peers[selected].includes(contact.id) : fixture.sources.some(source => source.includes(selected) && [...source].sort().join() === [...contact.people].sort().join());
+              assert.equal(contact.opacity,related ? '1' : '0.12',message+' highlights only related source branches for '+selected);
+              assert.notEqual(contact.display,'none',message+' reveals detail branches on selection');
+            }
+            await page.locator(`.person[data-person-id="${selected}"]`).evaluate(el => el.click());
+          }
+        }
+        if (fixture.noAncestors) {
+          const graph = await page.evaluate(() => FamilyApp.graph());
+          assert.deepEqual(graph.mentorships,[],message+' does not invent teachers');
+          assert.deepEqual(graph.descents,[],message+' does not invent parents');
+          assert.deepEqual(state.pending,[],message+' does not invent missing parents');
         }
         if (fixture.inferred) {
           assert(paths.some(p => p.inferred && p.display === 'none'),message+' keeps inferred-only branch hidden in overview');
@@ -152,7 +204,7 @@ async function geometry(page) {
           const expected = new Set(Model.intermediatePlans(fixture.data).map(p => p.slotId)).size;
           assert.equal(state.pending.length,expected,message+' preserves every unique pending parent slot');
           assert(state.pending.every(p => p.text === '+' && p.label && p.onStroke),message+' keeps labeled + buttons attached to their connectors');
-          await page.locator('.intermediate-node[data-near="C"]').evaluate(el => el.click());
+          await page.locator('.intermediate-node[data-near="C"][data-plan-id^="堂親"]').evaluate(el => el.click());
           await page.locator('#member-dialog').waitFor({state:'visible'});
           assert.equal(await page.locator('.relation-target').inputValue(),'C',message+' + opens the correct parent form');
           assert.equal(await page.locator('.relation-kind').inputValue(),'親生',message+' + retains biological relationship');
@@ -162,6 +214,20 @@ async function geometry(page) {
         }
         if (fixture.opposite) assert.deepEqual(contacts.map(c => c.side).sort(),['bottom','top'],message+' preserves generation directions');
         assert.deepEqual(await page.evaluate(() => FamilyApp.snapshot()),snapshot,message+' does not mutate family data');
+        if (fixture.fillPending) {
+          await page.locator('.intermediate-node[data-near="C"][data-plan-id^="堂親"]').evaluate(el => el.click());
+          await page.locator('#member-name').fill('C的父親');
+          await page.locator('#save-member').click();
+          await page.waitForFunction(count => FamilyApp.graph().people.length === count,fixture.data.people.length+1);
+          const saved = await page.evaluate(() => FamilyApp.snapshot().data);
+          const father = saved.people.find(p => p.name === 'C的父親');
+          assert(father.relationships.some(r => r.type === 'child' && r.personId === 'C' && r.kind === '親生'),message+' shared + saves the correct parent');
+          assert.equal(await page.locator('.intermediate-node[data-near="C"][data-plan-id^="堂親"]').count(),0,message+' filled father slot is removed');
+          const updated = await geometry(page);
+          assert.deepEqual(updated.collisions,[],message+' filling a shared slot still avoids cards');
+          assert.deepEqual(updated.badDirections,[],message+' filling a shared slot keeps outward ports');
+          for (const id of Object.keys(fixture.peers)) assert.equal(updated.contacts.filter(c => c.kind === fixture.kind && c.id === id).length,1,message+' filling a parent keeps one cousin exit: '+id);
+        }
         if (process.env.PEER_SHARING_SCREENSHOTS && mode === 'api' && width === 1440) {
           await fs.mkdir(process.env.PEER_SHARING_SCREENSHOTS,{recursive:true});
           await page.locator('#tree-canvas').screenshot({path:path.join(process.env.PEER_SHARING_SCREENSHOTS,fixture.id+'-'+engine+'.png')});

@@ -79,6 +79,55 @@ test('overview and detail-only branches never share strokes; inferred branches m
   assert(shared(graph,[{...a,detailsOnly:true},{...b,detailsOnly:true}]));
   assert(shared(graph,[a,{...b,inferred:true}]));
 });
+
+test('two biological sibling cohorts share all cross-cousin edges, not separate root stars', () => {
+  const g = {...graph,bonds:[['A','B'],['C','D']].map(members => ({kind:'手足',members}))};
+  const edges = ['A','B'].flatMap(a => ['C','D'].map(b => edge(a,b,'堂親')));
+  for (let offset=0;offset<edges.length;offset++) {
+    const reordered = [...edges.slice(offset),...edges.slice(0,offset)].map((e,i) => i%2 ? {...e,from:e.to,to:e.from} : e);
+    const groups = connectorGroups(g,reordered);
+    assert.equal(new Set(groups.map(g => g.group)).size,1);
+    assert(groups.every(g => g.shared && !g.root));
+  }
+});
+
+test('incomplete cousin cross links and unrelated sibling cohorts remain separate', () => {
+  const g = {...graph,bonds:[['A','B'],['C','D']].map(members => ({kind:'手足',members}))};
+  const edges = [edge('A','C','堂親'),edge('A','D','堂親'),edge('B','C','堂親')];
+  assert.equal(new Set(connectorGroups(g,edges).map(g => g.group)).size,2,'does not invent B–D');
+  assert(!shared({...g,bonds:[]},edges));
+});
+
+test('all pairwise links in one school share one cohort when they have the same teacher', () => {
+  const ids = ['A','B','C','D','E'];
+  const g = {...graph,mentorships:ids.map(student => ({student,teacher:'T'}))};
+  const edges = ids.flatMap((from,i) => ids.slice(i+1).map(to => edge(from,to,'師兄弟姊妹')));
+  assert.equal(edges.length,10);
+  assert(shared(g,edges));
+  assert(connectorGroups(g,edges).every(g => g.shared && !g.root));
+});
+
+test('rank cohorts share display strokes without inventing parents or teachers', () => {
+  for (const [type,kind] of [['sibling','手足'],['swornSibling','契手足'],['fellowDisciple','師兄弟姊妹']]) {
+    const ids = ['A','B','C','D','E'];
+    const g = {...graph,bonds:[],rankGroups:[{id:'r',type,members:ids.map(personId => ({personId}))}]};
+    const edges = ids.flatMap((from,i) => ids.slice(i+1).map(to => ({...edge(from,to,kind),detailsOnly:true,rankGroupIds:['r']})));
+    assert(shared(g,edges),type);
+    assert(shared({...g,rankGroups:[]},edges),type+' projected edges retain source IDs');
+    assert(!shared({...g,rankGroups:[]},edges.map(({rankGroupIds,...e}) => e)),type+' needs an explicit source');
+    assert.deepEqual(g.descents,[]);
+    assert.deepEqual(g.mentorships,[]);
+  }
+});
+
+test('overlapping rank cohorts do not merge merely because a member or name is shared', () => {
+  const sources = [['A','B','C'],['C','D','E']];
+  const g = {...graph,bonds:[],rankGroups:sources.map((members,i) => ({id:'r'+i,name:'同名師門',type:'fellowDisciple',members:members.map(personId => ({personId}))}))};
+  const edges = sources.flatMap(ids => ids.flatMap((from,i) => ids.slice(i+1).map(to => ({...edge(from,to,'師兄弟姊妹'),detailsOnly:true}))));
+  const groups = connectorGroups(g,edges);
+  assert.equal(new Set(groups.map(g => g.group)).size,2);
+  assert.notEqual(groups[1].group,groups[3].group);
+});
 test('overlapping intervals render once and preserve branch-specific highlighting', () => {
   const result = sharedSegments([{ points: [[0, 0], [0, 20], [30, 20]], people: ['A', 'B'] }, { points: [[0, 0], [0, 20], [60, 20]], people: ['A', 'C'] }]);
   const lines = result.flatMap(p => segments(p.points));

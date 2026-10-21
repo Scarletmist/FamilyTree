@@ -365,8 +365,8 @@
       bonds,
       mentorships: [...mentors.values()] };
   }
-  // A shared stroke asserts a common source. Tang branches need a proven
-  // sibling cohort; sibling/school branches need one witness for the whole star.
+  // Share complete source cohorts, not independent stars around each member.
+  // A rank cohort is display evidence only, never a biological sibling premise.
   function connectorGroups(graph, edges) {
     const unions = new Map((graph.unions || []).map(u => [u.id, u]));
     const parentIds = new Map(), teacherIds = new Map();
@@ -383,48 +383,87 @@
     edges.forEach((edge, index) => {
       // Biao cousins can use different paternal/maternal branches even when
       // their leaves are siblings, so a biao label cannot justify a shared line.
-      if (!['堂親', '手足', '師兄弟姊妹', '師徒'].includes(edge.kind)) return;
-      for (const root of edge.kind === '師徒' ? [edge.from] : [edge.from, edge.to]) {
-        const key = JSON.stringify([edge.kind, Boolean(edge.detailsOnly), root]);
-        if (!buckets.has(key)) buckets.set(key, {key, root, kind:edge.kind, items:[]});
-        buckets.get(key).items.push({index, leaf:edge.from === root ? edge.to : edge.from});
-      }
+      if (!['堂親', '手足', '契手足', '師兄弟姊妹', '師徒'].includes(edge.kind)) return;
+      const key = JSON.stringify([edge.kind, Boolean(edge.detailsOnly)]);
+      if (!buckets.has(key)) buckets.set(key, {key, kind:edge.kind, items:[]});
+      buckets.get(key).items.push({index, ...edge});
     });
     const candidates = [], seen = new Set();
-    for (const {key, root, kind, items} of buckets.values()) {
-      items.sort((a,b) => a.leaf.localeCompare(b.leaf) || a.index - b.index);
-      const collect = members => {
-        const identity = members.map(m => m.index).sort((a,b) => a-b).join(',') + '|' + root;
+    const compare = (a,b) => a < b ? -1 : a > b ? 1 : 0;
+    for (const {key, kind, items} of buckets.values()) {
+      const collect = (members, source) => {
+        const identity = members.map(m => m.index).sort((a,b) => a-b).join(',');
         if (members.length < 2 || seen.has(identity)) return;
         seen.add(identity);
-        candidates.push({root, members, key:key + JSON.stringify(members.map(m => m.leaf))});
+        candidates.push({members, key:key + source});
       };
-      if (kind === '師徒') collect(items);
-      else if (kind === '手足' || kind === '師兄弟姊妹') {
-        const witnesses = kind === '手足' ? parents : teachers;
-        for (const witness of witnesses(root)) collect(items.filter(m => witnesses(m.leaf).includes(witness)));
-      } else {
-        // Tang cousins use the paternal branch. Age and recording direction do
-        // not change whether their leaves are proven biological siblings.
-        for (const seed of items) {
-          const members = [seed];
-          for (const item of items) if (item !== seed && members.every(m => siblings(m.leaf, item.leaf))) members.push(item);
-          collect(members);
-          if (members.length === items.length) break;
+      if (kind === '堂親') {
+        const pair = (a,b) => intermediateKey(kind,[a,b]);
+        const links = new Map(items.map(item => [pair(item.from,item.to),item]));
+        const neighbors = new Map();
+        items.forEach(item => {
+          add(neighbors,item.from,[item.to]); add(neighbors,item.to,[item.from]);
+        });
+        const cohorts = new Map();
+        const cohort = ids => {
+          const sorted = ids.slice().sort(compare);
+          cohorts.set(JSON.stringify(sorted),sorted);
+        };
+        [...neighbors.keys()].sort(compare).forEach(id => {
+          cohort([id]);
+          // Neighborhood subsets also cover partially recorded cousin networks.
+          const leaves = neighbors.get(id).slice().sort(compare);
+          for (const seed of leaves) {
+            const members = [seed];
+            for (const leaf of leaves) if (leaf !== seed && members.every(m => siblings(m,leaf))) members.push(leaf);
+            cohort(members);
+            if (members.length === leaves.length) break;
+          }
+        });
+        const sides = [...cohorts.values()].sort((a,b) => compare(JSON.stringify(a),JSON.stringify(b)));
+        for (let i = 0; i < sides.length; i++) for (let j = i+1; j < sides.length; j++) {
+          const a = sides[i], b = sides[j];
+          if (a.length*b.length < 2 || a.some(id => b.includes(id))) continue;
+          const members = a.flatMap(from => b.map(to => links.get(pair(from,to))));
+          // Joining two sibling branches must not invent a missing cross link.
+          if (members.every(Boolean)) collect(members,JSON.stringify([a,b]));
         }
+      } else {
+        const sources = new Map();
+        const source = (id,item) => {
+          if (!sources.has(id)) sources.set(id,[]);
+          sources.get(id).push(item);
+        };
+        for (const item of items) {
+          if (kind === '師徒') source('teacher:'+item.from,item);
+          if (kind === '手足' || kind === '師兄弟姊妹') {
+            const witnesses = kind === '手足' ? parents : teachers;
+            for (const id of witnesses(item.from)) if (witnesses(item.to).includes(id)) source('witness:'+id,item);
+          }
+          const type = {'手足':'sibling','契手足':'swornSibling','師兄弟姊妹':'fellowDisciple'}[kind];
+          if (!type) continue;
+          const ranks = new Set(item.rankGroupIds || []);
+          (graph.rankGroups || []).filter(g => g.type === type && [item.from,item.to].every(id => g.members.some(m => m.personId === id)))
+            .forEach(g => ranks.add(g.id));
+          ranks.forEach(id => source('rank:'+id,item));
+        }
+        [...sources.keys()].sort(compare).forEach(id => collect(sources.get(id),id));
       }
     }
     const result = edges.map((_, i) => ({ group: `aux:${i}` })), used = new Set();
-    // Prefer the largest proven star before consuming any edge. Stable ties
-    // prevent record direction, age labels or JSON order from choosing its root.
+    // Prefer the largest proven source. Never union sources merely because they
+    // overlap at one member, which could merge unrelated families or schools.
     while (candidates.length) {
       candidates.forEach(c => { c.members = c.members.filter(m => !used.has(m.index)); });
-      candidates.sort((a,b) => b.members.length - a.members.length || a.key.localeCompare(b.key));
+      candidates.sort((a,b) => b.members.length - a.members.length || compare(a.key,b.key));
       const best = candidates.shift();
       if (best.members.length < 2) break;
       const group = `shared:${Math.min(...best.members.map(m => m.index))}`;
+      const roots = [best.members[0].from,best.members[0].to]
+        .filter(id => best.members.every(m => m.from === id || m.to === id)).sort(compare);
+      const root = best.members[0].kind === '師徒' ? best.members[0].from : roots[0];
       best.members.forEach(({index}) => {
-        used.add(index); result[index] = { group, root:best.root };
+        used.add(index); result[index] = {group, shared:true, ...(root ? {root} : {})};
       });
     }
     return result;

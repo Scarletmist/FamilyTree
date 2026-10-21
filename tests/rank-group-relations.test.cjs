@@ -10,6 +10,18 @@ const person = (id, gender = 'M', relationships = []) => ({ id, name: id, gender
 const group = (type, id = 'r', members = [{ personId: 'A', order: 1 }, { personId: 'B', order: 3 }]) => ({ id, name: id, type, members });
 const data = (type, people = [person('A'), person('B', 'F')]) => ({ schemaVersion: 3, people, rankGroups: [group(type)] });
 
+test('layout retains rank group IDs for source-based connector sharing', async () => {
+  const {createTreeLayout} = await import('../src/assets/family-tree-layout.mjs');
+  const source = data('fellowDisciple',[person('A'),person('B'),person('C')]);
+  source.rankGroups[0].members.push({personId:'C',order:4});
+  const graph = Projection.project(Model.build(source));
+  const layout = createTreeLayout({graph,fullGraph:graph,connectedIds:new Set(['A','B','C']),intermediatePlans:[],displayShift:0,uncertainGeneration:2,model:Model,orderKey:()=>Infinity});
+  assert(layout.extra.every(e => e.detailsOnly && e.rankGroupIds[0] === 'r'));
+  assert.equal(new Set(layout.sharing.map(s => s.group)).size,1);
+  layout.extra[0].rankGroupIds.push('display-only-copy');
+  assert(graph.bonds.every(b => b.rankGroupIds.length === 1));
+});
+
 test('each rank group derives peer bonds and ranked detail roles without changing source records', () => {
   for (const [type, kind, category, role] of [
     ['sibling', '手足', 'siblings', '三妹'],

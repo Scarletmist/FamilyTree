@@ -101,13 +101,13 @@ test('query projections keep group links derived and preserve independent family
   assert.equal(Evidence.create(projected).between('A', 'B', ['sibling'])[0].evidence.origin, 'inferred');
 });
 
-test('detail-only rank group strokes do not share overview geometry with direct strokes', () => {
+test('rank-only and recorded shared-parent strokes can use the same routing cohort', () => {
   const graph = { people: [], bonds: [], unions: [{ id:'u', partners:['P'] }],
     descents:['A','B','C'].map(child => ({ union:'u', child, kind:'親生' })), mentorships:[] };
   const groups = Model.connectorGroups(graph, [
     { from:'A', to:'B', kind:'手足' }, { from:'A', to:'C', kind:'手足', inferred:true, detailsOnly:true }
   ]);
-  assert.notEqual(groups[0].group, groups[1].group, 'hiding group strokes must not remove recorded shared-parent strokes');
+  assert.equal(groups[0].group, groups[1].group, 'interval visibility preserves recorded strokes while hiding rank-only tails');
 });
 
 test('group proofs coexist with recorded shared-parent evidence', () => {

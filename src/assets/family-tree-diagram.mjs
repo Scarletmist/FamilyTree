@@ -318,9 +318,9 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     for (const group of new Set(sharing.filter(s => s.shared || s.root).map(s => s.group))) {
       const precedingSegments = connectorSegments.slice(0, connectorSegments.findIndex(s => s.group === group));
       const originals = [...svg.querySelectorAll('path[data-points]')].filter(el => el.dataset.group === group);
-      // Connector groups keep detail-only and overview strokes separate.
-      const detailsOnly = originals.every(el => el.dataset.detailsOnly === 'true');
-      const records = originals.map(el => ({ points: el.dataset.points.split(' ').map(p => p.split(',').map(Number)), people: el.dataset.people.split(' '), inferred: el.dataset.inferred === 'true' }));
+      // One routing cohort can contain both recorded and rank-only relationships.
+      // Preserve visibility per interval and endpoint instead of per whole group.
+      const records = originals.map(el => ({ points: el.dataset.points.split(' ').map(p => p.split(',').map(Number)), people: el.dataset.people.split(' '), inferred: el.dataset.inferred === 'true', detailsOnly:el.dataset.detailsOnly === 'true' }));
       const markers = new Map();
       originals.forEach((el, i) => {
         const points = records[i].points;
@@ -328,18 +328,18 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
           if (el.hasAttribute(attribute)) {
             const key = `${point}:${Math.sign(point[0] - neighbor[0])},${Math.sign(point[1] - neighbor[1])}`;
             const prior = markers.get(key);
-            markers.set(key, { point, neighbor, marker: el.getAttribute(attribute), people: [...new Set([...(prior?.people || []), ...records[i].people])], inferred: records[i].inferred && (!prior || prior.inferred) });
+            markers.set(key, { point, neighbor, marker: el.getAttribute(attribute), people: [...new Set([...(prior?.people || []), ...records[i].people])], inferred: records[i].inferred && (!prior || prior.inferred), detailsOnly:records[i].detailsOnly && (!prior || prior.detailsOnly) });
           }
         }
       });
       const kind = originals[0]?.dataset.kind;
       originals.forEach(el => el.remove());
       FamilyConnectorRouting.sharedSegments(records).forEach(segment => {
-        const el = path(segment.points, kind, segment.people, 'auxiliary', null, group, precedingSegments, segment.inferred, detailsOnly);
+        const el = path(segment.points, kind, segment.people, 'auxiliary', null, group, precedingSegments, segment.inferred, segment.detailsOnly);
         el.removeAttribute('marker-start'); el.removeAttribute('marker-end');
       });
       // Endpoint symbols belong to relationship endpoints, never split intervals.
-      for (const { point, neighbor, marker, people, inferred } of markers.values()) {
+      for (const { point, neighbor, marker, people, inferred, detailsOnly } of markers.values()) {
         const dx = point[0] - neighbor[0], dy = point[1] - neighbor[1], length = Math.hypot(dx, dy);
         if (!length) continue;
         const el = svgElement('path', { d: `M ${point[0] - dx / length * .1} ${point[1] - dy / length * .1} L ${point[0]} ${point[1]}`, stroke: STYLES[kind].color, 'marker-end': marker, 'vector-effect': 'non-scaling-stroke' });

@@ -73,9 +73,9 @@ test('rank-only or chained sibling evidence does not turn unrelated leaves into 
   assert(!shared({...graph,bonds:[{kind:'手足',members:['B','C'],rankGroupIds:['rank']}]},edges.slice(0,2)));
 });
 
-test('overview and detail-only branches never share strokes; inferred branches may join manual ones', () => {
+test('overview, detail-only and inferred links from the same source share routing geometry', () => {
   const a = edge('A','B','堂親'),b = edge('A','C','堂親');
-  assert(!shared(graph,[a,{...b,detailsOnly:true}]));
+  assert(shared(graph,[a,{...b,detailsOnly:true}]));
   assert(shared(graph,[{...a,detailsOnly:true},{...b,detailsOnly:true}]));
   assert(shared(graph,[a,{...b,inferred:true}]));
 });
@@ -145,4 +145,25 @@ test('hiding inferred branches preserves manual portions of a shared stroke', ()
   assert.deepEqual(manual.map(segment => segment.points), [[[0, 0], [0, 20]], [[0, 20], [30, 20]]]);
   assert.deepEqual(result.filter(segment => segment.inferred).map(segment => segment.points), [[[30, 20], [60, 20]]]);
   assert(sharedSegments([{ points: [[0, 0], [10, 0]], people: ['A', 'C'], inferred: true }]).every(segment => segment.inferred));
+});
+
+test('a shared stem stays visible while rank-only tails retain both visibility gates', () => {
+  const result = sharedSegments([
+    {points:[[0,0],[0,20],[30,20]],people:['A','B'],inferred:false,detailsOnly:false},
+    {points:[[0,0],[0,20],[60,20]],people:['A','C'],inferred:true,detailsOnly:true}
+  ]);
+  assert.deepEqual(result.filter(s => !s.detailsOnly).map(s => s.points),[[[0,0],[0,20]],[[0,20],[30,20]]]);
+  assert(result.filter(s => !s.detailsOnly).every(s => !s.inferred));
+  assert.deepEqual(result.filter(s => s.detailsOnly).map(s => s.points),[[[30,20],[60,20]]]);
+  assert(result.filter(s => s.detailsOnly).every(s => s.inferred));
+});
+
+test('an inferred overview branch may share with a detail-only rank branch without becoming manual', () => {
+  const result = sharedSegments([
+    {points:[[0,0],[0,20],[30,20]],people:['A','B'],inferred:true,detailsOnly:false},
+    {points:[[0,0],[0,20],[60,20]],people:['A','C'],inferred:true,detailsOnly:true}
+  ]);
+  assert(result.every(s => s.inferred));
+  assert.equal(result.filter(s => s.detailsOnly).length,1);
+  assert.deepEqual(result.find(s => s.detailsOnly).points,[[30,20],[60,20]]);
 });

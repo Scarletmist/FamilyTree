@@ -15,7 +15,7 @@
     "test:buttons:browser": "node tests/browser-button-layout.cjs",
     "test:relationships:browser": "node tests/browser-relationship-policy.cjs && node tests/browser-family-inference.cjs && node tests/browser-seniority-inference.cjs",
     "test:generations:browser": "node tests/browser-peer-generations.cjs && node tests/browser-grandparents.cjs",
-    "test:routing:browser": "node tests/browser-routing.cjs && node tests/browser-connector-endpoints.cjs && node tests/browser-sharing.cjs && node tests/browser-peer-sharing.cjs && node tests/browser-intermediates.cjs && node tests/browser-labels.cjs",
+    "test:routing:browser": "node tests/browser-routing.cjs && node tests/browser-connector-endpoints.cjs && node tests/browser-sharing.cjs && node tests/browser-peer-sharing.cjs && node tests/browser-mixed-sharing.cjs && node tests/browser-intermediates.cjs && node tests/browser-labels.cjs",
     "test:motion:browser": "node tests/browser-motion.cjs",
     "test:canvas:browser": "node tests/browser-canvas-motion.cjs",
     "test:storage:browser": "node tests/browser-static.cjs && node tests/browser-static-storage-errors.cjs && node tests/browser-device-reset.cjs",

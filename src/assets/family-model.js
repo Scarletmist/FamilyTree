@@ -384,7 +384,9 @@
       // Biao cousins can use different paternal/maternal branches even when
       // their leaves are siblings, so a biao label cannot justify a shared line.
       if (!['堂親', '手足', '契手足', '師兄弟姊妹', '師徒'].includes(edge.kind)) return;
-      const key = JSON.stringify([edge.kind, Boolean(edge.detailsOnly)]);
+      // Visibility belongs to each source stroke, not to its routing cohort.
+      // Mixed recorded/rank links from the same source must share one port.
+      const key = edge.kind;
       if (!buckets.has(key)) buckets.set(key, {key, kind:edge.kind, items:[]});
       buckets.get(key).items.push({index, ...edge});
     });

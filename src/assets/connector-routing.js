@@ -232,7 +232,7 @@
     paths.forEach(p => segments(p.points).forEach(s => {
       const key = `${s.axis}:${s.fixed}`;
       if (!lines.has(key)) lines.set(key, []);
-      lines.get(key).push({ ...s, people: p.people, inferred: p.inferred });
+      lines.get(key).push({ ...s, people: p.people, inferred: p.inferred, detailsOnly:p.detailsOnly });
     }));
     const result = [];
     for (const entries of lines.values()) {
@@ -247,6 +247,9 @@
         // A shared interval still represents a manual relationship if any of
         // its sources is manual. Only purely inferred strokes may be hidden.
         if (covering.some(s => s.inferred !== undefined)) interval.inferred = covering.every(s => s.inferred === true);
+        // A rank-only tail stays hidden in overview; a shared stem needed by
+        // any overview relationship stays visible, regardless of its other sources.
+        if (covering.some(s => s.detailsOnly !== undefined)) interval.detailsOnly = covering.every(s => s.detailsOnly === true);
         result.push(interval);
       }
     }

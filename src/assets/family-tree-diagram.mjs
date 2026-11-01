@@ -270,7 +270,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
       });
     });
     extra.forEach((r, index) => {
-      const evidenceTypes = r.planId ? ['grandchild','grandparent'] : ({'師徒':['student'],'手足':['sibling'],'契手足':['swornSibling'],'堂親':['tangCousin'],'表親':['biaoCousin'],'師兄弟姊妹':['fellowDisciple']})[r.kind] || [];
+      const evidenceTypes = r.planId ? ['grandchild','grandparent'] : ({'師徒':['student'],'手足':['sibling'],'契手足':['swornSibling'],'堂親':['tangCousin'],'表親':['biaoCousin'],'叔伯姑姨舅':['uncleAunt','nephewNiece'],'師兄弟姊妹':['fellowDisciple']})[r.kind] || [];
       const proofs = evidenceResolver.between(r.from,r.to,evidenceTypes);
       const plans = extraPlans[index];
       const from = r.from, to = r.to;

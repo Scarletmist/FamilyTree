@@ -7,6 +7,8 @@
   'use strict';
   const labels = { id:'成員 ID',type:'關係類型',kind:'親屬類別',archivedAt:'封存時間',reason:'原因',name:'姓名', gender:'性別', location:'所在地', position:'職位', notes:'備註', siblingOrder:'手足排行', discipleOrder:'師門排行', mapHidden:'不在地圖顯示', geocode:'定位結果', locationOverride:'手動修正位置', archive:'封存狀態', seniority:'長幼', groupId:'排行群組', source:'來源', note:'說明', familyName:'家族名稱', ignoredIntermediatePlans:'已忽略待補項目', schemaVersion:'資料格式版本', locationLookupDeviceId:'定位裝置' };
   const typeNames = { parent:'父母',child:'子女',grandparent:'祖父母',grandchild:'孫子女',spouse:'配偶',sibling:'手足',swornSibling:'契手足',fellowDisciple:'同門',teacher:'師父',student:'徒弟',tangCousin:'堂親',biaoCousin:'表親' };
+  labels.lineage = '父系／母系';
+  Object.assign(typeNames, { uncleAunt:'叔伯舅姑姨', nephewNiece:'姪甥子女' });
   const systemFields = new Set(['geocode','locationLookupDeviceId','schemaVersion']);
   const copy = value => value === undefined ? null : JSON.parse(JSON.stringify(value));
   function format(value, field) {
@@ -15,6 +17,7 @@
     if (value && typeof value === 'object' && Array.isArray(value.conflictingValues)) return '雙向記錄不一致：' + value.conflictingValues.map(v => format(v,field)).join('／');
     if (field === 'gender') return ({ M:'男', F:'女', U:'未知／尚未確認' })[value] || String(value);
     if (field === 'seniority') return ({ older:'年長', younger:'年幼', unknown:'未確認' })[value] || String(value);
+    if (field === 'lineage') return ({ paternal:'父系', maternal:'母系', unknown:'未確認' })[value] || String(value);
     if (field === 'type') return typeNames[value] || String(value);
     if (typeof value === 'object' && !Array.isArray(value) && ['成員','關係','archive'].includes(field)) {
       return Object.entries(value).filter(([key]) => field !== '關係' || key !== 'status').map(([key,item]) => `${labels[key] || key}：${format(item,key)}`).join('\n');

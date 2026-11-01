@@ -10,7 +10,7 @@
   function sentence(data,from,relation) {
     const people = new Map(data.people.map(p => [p.id,p]));
     const target = people.get(relation.to ?? relation.personId);
-    return (target?.name || '已移除成員') + '是' + (people.get(from)?.name || '已移除成員') + '的' + term(relation.type,target?.gender) + (relation.kind ? '（' + relation.kind + '）' : '');
+    return (target?.name || '已移除成員') + '是' + (people.get(from)?.name || '已移除成員') + '的' + (globalThis.FamilyModel.isAvuncular(relation.type) ? globalThis.FamilyModel.inferredRole(relation,target || {gender:'U'}) : term(relation.type,target?.gender)) + (relation.kind ? '（' + relation.kind + '）' : '');
   }
   function term(type,gender) {
     const words = {parent:['父親','母親'],child:['兒子','女兒'],grandparent:['祖父／外祖父','祖母／外祖母'],grandchild:['孫子／外孫','孫女／外孫女']};

@@ -59,8 +59,10 @@ export function createTreeLayout({
     .sort((a, b) => orderKey(byId.get(a.child)) - orderKey(byId.get(b.child)));
 
   const completedCousins = model.completedCousins(graph);
+  const completedAvuncular = model.completedAvuncular(graph);
   const extra = (graph.bonds || [])
     .filter(bond => !completedCousins.has(model.intermediateKey(bond.kind, bond.members)))
+    .filter(bond => !completedAvuncular.has(model.intermediateKey(bond.kind, bond.members)))
     .map(bond => ({ from: bond.members?.[0], to: bond.members?.[1], kind: bond.kind,
       inferred: bond.inferred === true, detailsOnly: !!bond.rankGroupIds?.length,
       ...(bond.rankGroupIds?.length ? {rankGroupIds:[...bond.rankGroupIds]} : {}) }))

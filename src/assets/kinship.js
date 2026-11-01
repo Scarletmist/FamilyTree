@@ -9,13 +9,13 @@
   else root.FamilyKinship = api;
 })(globalThis, function (Model) {
   'use strict';
-  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', teacher: 'student', student: 'teacher' };
+  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt', teacher: 'student', student: 'teacher' };
   function create(config) {
   if (config?.schemaVersion !== 1 || !Array.isArray(config.rules) || !config.labels || !config.direct || !config.notes || !config.display || !config.numerals || !Array.isArray(config.familyTypes) || !Array.isArray(config.familyKinds)) throw new Error('稱謂設定檔格式不正確');
   for (const key of ['self', 'fallbackTerm', 'chainSeparator', 'nonBiologicalPrefix', 'nonBiologicalSeparator', 'nonBiologicalSuffix']) if (typeof config.display[key] !== 'string') throw new Error('稱謂設定缺少顯示文字：' + key);
   if (typeof config.numerals.digits !== 'string' || config.numerals.digits.length !== 10 || typeof config.numerals.eldest !== 'string' || typeof config.numerals.tens !== 'string') throw new Error('稱謂數字設定不正確');
   const FAMILY_TYPES = new Set(config.familyTypes), FAMILY_KINDS = new Set(config.familyKinds);
-  const weight = type => ['sibling', 'grandparent', 'grandchild'].includes(type) ? 2 : 1;
+  const weight = type => Model.isAvuncular(type) ? 3 : ['sibling', 'grandparent', 'grandchild'].includes(type) ? 2 : 1;
   const field = (context, path) => String(path).split('.').reduce((value, key) => value && Object.hasOwn(value, key) ? value[key] : undefined, context);
   function evaluate(expr, context, depth = 0) {
     if (depth > 24) throw new Error('稱謂設定的參照過深或循環');
@@ -58,6 +58,7 @@
     return { edge: { ...steps.at(-1), seniority: steps.at(-1).seniority || 'unknown' }, target: stepsContext.at(-1), steps: stepsContext };
   }
   function term(edge, byId) {
+    if (Model.isAvuncular(edge.type)) return Model.inferredRole(edge, byId.get(edge.to));
     if (['sibling','swornSibling','fellowDisciple'].includes(edge.type)) return Model.peerPresentation(byId.graph, byId.get(edge.to), byId.get(edge.from), edge.type, edge).role;
     const context = contextFor([edge],byId);
     if (Model.isCousin(edge.type)) {
@@ -137,7 +138,7 @@
       seen.add(key);
       const forward = { ...r, from: p.id, to: r.personId, type: r.type, key };
       adjacency.get(p.id).push(forward);
-      adjacency.get(r.personId).push({ ...forward, from: r.personId, to: p.id, type: INVERSE[r.type], ...(r.seniority ? { seniority: Model.inverseSeniority(r.seniority) } : {}) });
+      adjacency.get(r.personId).push({ ...forward, from: r.personId, to: p.id, type: INVERSE[r.type], ...(r.seniority && !Model.isAvuncular(r.type) ? { seniority: Model.inverseSeniority(r.seniority) } : {}) });
     }
     const rankGroups = new Map((graph.rankGroups || []).map(group => [group.id, group]));
     for (const bond of graph.bonds || []) for (const groupId of bond.rankGroupIds || []) {
@@ -243,7 +244,7 @@
     for (const edge of path?.edges || []) {
       if (edge.rankGroup) continue;
       const relation = { type: edge.type, personId: edge.to };
-      for (const key of ['kind','seniority','groupId','status','note','source']) if (edge[key] !== undefined) relation[key] = edge[key];
+      for (const key of ['kind','seniority','lineage','groupId','status','note','source']) if (edge[key] !== undefined) relation[key] = edge[key];
       relations.get(edge.from).push(relation);
     }
     const people = graph.people.filter(p => ids.has(p.id)).map(p => ({ ...p, relationships: relations.get(p.id) }));

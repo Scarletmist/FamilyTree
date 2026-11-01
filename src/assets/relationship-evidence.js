@@ -14,7 +14,7 @@
     const reversed = from > to;
     const normalized = { ...relation, type: reversed ? inverse[relation.type] || relation.type : relation.type };
     for (const k of ['from','to','personId','path','recorded']) delete normalized[k];
-    if (reversed && normalized.seniority) normalized.seniority = ({ older:'younger', younger:'older' })[normalized.seniority] || normalized.seniority;
+    if (reversed && normalized.seniority && !['uncleAunt','nephewNiece'].includes(relation.type)) normalized.seniority = ({ older:'younger', younger:'older' })[normalized.seniority] || normalized.seniority;
     if (normalized.seniority === 'unknown') delete normalized.seniority;
     const a = reversed ? to : from, b = reversed ? from : to;
     return { key:JSON.stringify([a,b,normalized.type,normalized.kind || '']), from:a, to:b, relation:normalized };
@@ -71,7 +71,7 @@
     for (const edge of index.values()) for (const id of [edge.from,edge.to]) {
       if (!adjacency.has(id)) adjacency.set(id,[]);
       adjacency.get(id).push({ ...edge.relation,type:edge.from === id ? edge.relation.type : inverse[edge.relation.type],personId:edge.from === id ? edge.to : edge.from,
-        ...(edge.from !== id && ['older','younger'].includes(edge.relation.seniority) ? {seniority:edge.relation.seniority === 'older' ? 'younger' : 'older'} : {}) });
+        ...(edge.from !== id && !['uncleAunt','nephewNiece'].includes(edge.relation.type) && ['older','younger'].includes(edge.relation.seniority) ? {seniority:edge.relation.seniority === 'older' ? 'younger' : 'older'} : {}) });
     }
     const directed = id => adjacency.get(id) || [];
     function between(from,to,allowed = Object.keys(types)) {

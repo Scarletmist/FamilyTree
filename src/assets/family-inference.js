@@ -9,7 +9,7 @@
     sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple',
     tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt' };
   const flip = edge => ({ ...edge, from: edge.to, to: edge.from, type: inverse[edge.type],
-    ...(edge.seniority ? { seniority: edge.seniority === 'older' ? 'younger' : edge.seniority === 'younger' ? 'older' : 'unknown' } : {}),
+    ...(edge.seniority && !['uncleAunt','nephewNiece'].includes(edge.type) ? { seniority: edge.seniority === 'older' ? 'younger' : edge.seniority === 'younger' ? 'older' : 'unknown' } : {}),
     ...(edge.rankOrder ? { rankOrder:{ ...edge.rankOrder, fromOrder:edge.rankOrder.toOrder, toOrder:edge.rankOrder.fromOrder } } : {}) });
   const reverse = path => path.slice().reverse().map(flip);
   const pairKey = (a, b) => [a, b].sort().join('|');
@@ -147,7 +147,7 @@
     const parents = new Map(data.people.map(person => [person.id, new Map()]));
     const children = new Map(data.people.map(person => [person.id, new Map()]));
     const siblingLinks = new Map(data.people.map(person => [person.id, new Map()]));
-    const directSiblings = new Set(), seeds = [], grandparents = [], recorded = new Set();
+    const directSiblings = new Set(), seeds = [], grandparents = [], avuncular = [], avuncularSiblings = [], recorded = new Set();
     const relations = new Map(), lineages = new Map(), classifiedProof = new Map();
     function addSibling(a, b, path) {
       if (a === b) return;
@@ -159,7 +159,7 @@
     for (const person of data.people) for (const relation of person.relationships) {
       if (!inverse[relation.type]) continue;
       const edge = { from: person.id, to: relation.personId, type: relation.type };
-      for (const key of ['kind', 'seniority', 'groupId']) if (relation[key] !== undefined) edge[key] = relation[key];
+      for (const key of ['kind', 'seniority', 'groupId', 'lineage']) if (relation[key] !== undefined) edge[key] = relation[key];
       recorded.add(edgeKey(edge));
       recorded.add(edgeKey(flip(edge)));
       if (['parent', 'child'].includes(edge.type) && edge.kind === '親生') {
@@ -169,7 +169,8 @@
       } else if (edge.type === 'sibling') {
         directSiblings.add(pairKey(edge.from, edge.to));
         addSibling(edge.from, edge.to, [edge]);
-      } else if (['tangCousin', 'biaoCousin'].includes(edge.type)) seeds.push({ a: edge.from, b: edge.to, type: edge.type, path: [edge] });
+      } else if (['uncleAunt', 'nephewNiece'].includes(edge.type)) avuncular.push(edge.type === 'uncleAunt' ? edge : flip(edge));
+      else if (['tangCousin', 'biaoCousin'].includes(edge.type)) seeds.push({ a: edge.from, b: edge.to, type: edge.type, path: [edge] });
       else if (['grandparent', 'grandchild'].includes(edge.type) && edge.kind === '親生') {
         const upwards = edge.type === 'grandparent' ? edge : flip(edge);
         grandparents.push({ ...upwards, path: [upwards], lineage: 'unknown' });
@@ -191,6 +192,17 @@
       const [a, b] = candidates[0], ga = people.get(a).gender, gb = people.get(b).gender;
       if (seed.type === 'tangCousin' ? ga !== 'M' || gb !== 'M' : ga !== 'F' && gb !== 'F') continue;
       addSibling(a, b, [flip(parents.get(seed.a).get(a)), ...seed.path, parents.get(seed.b).get(b)]);
+    }
+    // An explicitly identified paternal/maternal branch and one matching
+    // biological parent identify that parent's sibling without adding people.
+    for (const edge of avuncular) {
+      const gender = edge.lineage === 'paternal' ? 'M' : edge.lineage === 'maternal' ? 'F' : null;
+      if (!gender) continue;
+      const candidates = [...parents.get(edge.from).keys()].filter(id => people.get(id).gender === gender && id !== edge.to);
+      if (candidates.length !== 1) continue;
+      const parent = candidates[0], proof = [flip(parents.get(edge.from).get(parent)), edge];
+      addSibling(parent, edge.to, proof);
+      avuncularSiblings.push({ parent, relative: edge.to, proof, seniority: edge.seniority });
     }
     for (const family of children.values()) {
       const ids = [...family.keys()].sort();
@@ -259,8 +271,11 @@
       // Uncle seniority compares the uncle with the parent, never with the child.
       const inverseExtra = { ...extra };
       if (type === 'uncleAunt') delete inverseExtra.seniority;
+      if (type === 'sibling' && inverseExtra.seniority) inverseExtra.seniority = inverseExtra.seniority === 'older' ? 'younger' : inverseExtra.seniority === 'younger' ? 'older' : 'unknown';
       add(to, from, inverse[type], reverse(path), inverseExtra);
     }
+    for (const {parent, relative, proof, seniority} of avuncularSiblings) both(parent, relative, 'sibling', proof,
+      seniority ? {seniority} : {});
     // Declared full-sibling chains can establish another sibling relationship.
     // Shared-parent proofs stay with the existing evidence resolver, which keeps
     // every known parent inspectable. Half-sibling conflicts cannot bridge chains.
@@ -282,6 +297,14 @@
           ...(order ? { seniority: order < 0 ? 'older' : 'younger' } : {}) });
       }
     }
+    // Keep structural proofs when present, and use direct avuncular records for
+    // full-sibling propagation even before their middle parent has been entered.
+    for (const edge of avuncular) {
+      if (!relations.has([edge.from, edge.to, 'uncleAunt', ''].join('|'))) {
+        both(edge.from, edge.to, 'uncleAunt', [edge], { lineage: edge.lineage || 'unknown',
+          ...(edge.seniority ? { seniority: edge.seniority } : {}) });
+      }
+    }
     // Direct grandparents also apply to full siblings even when their middle parent is missing.
     for (const edge of grandparents) for (const [sibling, proof] of siblingPaths(edge.from, 'grandparent')) {
       if (sibling !== edge.from) both(sibling, edge.to, 'grandparent', [...reverse(proof), ...edge.path], { kind: '親生', lineage: edge.lineage });
@@ -300,6 +323,14 @@
       for (const [a, childA] of children.get(parentA)) for (const [b, childB] of children.get(parentB)) {
         seeds.push({ a, b, type, parentA, parentB, path: [flip(childA), ...proof, childB] });
       }
+    }
+    for (const relation of [...relations.values()].filter(r => r.type === 'uncleAunt')) {
+      const relativeGender = people.get(relation.personId).gender;
+      const type = relation.lineage === 'paternal' && relativeGender === 'M' ? 'tangCousin'
+        : relation.lineage === 'maternal' || relativeGender === 'F' ? 'biaoCousin' : null;
+      if (!type) continue;
+      for (const [child, proof] of children.get(relation.personId)) seeds.push({ a: relation.from, b: child, type,
+        path: [...relation.path, proof] });
     }
     for (const seed of seeds) {
       const left = siblingPaths(seed.a, seed.type, seed.parentA), right = siblingPaths(seed.b, seed.type, seed.parentB);
@@ -333,6 +364,7 @@
   }
 
   function role(relation, target) {
+    relation = { ...relation, lineage: relation.lineage || 'unknown' };
     const gender = target.gender, outer = relation.lineage === 'maternal';
     if (relation.type === 'grandparent') return (relation.lineage === 'unknown' ? ({ M: '祖父／外祖父', F: '祖母／外祖母', U: '祖父母／外祖父母' })[gender]
       : (outer ? '外' : '') + ({ M: '祖父', F: '祖母', U: '祖父母' })[gender]);

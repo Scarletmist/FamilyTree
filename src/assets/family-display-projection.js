@@ -33,6 +33,7 @@
       for (let i = 1; i < union.partners.length; i++) link(union.partners[0], union.partners[i], 0);
     }
     for (const bond of graph.bonds || []) {
+      if (bond.kind === '叔伯姑姨舅') { link(bond.members[0], bond.members[1], 1); continue; }
       if (bond.rankGroupIds || !FAMILY_PEER_KINDS.has(bond.kind) || bond.members.length < 2) continue;
       link(bond.members[0], bond.members[1], 0);
     }

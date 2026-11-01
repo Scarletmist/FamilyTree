@@ -20,7 +20,9 @@
     "grandparent",
     "grandchild",
     "spouse",
-    "sibling"
+    "sibling",
+    "uncleAunt",
+    "nephewNiece"
   ],
   "familyKinds": [
     "親生",

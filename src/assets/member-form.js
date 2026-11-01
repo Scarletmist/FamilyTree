@@ -82,7 +82,7 @@
   const COMPACT_LAYOUT_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px)';
   let memberBaseline = '', pendingMemberClose = null, currentPlanId = null, pendingDraft = null, draftTimer = null;
   let nameVersion = null, savingName = false;
-  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接記錄）', biaoCousin: '表兄弟姊妹（直接記錄）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
+  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接記錄）', biaoCousin: '表兄弟姊妹（直接記錄）', uncleAunt: '叔／伯／舅／姑／姨（直接記錄）', nephewNiece: '姪子女／外甥子女（直接記錄）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
   function syncProgressiveFields({ draft = null } = {}) {
@@ -109,6 +109,7 @@
         type: row.querySelector('.relation-type')?.value || '',
         kind: row.querySelector('.relation-kind')?.value || '',
         seniority: row.querySelector('.relation-cousin-seniority')?.value || '',
+        lineage: row.querySelector('.relation-lineage')?.value || '',
         note: row.querySelector('.relation-note')?.value || '', source: row.querySelector('.relation-source')?.value || '',
         status: row.legacyRelationshipStatus || '', groupId: row.querySelector('.relation-group')?.value || ''
       }))
@@ -155,7 +156,7 @@
     if (choice && state.intermediateChoice && [...choice.options].some(option => option.value === state.intermediateChoice)) choice.value = state.intermediateChoice;
     relations.replaceChildren();
     (state.relationships || []).forEach(relation => addRelation({
-      personId: relation.target, type: relation.type, kind: relation.kind, seniority: relation.seniority,
+      personId: relation.target, type: relation.type, kind: relation.kind, seniority: relation.seniority, lineage: relation.lineage,
       note: relation.note, source: relation.source, status: relation.status, groupId: relation.groupId
     }, { expanded: false }));
     [...relations.children].forEach(row => row.updatePreview?.());
@@ -295,6 +296,8 @@
     editor.append(quick);
     const kind = field('親子／祖孫類型', 'relation-kind'); FamilyModel.KINDS.forEach(value => kind.appendChild(option(value, value)));
     kind.parentElement.className = 'relation-kind-field';
+    const lineage = field('親屬支系', 'relation-lineage');
+    lineage.append(option('unknown', '尚未確認父系／母系'), option('paternal', '父系（叔伯姑／兄弟的子女）'), option('maternal', '母系（舅姨／姊妹的子女）'));
     const seniority = field('對方的長幼', 'relation-cousin-seniority'); seniority.parentElement.className = 'relation-cousin-field';
     seniority.append(option('unknown', '未確認'), option('older', '對方比此成員年長'), option('younger', '對方比此成員年幼'));
     const rankGroup = field('使用的排行群組', 'relation-group'); rankGroup.required = false;
@@ -324,7 +327,11 @@
     function update() {
       const isParent = FamilyModel.isDescent(type.value);
       kind.closest('label').hidden = !isParent; kind.disabled = !isParent;
-      seniority.closest('label').hidden = !FamilyModel.hasSeniority(type.value); seniority.disabled = !FamilyModel.hasSeniority(type.value);
+      const avuncular = FamilyModel.isAvuncular(type.value);
+      lineage.closest('label').hidden = !avuncular; lineage.disabled = !avuncular;
+      const showSeniority = FamilyModel.hasSeniority(type.value) || avuncular;
+      seniority.closest('label').hidden = !showSeniority; seniority.disabled = !showSeniority;
+      seniority.parentElement.firstChild.nodeValue = avuncular ? '叔伯舅姑姨相對父母的長幼' : '對方的長幼';
       const person = snapshot.data.people.find(p => p.id === target.value);
       const base = { id: editingId || 'p-' + requestId, name: document.getElementById('member-name').value.trim() || '新成員', gender: form.elements.namedItem('gender').value,
         siblingOrder: Number(form.elements.namedItem('siblingOrder').value) || null, discipleOrder: Number(form.elements.namedItem('discipleOrder').value) || null };
@@ -337,14 +344,16 @@
       }
       rankGroup.closest('label').hidden = !availableGroups.length;
       const peerType = FamilyModel.hasSeniority(type.value) || type.value === 'fellowDisciple';
-      const relation = { seniority: seniority.value, groupId: rankGroup.value || undefined };
-      const role = !type.value ? '' : person && peerType ? FamilyModel.peerPresentation(snapshot.data, person, base, type.value, relation).role : RelationshipEvidenceView.term(type.value,person?.gender);
+      const relation = { type: type.value, seniority: seniority.value, lineage: lineage.value, groupId: rankGroup.value || undefined };
+      const role = !type.value ? '' : avuncular ? FamilyModel.inferredRole(relation, person || {gender:'U'}) : person && peerType ? FamilyModel.peerPresentation(snapshot.data, person, base, type.value, relation).role : RelationshipEvidenceView.term(type.value,person?.gender);
       if (person) {
-        seniority.options[1].textContent = `${person.name}比${base.name}年長`;
-        seniority.options[2].textContent = `${person.name}比${base.name}年幼`;
+        const relative = type.value === 'uncleAunt' ? person.name : base.name;
+        const middleParent = (type.value === 'uncleAunt' ? base.name : person.name) + '的' + (lineage.value === 'paternal' ? '父親' : lineage.value === 'maternal' ? '母親' : '銜接父母');
+        seniority.options[1].textContent = avuncular ? `${relative}比${middleParent}年長` : `${person.name}比${base.name}年長`;
+        seniority.options[2].textContent = avuncular ? `${relative}比${middleParent}年幼` : `${person.name}比${base.name}年幼`;
       }
-      const inverse = {parent:'child',child:'parent',grandparent:'grandchild',grandchild:'grandparent',teacher:'student',student:'teacher'};
-      const reverseRole = person && peerType ? FamilyModel.peerPresentation(snapshot.data, base, person, type.value, { ...relation, seniority: FamilyModel.inverseSeniority(seniority.value) }).role : RelationshipEvidenceView.term(inverse[type.value] || type.value,base.gender);
+      const inverse = {parent:'child',child:'parent',grandparent:'grandchild',grandchild:'grandparent',uncleAunt:'nephewNiece',nephewNiece:'uncleAunt',teacher:'student',student:'teacher'};
+      const reverseRole = avuncular ? FamilyModel.inferredRole({...relation,type:inverse[type.value]},base) : person && peerType ? FamilyModel.peerPresentation(snapshot.data, base, person, type.value, { ...relation, seniority: FamilyModel.inverseSeniority(seniority.value) }).role : RelationshipEvidenceView.term(inverse[type.value] || type.value,base.gender);
       direction.textContent = `${person?.name || '現有成員'}是${base.name}的`;
       type.setAttribute('aria-label',direction.textContent + '關係');
       for (const button of quick.children) button.setAttribute('aria-pressed',String(button.dataset.type === type.value));
@@ -359,6 +368,7 @@
     row.expandEditor = () => setExpanded(true);
     if (initial) {
       target.value = initial.personId; type.value = initial.type; if (initial.kind) kind.value = initial.kind;
+      lineage.value = initial.lineage || 'unknown';
       seniority.value = initial.seniority || 'unknown'; source.value = initial.source || ''; note.value = initial.note || ''; row.legacyRelationshipStatus = initial.status;
       advanced.open = Boolean(initial.source || initial.note);
     }
@@ -690,7 +700,8 @@
       relationships: [...relations.children].map(row => {
         const type = row.querySelector('.relation-type').value;
         const r = { type, personId: row.querySelector('.relation-target').value };
-        if (FamilyModel.hasSeniority(type) && row.querySelector('.relation-cousin-seniority').value !== 'unknown') r.seniority = row.querySelector('.relation-cousin-seniority').value;
+        if ((FamilyModel.hasSeniority(type) || FamilyModel.isAvuncular(type)) && row.querySelector('.relation-cousin-seniority').value !== 'unknown') r.seniority = row.querySelector('.relation-cousin-seniority').value;
+        if (FamilyModel.isAvuncular(type)) r.lineage = row.querySelector('.relation-lineage').value;
         for (const key of ['note','source']) { const value = row.querySelector('.relation-' + key).value.trim(); if (value) r[key] = value; }
         if (row.legacyRelationshipStatus) r.status = row.legacyRelationshipStatus;
         if (row.querySelector('.relation-group').value) r.groupId = row.querySelector('.relation-group').value;

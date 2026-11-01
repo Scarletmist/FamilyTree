@@ -72,10 +72,10 @@ export function buildSourceAppendix(graph,{hideNames = false} = {}) {
   const names = new Map(graph.people.map(p => [p.id,p.name])),seen = new Set(),records = [];
   for (const p of graph.people) for (const r of p.relationships || []) {
     if ((!r.source && !r.note) || !names.has(r.personId)) continue;
-    const category = ({child:'parent',grandchild:'grandparent',student:'teacher'})[r.type] || r.type;
+    const category = ({child:'parent',grandchild:'grandparent',student:'teacher',nephewNiece:'uncleAunt'})[r.type] || r.type;
     const key = JSON.stringify([[p.id,r.personId].sort(),category,r.kind || '',r.source || '',r.note || '']);
     if (seen.has(key)) continue; seen.add(key);
-    const typeLabel = {parent:'父母',child:'子女',spouse:'配偶',sibling:'手足',swornSibling:'契手足',grandparent:'祖父母',grandchild:'孫子女',teacher:'師父',student:'徒弟',fellowDisciple:'師兄弟姊妹',tangCousin:'堂親',biaoCousin:'表親'}[r.type] || '關係';
+    const typeLabel = {parent:'父母',child:'子女',spouse:'配偶',sibling:'手足',swornSibling:'契手足',grandparent:'祖父母',grandchild:'孫子女',uncleAunt:'叔伯舅姑姨',nephewNiece:'姪甥子女',teacher:'師父',student:'徒弟',fellowDisciple:'師兄弟姊妹',tangCousin:'堂親',biaoCousin:'表親'}[r.type] || '關係';
     records.push({label:`${names.get(r.personId)}是${p.name}的${typeLabel}${r.kind ? `（${r.kind}）` : ''}`,source:r.source || '未填寫',note:r.note || ''});
   }
   return records;

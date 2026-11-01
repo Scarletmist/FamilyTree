@@ -79,6 +79,7 @@
     for (const bond of graph.bonds || []) {
       if (!bond.members.includes(personId)) continue;
       const other = bond.members.find(id => id !== personId);
+      if (bond.kind === '叔伯姑姨舅') { add(bond.members[1] === personId ? 'unclesAunts' : 'nephewsNieces', other); continue; }
       const context = bond.rankGroupIds?.map(id => '排行群組：' + graph.rankGroups.find(group => group.id === id)?.name).join('、');
       if (['堂親', '表親'].includes(bond.kind)) { add('cousins', other, { context: '直接記錄，可再補上父母與父母間的手足關係。' }); continue; }
       if (bond.kind === '師兄弟姊妹') { add('fellowDisciples', other, { context }); continue; }
@@ -122,6 +123,7 @@
           role = order ? (order === 1 ? '大' : chineseNumber(order)) + '徒弟' : '徒弟';
         }
         if (category.id === 'cousins') role = FamilyModel.relationshipsFor(graph, personId).filter(r => r.personId === entry.personId && FamilyModel.isCousin(r.type)).map(r => FamilyModel.peerPresentation(graph,target,person,r.type,r).role).join('、');
+        if (['unclesAunts','nephewsNieces'].includes(category.id)) role = direct.filter(r => r.personId === entry.personId && r.type === (category.id === 'unclesAunts' ? 'uncleAunt' : 'nephewNiece')).map(r => FamilyModel.inferredRole(r,target)).join('、');
         if (category.id === 'fellowDisciples') {
           const presentation = FamilyModel.peerPresentation(graph, target, person, 'fellowDisciple');
           role = presentation.role;

@@ -18,7 +18,8 @@
     return name;
   }
   const KINDS = ['親生', '過繼', '養子女', '義子女', '契子女'];
-  const TYPES = ['parent', 'child', 'grandparent', 'grandchild', 'spouse', 'sibling', 'swornSibling', 'fellowDisciple', 'tangCousin', 'biaoCousin', 'teacher', 'student'];
+  const TYPES = ['parent', 'child', 'grandparent', 'grandchild', 'spouse', 'sibling', 'swornSibling', 'fellowDisciple', 'tangCousin', 'biaoCousin', 'uncleAunt', 'nephewNiece', 'teacher', 'student'];
+  const isAvuncular = type => ['uncleAunt', 'nephewNiece'].includes(type);
   const isCousin = type => ['tangCousin', 'biaoCousin'].includes(type);
   const hasSeniority = type => ['sibling', 'swornSibling', 'tangCousin', 'biaoCousin'].includes(type);
   function cousinRole(person, type, seniority) {
@@ -69,7 +70,7 @@
     for (const bond of bonds) bond.members.forEach(id => ids.add(id));
     return ids;
   }
-  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', teacher: 'student', student: 'teacher' };
+  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt', teacher: 'student', student: 'teacher' };
   // Editing shows all direct relations, even when the source record lives on the other person.
   function relationshipsFor(data, id) {
     const result = new Map();
@@ -80,6 +81,11 @@
       else continue;
       if (isDescent(relation.type)) relation.kind = r.kind;
       if ((r.type === 'fellowDisciple' || hasSeniority(r.type)) && r.seniority && r.seniority !== 'unknown') relation.seniority = person.id === id ? r.seniority : inverseSeniority(r.seniority);
+      // Avuncular seniority compares the relative with the middle parent in both directions.
+      if (isAvuncular(r.type)) {
+        if (r.lineage !== undefined) relation.lineage = r.lineage;
+        if (r.seniority && r.seniority !== 'unknown') relation.seniority = r.seniority;
+      }
       for (const key of ['note', 'source', 'status', 'groupId']) if (r[key] !== undefined) relation[key] = r[key];
       const key = [relation.type, relation.personId, relation.kind || ''].join('|');
       result.set(key, { ...result.get(key), ...relation });
@@ -123,6 +129,26 @@
     }
     return result;
   }
+  function completedAvuncular(graph) {
+    const parents = new Map(graph.people.map(p => [p.id, []]));
+    const people = new Map(graph.people.map(p => [p.id, p]));
+    const unions = new Map(graph.unions.map(u => [u.id, u]));
+    for (const d of graph.descents) if (d.kind === '親生' && d.generations !== 2) parents.get(d.child).push(...unions.get(d.union).partners);
+    // A sibling inferred through this very avuncular record cannot replace its
+    // visible source line: inferred lines may be hidden in the overview.
+    const siblings = new Set(graph.bonds.filter(b => b.kind === '手足' && !b.rankGroupIds && (!b.inferred || graph.inferredRelations.some(r => r.type === 'sibling'
+      && b.members.includes(r.from) && b.members.includes(r.personId) && r.path.every(edge => !isAvuncular(edge.type)))))
+      .map(b => intermediateKey('手足', b.members)));
+    const result = new Set();
+    for (const bond of graph.bonds.filter(b => b.kind === '叔伯姑姨舅')) {
+      const [relative, child] = bond.members;
+      const match = parents.get(child).some(parent => parent !== relative
+        && (bond.lineage === 'unknown' || people.get(parent).gender === (bond.lineage === 'paternal' ? 'M' : 'F'))
+        && (siblings.has(intermediateKey('手足', [parent, relative])) || parents.get(parent).some(id => parents.get(relative).includes(id))));
+      if (match) result.add(intermediateKey(bond.kind, bond.members));
+    }
+    return result;
+  }
   // Suggestions are derived from biological edges only; placeholders never enter JSON.
   function intermediatePlans(data, { includeIgnored = false } = {}) {
     const ignored = new Set(ignoredIntermediatePlanIds(data));
@@ -133,6 +159,7 @@
       parents.get(d.child).push(...unions.get(d.union).partners);
     }
     const child = id => ({ type: 'child', personId: id, kind: '親生' });
+    const completed = completedAvuncular(graph);
     const plans = [];
     for (const bond of graph.bonds) {
       if (bond.inferred) continue;
@@ -150,6 +177,15 @@
             choices: candidates.map(id => ({ personId: id, label: byId.get(id).name, relationship: { type: 'sibling', personId: id } })),
             knownOther: candidates.length === 1 ? candidates[0] : null });
         }
+      } else if (bond.kind === '叔伯姑姨舅') {
+        const [relative, childId] = bond.members;
+        const gender = bond.lineage === 'paternal' ? 'M' : bond.lineage === 'maternal' ? 'F' : 'U';
+        const known = parents.get(childId);
+        if (completed.has(edgeKey) || known.length >= 2 || gender !== 'U' && known.some(id => ['U', gender].includes(byId.get(id).gender))) continue;
+        plans.push({ id: edgeKey, edgeKey, near: childId, other: relative,
+          title: `新增${byId.get(childId).name}的親生${gender === 'M' ? '父親' : gender === 'F' ? '母親' : '父母'}`,
+          gender, relationships: [child(childId), { type: 'sibling', personId: relative,
+            ...(['older', 'younger'].includes(bond.seniority) ? { seniority: bond.seniority } : {}) }], choices: [] });
       } else if (bond.kind === '手足' && !parents.get(a).some(id => parents.get(b).includes(id)) && parents.get(a).length < 2 && parents.get(b).length < 2) {
         plans.push({ id: edgeKey, edgeKey, near: a, other: b, title: `新增${byId.get(a).name}與${byId.get(b).name}的共同親生父母`, gender: 'U', relationships: [child(a), child(b)], choices: [] });
       }
@@ -174,6 +210,9 @@
     const signature = plan => JSON.stringify([plan.near, plan.gender, plan.choices.map(c => c.personId).sort()]);
     for (let i = 0; i < plans.length; i++) for (let j = 0; j < i; j++) {
       if (plans[i].edgeKey.startsWith('堂親|') && plans[j].edgeKey.startsWith('堂親|') && signature(plans[i]) === signature(plans[j]) && siblingsOf(plans[i].other, plans[j].other)) roots[rootOf(i)] = rootOf(j);
+      if (plans[i].edgeKey.startsWith('叔伯姑姨舅|') && plans[j].edgeKey.startsWith('叔伯姑姨舅|')
+        && plans[i].gender !== 'U' && signature(plans[i]) === signature(plans[j])
+        && !byId.get(plans[i].other).archive && !byId.get(plans[j].other).archive) roots[rootOf(i)] = rootOf(j);
     }
     const slotIds = new Map();
     plans.forEach((plan, i) => {
@@ -181,7 +220,15 @@
       if (!previous || plan.id < previous) slotIds.set(root, plan.id);
     });
     // Slot identity is semantic; the display projection decides which generation row owns the slot.
-    const result = plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)) }));
+    const sharedRelations = new Map();
+    plans.forEach((plan, i) => {
+      if (!plan.edgeKey.startsWith('叔伯姑姨舅|')) return;
+      const root = rootOf(i);
+      if (!sharedRelations.has(root)) sharedRelations.set(root, new Map());
+      plan.relationships.forEach(relation => sharedRelations.get(root).set(JSON.stringify(relation), relation));
+    });
+    const result = plans.map((plan, i) => ({ ...plan, slotId: slotIds.get(rootOf(i)),
+      ...(sharedRelations.has(rootOf(i)) ? { relationships: [...sharedRelations.get(rootOf(i)).values()] } : {}) }));
     const active = result.filter(plan => !byId.get(plan.near)?.archive && !byId.get(plan.other)?.archive);
     return includeIgnored ? active : active.filter(plan => !ignored.has(plan.id));
   }
@@ -205,7 +252,8 @@
       if (!r || !TYPES.includes(r.type) || typeof r.personId !== 'string') fail('關係類型或對象不正確。');
       if (r.personId === p.id) fail('不能與自己建立關係。');
       if (isDescent(r.type) && !KINDS.includes(r.kind)) fail('請選擇親子／祖孫關係類型。');
-      if (r.seniority !== undefined && ((r.type !== 'fellowDisciple' && !hasSeniority(r.type)) || !['older', 'younger', 'unknown'].includes(r.seniority))) fail('關係長幼設定不正確。');
+      if (r.seniority !== undefined && ((r.type !== 'fellowDisciple' && !hasSeniority(r.type) && !isAvuncular(r.type)) || !['older', 'younger', 'unknown'].includes(r.seniority))) fail('關係長幼設定不正確。');
+      if (r.lineage !== undefined && (!isAvuncular(r.type) || !['paternal', 'maternal', 'unknown'].includes(r.lineage))) fail('叔伯舅姑姨的父系／母系設定不正確。');
       for (const key of ['note', 'source']) if (r[key] !== undefined && (typeof r[key] !== 'string' || r[key].length > 2000)) fail('關係說明與來源最多 2000 字。');
       if (r.status !== undefined && !['confirmed', 'pending'].includes(r.status)) fail('舊版關係資料的 status 欄位不正確。');
       const key = [r.type, r.personId, r.kind || ''].join('|');
@@ -227,7 +275,7 @@
       byId.set(p.id, p);
     }
     validateRelationshipPolicy(data);
-    const parents = new Map(), spouses = new Map(), siblings = new Map(), sworn = new Map(), fellows = new Map(), mentors = new Map(), cousins = new Map();
+    const parents = new Map(), spouses = new Map(), siblings = new Map(), sworn = new Map(), fellows = new Map(), mentors = new Map(), cousins = new Map(), avuncular = new Map();
     const pair = (a, b) => [a, b].sort();
     for (const p of people) for (const r of p.relationships) {
       if (!byId.has(r.personId)) fail('關係對象不存在，請重新選擇。');
@@ -237,6 +285,18 @@
         const parent = upwards ? q : p.id, child = upwards ? p.id : q;
         const generations = r.type.startsWith('grand') ? 2 : 1;
         parents.set([parent, child, r.kind, generations].join('|'), { parent, child, kind: r.kind, generations });
+      } else if (isAvuncular(r.type)) {
+        const members = r.type === 'uncleAunt' ? [q, p.id] : [p.id, q], key = members.join('|');
+        const bond = avuncular.get(key) || { members, kind: '叔伯姑姨舅', lineage: 'unknown' };
+        if (r.lineage && r.lineage !== 'unknown') {
+          if (bond.lineage !== 'unknown' && bond.lineage !== r.lineage) fail('叔伯舅姑姨的父系／母系記錄互相矛盾。');
+          bond.lineage = r.lineage;
+        }
+        if (r.seniority && r.seniority !== 'unknown') {
+          if (bond.seniority && bond.seniority !== r.seniority) fail('叔伯舅姑姨相對父母的長幼記錄互相矛盾。');
+          bond.seniority = r.seniority;
+        }
+        avuncular.set(key, bond);
       } else if (isCousin(r.type)) {
         const members = pair(p.id, q), key = r.type + '|' + members.join('|');
         const bond = cousins.get(key) || { members, kind: r.type === 'tangCousin' ? '堂親' : '表親' };
@@ -265,6 +325,7 @@
     edges.forEach(edge => constrain(edge.parent, edge.child, edge.generations));
     [...spouses.values(), ...siblings.values(), ...sworn.values()].forEach(([a, b]) => constrain(a, b, 0));
     cousins.forEach(({ members: [a, b] }) => constrain(a, b, 0));
+    avuncular.forEach(({ members: [relative, child] }) => constrain(relative, child, 1));
     const hierarchyLevels = new Map();
     for (const person of people) {
       if (hierarchyLevels.has(person.id)) continue;
@@ -341,7 +402,7 @@
       .map(r => ({ members: [r.from, r.personId], kind: r.type === 'tangCousin' ? '堂親' : '表親', inferred: true }));
     const inferredSiblings = inferredRelations.filter(r => r.type === 'sibling' && !r.recorded && r.from < r.personId)
       .map(r => ({ members:[r.from,r.personId],kind:'手足',inferred:true }));
-    const bonds = [...cousins.values()].concat(inferredCousins)
+    const bonds = [...cousins.values(), ...avuncular.values()].concat(inferredCousins)
       .concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' })))
       .concat([...sworn.values()].map(members => ({ members, kind: '契手足' })))
       .concat([...siblings.values()].map(members => ({ members, kind: '手足' }))).concat(inferredSiblings);
@@ -671,5 +732,5 @@
   }
   function upgradeSchema(data) { build(data); return Schema.migrate(data); }
   const inferredRole = (relation, target) => Inference.role(relation, target);
-  return { upgradeSchema, completeKinship, inferredRole, dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences:Diff.lines, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, connectorGroups };
+  return { upgradeSchema, completeKinship, inferredRole, dependentRank, manageFamily, hasSeniority, peerRanks, peerPresentation, siblingEvidence, dataDifferences:Diff.lines, mergeMembers, relationshipError, DEFAULT_FAMILY_NAME, normalizeFamilyName, build, validateMember, relationshipsFor, replaceMember, KINDS, TYPES, isDescent, sameJsonData, knownOrder, orderKey, compareOrder, memberOptionLabels, relationshipMemberIds, inverseSeniority, fellowRole, knownDiscipleOrder, compareDiscipleOrder, isCousin, isAvuncular, cousinRole, intermediateKey, ignoredIntermediatePlanIds, intermediatePlans, completedCousins, completedAvuncular, connectorGroups };
 });

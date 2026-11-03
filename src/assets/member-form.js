@@ -82,7 +82,7 @@
   const COMPACT_LAYOUT_QUERY = '(max-width:700px), (max-width:950px) and (max-height:520px)';
   let memberBaseline = '', pendingMemberClose = null, currentPlanId = null, pendingDraft = null, draftTimer = null;
   let nameVersion = null, savingName = false;
-  const labels = { parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接記錄）', biaoCousin: '表兄弟姊妹（直接記錄）', uncleAunt: '叔／伯／舅／姑／姨（直接記錄）', nephewNiece: '姪子女／外甥子女（直接記錄）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
+  const labels = { acquaintance: '認識', parent: '父母', child: '子女', grandparent: '祖父母（跨一代）', grandchild: '孫子女（跨一代）', spouse: '配偶', sibling: '手足', swornSibling: '契手足', tangCousin: '堂兄弟姊妹（直接記錄）', biaoCousin: '表兄弟姊妹（直接記錄）', uncleAunt: '叔／伯／舅／姑／姨（直接記錄）', nephewNiece: '姪子女／外甥子女（直接記錄）', fellowDisciple: '師兄弟姊妹', teacher: '師父', student: '徒弟' };
   let snapshot = null, requestId = null, saving = false, editingId = null;
   function option(value, text) { const el = document.createElement('option'); el.value = value; el.textContent = text; return el; }
   function syncProgressiveFields({ draft = null } = {}) {
@@ -354,11 +354,15 @@
       }
       const inverse = {parent:'child',child:'parent',grandparent:'grandchild',grandchild:'grandparent',uncleAunt:'nephewNiece',nephewNiece:'uncleAunt',teacher:'student',student:'teacher'};
       const reverseRole = avuncular ? FamilyModel.inferredRole({...relation,type:inverse[type.value]},base) : person && peerType ? FamilyModel.peerPresentation(snapshot.data, base, person, type.value, { ...relation, seniority: FamilyModel.inverseSeniority(seniority.value) }).role : RelationshipEvidenceView.term(inverse[type.value] || type.value,base.gender);
-      direction.textContent = `${person?.name || '現有成員'}是${base.name}的`;
-      type.setAttribute('aria-label',direction.textContent + '關係');
+      direction.textContent = type.value === 'acquaintance' ? `${base.name}與${person?.name || '現有成員'}的關係` : `${person?.name || '現有成員'}是${base.name}的`;
+      type.setAttribute('aria-label',direction.textContent + (type.value === 'acquaintance' ? '' : '關係'));
       for (const button of quick.children) button.setAttribute('aria-pressed',String(button.dataset.type === type.value));
       preview.textContent = person && type.value ? `${person.name}是${base.name}的${role}${isParent ? '（' + kind.value + '）' : ''}；${base.name}是${person.name}的${reverseRole}${isParent ? '（' + kind.value + '）' : ''}` : '請選擇對象與關係。';
       summaryTitle.textContent = direction.textContent + (role || '［選擇關係］');
+      if (type.value === 'acquaintance') {
+        preview.textContent = person ? `${base.name}認識${person.name}；尚無親屬關係者會安排在對方同一代，並以虛線邊框表示非家族成員。` : '請選擇認識的對象。';
+        summaryTitle.textContent = `${base.name}認識${person?.name || '［選擇對象］'}`;
+      }
       summaryHint.textContent = person && type.value && isParent ? kind.value : person && type.value && FamilyModel.hasSeniority(type.value) && seniority.value !== 'unknown' ? (seniority.value === 'older' ? '對方年長' : '對方年幼') : '';
       updateActionLabels();
     }

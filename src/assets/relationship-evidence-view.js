@@ -10,6 +10,7 @@
   function sentence(data,from,relation) {
     const people = new Map(data.people.map(p => [p.id,p]));
     const target = people.get(relation.to ?? relation.personId);
+    if (relation.type === 'acquaintance') return (people.get(from)?.name || '已移除成員') + '認識' + (target?.name || '已移除成員');
     return (target?.name || '已移除成員') + '是' + (people.get(from)?.name || '已移除成員') + '的' + (globalThis.FamilyModel.isAvuncular(relation.type) ? globalThis.FamilyModel.inferredRole(relation,target || {gender:'U'}) : term(relation.type,target?.gender)) + (relation.kind ? '（' + relation.kind + '）' : '');
   }
   function term(type,gender) {

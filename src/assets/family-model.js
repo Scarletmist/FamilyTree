@@ -18,7 +18,7 @@
     return name;
   }
   const KINDS = ['親生', '過繼', '養子女', '義子女', '契子女'];
-  const TYPES = ['parent', 'child', 'grandparent', 'grandchild', 'spouse', 'sibling', 'swornSibling', 'fellowDisciple', 'tangCousin', 'biaoCousin', 'uncleAunt', 'nephewNiece', 'teacher', 'student'];
+  const TYPES = ['parent', 'child', 'grandparent', 'grandchild', 'spouse', 'sibling', 'swornSibling', 'fellowDisciple', 'tangCousin', 'biaoCousin', 'uncleAunt', 'nephewNiece', 'teacher', 'student', 'acquaintance'];
   const isAvuncular = type => ['uncleAunt', 'nephewNiece'].includes(type);
   const isCousin = type => ['tangCousin', 'biaoCousin'].includes(type);
   const hasSeniority = type => ['sibling', 'swornSibling', 'tangCousin', 'biaoCousin'].includes(type);
@@ -70,7 +70,7 @@
     for (const bond of bonds) bond.members.forEach(id => ids.add(id));
     return ids;
   }
-  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt', teacher: 'student', student: 'teacher' };
+  const INVERSE = { acquaintance: 'acquaintance', parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt', teacher: 'student', student: 'teacher' };
   // Editing shows all direct relations, even when the source record lives on the other person.
   function relationshipsFor(data, id) {
     const result = new Map();
@@ -275,7 +275,7 @@
       byId.set(p.id, p);
     }
     validateRelationshipPolicy(data);
-    const parents = new Map(), spouses = new Map(), siblings = new Map(), sworn = new Map(), fellows = new Map(), mentors = new Map(), cousins = new Map(), avuncular = new Map();
+    const parents = new Map(), spouses = new Map(), siblings = new Map(), sworn = new Map(), fellows = new Map(), mentors = new Map(), cousins = new Map(), avuncular = new Map(), acquaintances = new Map();
     const pair = (a, b) => [a, b].sort();
     for (const p of people) for (const r of p.relationships) {
       if (!byId.has(r.personId)) fail('關係對象不存在，請重新選擇。');
@@ -310,7 +310,7 @@
         const teacher = r.type === 'teacher' ? q : p.id, student = r.type === 'teacher' ? p.id : q;
         mentors.set([teacher, student].join('|'), { teacher, student });
       } else {
-        const members = pair(p.id, q), map = r.type === 'spouse' ? spouses : r.type === 'sibling' ? siblings : r.type === 'fellowDisciple' ? fellows : sworn;
+        const members = pair(p.id, q), map = r.type === 'spouse' ? spouses : r.type === 'sibling' ? siblings : r.type === 'fellowDisciple' ? fellows : r.type === 'acquaintance' ? acquaintances : sworn;
         map.set(members.join('|'), members);
 
       }
@@ -403,6 +403,7 @@
     const inferredSiblings = inferredRelations.filter(r => r.type === 'sibling' && !r.recorded && r.from < r.personId)
       .map(r => ({ members:[r.from,r.personId],kind:'手足',inferred:true }));
     const bonds = [...cousins.values(), ...avuncular.values()].concat(inferredCousins)
+      .concat([...acquaintances.values()].map(members => ({ members, kind: '認識' })))
       .concat([...fellows.values()].map(members => ({ members, kind: '師兄弟姊妹' })))
       .concat([...sworn.values()].map(members => ({ members, kind: '契手足' })))
       .concat([...siblings.values()].map(members => ({ members, kind: '手足' }))).concat(inferredSiblings);

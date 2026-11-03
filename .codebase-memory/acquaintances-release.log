@@ -1,0 +1,11 @@
+
+> check:release
+> node dev/check-release.cjs
+
+{
+  "files": 63,
+  "bytes": 1158193,
+  "storage": "browser",
+  "fixturesIncluded": false,
+  "relativeResources": true
+}

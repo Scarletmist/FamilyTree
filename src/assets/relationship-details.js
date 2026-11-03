@@ -20,7 +20,8 @@
     { id: 'nephewsNieces', title: '姪甥子女' },
     { id: 'fellowDisciples', title: '師兄弟姊妹' },
     { id: 'teachers', title: '師父' },
-    { id: 'students', title: '徒弟' }
+    { id: 'students', title: '徒弟' },
+    { id: 'acquaintances', title: '朋友' }
   ];
   function chineseNumber(n) {
     const digits = '零一二三四五六七八九';
@@ -79,6 +80,7 @@
     for (const bond of graph.bonds || []) {
       if (!bond.members.includes(personId)) continue;
       const other = bond.members.find(id => id !== personId);
+      if (bond.kind === '認識') { add('acquaintances', other); continue; }
       if (bond.kind === '叔伯姑姨舅') { add(bond.members[1] === personId ? 'unclesAunts' : 'nephewsNieces', other); continue; }
       const context = bond.rankGroupIds?.map(id => '排行群組：' + graph.rankGroups.find(group => group.id === id)?.name).join('、');
       if (['堂親', '表親'].includes(bond.kind)) { add('cousins', other, { context: '直接記錄，可再補上父母與父母間的手足關係。' }); continue; }
@@ -109,6 +111,7 @@
         const target = byId.get(entry.personId);
         const inferred = automatic.filter(r => r.personId === entry.personId && automaticCategories[r.type] === category.id);
         let role = '';
+        if (category.id === 'acquaintances') role = '朋友';
         const badges = [...entry.kinds];
         if (category.id === 'children') {
           const order = FamilyModel.dependentRank(graph, target, person, 'sibling');
@@ -140,7 +143,7 @@
           if (presentation.rank && !presentation.order) badges.push('手足序：' + presentation.rank);
           if (entry.sworn && entry.ordinary) badges.push(FamilyModel.peerPresentation(graph, target, person, 'swornSibling').role);
         }
-        const categoryTypes = {parents:['parent'],grandparents:['grandparent'],spouses:['spouse'],children:['child'],grandchildren:['grandchild'],siblings:['sibling','swornSibling'],cousins:['tangCousin','biaoCousin'],unclesAunts:['uncleAunt'],nephewsNieces:['nephewNiece'],fellowDisciples:['fellowDisciple'],teachers:['teacher'],students:['student']};
+        const categoryTypes = {acquaintances:['acquaintance'],parents:['parent'],grandparents:['grandparent'],spouses:['spouse'],children:['child'],grandchildren:['grandchild'],siblings:['sibling','swornSibling'],cousins:['tangCousin','biaoCousin'],unclesAunts:['uncleAunt'],nephewsNieces:['nephewNiece'],fellowDisciples:['fellowDisciple'],teachers:['teacher'],students:['student']};
         const recorded = direct.filter(r => r.personId === target.id && categoryTypes[category.id].includes(r.type));
         if (category.id === 'cousins' && recorded.length) {
           const additions = inferred.filter(r => !r.recorded);
@@ -164,7 +167,7 @@
           if (r.source) entry.contexts.add('來源：' + r.source);
           if (r.note) entry.contexts.add('關係說明：' + r.note);
         }
-        if (target.gender === 'U' && !missing.includes('未填性別')) missing.push('未填性別');
+        if (category.id !== 'acquaintances' && target.gender === 'U' && !missing.includes('未填性別')) missing.push('未填性別');
         if (category.id === 'siblings') {
           const evidence = FamilyModel.siblingEvidence(graph, personId, target.id);
           if (evidence) for (const owner of [personId,target.id]) for (const r of FamilyModel.relationshipsFor(graph,owner)) {

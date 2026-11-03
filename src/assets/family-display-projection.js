@@ -234,6 +234,40 @@
       if (shift) ids.forEach(id => { byId.get(id).gen += shift; });
     }
 
+    // Acquaintances can place an otherwise unrelated person, but never move
+    // existing relatives or become a family-generation constraint.
+    const acquaintanceLinks = new Map(people.map(person => [person.id, []]));
+    for (const bond of graph.bonds || []) {
+      if (bond.kind !== '認識') continue;
+      const [a, b] = bond.members;
+      acquaintanceLinks.get(a).push(b);
+      acquaintanceLinks.get(b).push(a);
+    }
+    const outside = new Set(people.filter(person => acquaintanceLinks.get(person.id).length
+      && !adjacency.get(person.id).length
+      && !(graph.rankGroups || []).some(group => ['sibling', 'swornSibling'].includes(group.type)
+        && group.members.some(member => member.personId === person.id))).map(person => person.id));
+    const acquaintancePlaced = new Set(people.filter(person => !outside.has(person.id)).map(person => person.id));
+    const acquaintanceQueue = [...acquaintancePlaced].sort((a, b) => byId.get(a).gen - byId.get(b).gen || a.localeCompare(b));
+    function placeAcquaintances() {
+      for (let cursor = 0; cursor < acquaintanceQueue.length; cursor++) {
+        const id = acquaintanceQueue[cursor];
+        for (const next of acquaintanceLinks.get(id).slice().sort()) {
+          if (acquaintancePlaced.has(next)) continue;
+          byId.get(next).gen = byId.get(id).gen;
+          acquaintancePlaced.add(next);
+          acquaintanceQueue.push(next);
+        }
+      }
+      acquaintanceQueue.length = 0;
+    }
+    placeAcquaintances();
+    for (const id of [...outside].sort()) {
+      if (!acquaintancePlaced.has(id)) {
+        acquaintancePlaced.add(id); acquaintanceQueue.push(id); placeAcquaintances();
+      }
+    }
+    for (const person of people) person.nonFamily = outside.has(person.id);
     return graph;
   }
 

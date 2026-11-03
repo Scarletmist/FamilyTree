@@ -1,12 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "a650d6696e015e12ec06213daf05dfb549242f67",
-    "indexed_at": "2026-10-21T04:24:32Z",
-    "project": "D-FamilyTree",
-    "nodes": 2888,
-    "edges": 9511,
-    "original_size": 12582912,
-    "compressed_size": 2498328,
-    "compression_level": 3,
-    "reconcile_basis": "git-clean-head"
+    "commit": "02ce9228e31583c9895a4a9dba9c9c0a9150e377",
+    "indexed_at": "2026-11-03T08:52:42Z",
+    "project": "D-Work-0810_TEST",
+    "nodes": 3397,
+    "edges": 10746,
+    "original_size": 14024704,
+    "compressed_size": 2777300,
+    "compression_level": 3
 }

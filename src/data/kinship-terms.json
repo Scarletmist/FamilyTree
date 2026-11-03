@@ -35,6 +35,7 @@
     "tens": "十"
   },
   "direct": {
+    "acquaintance": "認識的人",
     "parent": {
       "ref": "parent"
     },

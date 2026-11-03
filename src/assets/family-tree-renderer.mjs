@@ -14,6 +14,7 @@ export const STYLES = {
   堂親: { color: '#a06a20', width: 2.5, dash: '10 5', end: 'diamond', both: true, label: '堂親（直接設定）· 雙端菱形長虛線' },
   表親: { color: '#a04476', width: 2.5, dash: '3 5', end: 'diamond', both: true, label: '表親（直接設定）· 雙端菱形短虛線' },
   師徒: { color: '#1756b0', width: 3, end: 'arrow', label: '師徒 · 師父 → 徒弟' },
+  認識: { color: '#6b7280', width: 2, dash: '2 5', label: '認識 · 點線；非家族成員卡片為虛線邊框' },
   unknown: { color: '#666666', width: 2, dash: '12 2 2 2', label: '未知關係' }
 };
 

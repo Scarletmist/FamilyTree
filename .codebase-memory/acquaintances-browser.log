@@ -1,0 +1,4 @@
+PASS api 1280: create, edit, inverse edit, same row, dashed card, SVG, reload, family precedence, undo
+PASS api 390: create, edit, inverse edit, same row, dashed card, SVG, reload, family precedence, undo
+PASS static 1280: create, edit, inverse edit, same row, dashed card, SVG, reload, family precedence, undo
+PASS static 390: create, edit, inverse edit, same row, dashed card, SVG, reload, family precedence, undo

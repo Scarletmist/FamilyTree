@@ -5,7 +5,7 @@
   else root.RelationshipEvidence = api;
 })(globalThis, function () {
   'use strict';
-  const inverse = { parent:'child', child:'parent', grandparent:'grandchild', grandchild:'grandparent', spouse:'spouse', sibling:'sibling', swornSibling:'swornSibling', fellowDisciple:'fellowDisciple', tangCousin:'tangCousin', biaoCousin:'biaoCousin', teacher:'student', student:'teacher', uncleAunt:'nephewNiece', nephewNiece:'uncleAunt' };
+  const inverse = { acquaintance: 'acquaintance', parent:'child', child:'parent', grandparent:'grandchild', grandchild:'grandparent', spouse:'spouse', sibling:'sibling', swornSibling:'swornSibling', fellowDisciple:'fellowDisciple', tangCousin:'tangCousin', biaoCousin:'biaoCousin', teacher:'student', student:'teacher', uncleAunt:'nephewNiece', nephewNiece:'uncleAunt' };
   const stable = value => Array.isArray(value) ? '[' + value.map(stable).join(',') + ']' : value && typeof value === 'object'
     ? '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + stable(value[k])).join(',') + '}' : JSON.stringify(value);
   const same = (a,b) => stable(a) === stable(b);
@@ -61,7 +61,7 @@
     return { origin:derived ? 'inferred' : 'direct', originLabel:derived ? '推導' : '直接記錄',
       premises, records:direct?.records || premises.flatMap(p => p.records) };
   }
-  const types = { parent:'父母', child:'子女', grandparent:'祖父母', grandchild:'孫子女', spouse:'配偶', sibling:'手足', swornSibling:'契手足', fellowDisciple:'師兄弟姊妹', tangCousin:'堂親', biaoCousin:'表親', teacher:'師父', student:'徒弟', uncleAunt:'叔伯姑姨舅', nephewNiece:'姪甥子女' };
+  const types = { acquaintance:'認識的人', parent:'父母', child:'子女', grandparent:'祖父母', grandchild:'孫子女', spouse:'配偶', sibling:'手足', swornSibling:'契手足', fellowDisciple:'師兄弟姊妹', tangCousin:'堂親', biaoCousin:'表親', teacher:'師父', student:'徒弟', uncleAunt:'叔伯姑姨舅', nephewNiece:'姪甥子女' };
   const text = proof => proof.originLabel;
   // One index per render/query, shared by every segment and reverse record.
   function create(data) {

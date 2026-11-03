@@ -113,6 +113,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .couple-group { display:flex; gap:var(--couple-gap); align-items:stretch; }
 .person { position:relative; flex:none; width:var(--person-width); min-height:var(--person-min-height); padding:var(--person-padding-y) var(--person-padding-x); background:white; border:1px solid var(--color-line); border-radius:10px; cursor:pointer; }
 .person > span { display:block; }
+.person[data-non-family="true"] { border-style:dashed; }
 .person__name { font:var(--person-name-size)/1.4 var(--font-serif); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .person__location,.person__position { font-size:var(--person-meta-size); color:var(--color-ink-soft); overflow-wrap:anywhere; }
 .person__order { margin-top:6px; font-size:var(--person-order-size); color:var(--color-ink-soft); }

@@ -1,0 +1,5 @@
+
+> build
+> node dev/build.cjs
+
+靜態網站已建置：D:\Work\0810_TEST\dist

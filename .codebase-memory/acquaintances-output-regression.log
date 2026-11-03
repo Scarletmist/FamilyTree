@@ -1,0 +1,102 @@
+{
+  "checks": 8,
+  "output": "C:\\Users\\user\\AppData\\Local\\Temp\\family-phase4-GVUA3o",
+  "reports": [
+    {
+      "mode": "static",
+      "width": 1440,
+      "height": 900,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    },
+    {
+      "mode": "static",
+      "width": 390,
+      "height": 844,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    },
+    {
+      "mode": "static",
+      "width": 360,
+      "height": 640,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    },
+    {
+      "mode": "static",
+      "width": 844,
+      "height": 390,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    },
+    {
+      "mode": "api",
+      "width": 1440,
+      "height": 900,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    },
+    {
+      "mode": "api",
+      "width": 390,
+      "height": 844,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    },
+    {
+      "mode": "api",
+      "width": 360,
+      "height": 640,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    },
+    {
+      "mode": "api",
+      "width": 844,
+      "height": 390,
+      "queryIds": [
+        "G",
+        "P",
+        "C",
+        "N0"
+      ],
+      "svgBytes": 34402
+    }
+  ]
+}

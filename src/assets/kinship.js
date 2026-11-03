@@ -9,7 +9,7 @@
   else root.FamilyKinship = api;
 })(globalThis, function (Model) {
   'use strict';
-  const INVERSE = { parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt', teacher: 'student', student: 'teacher' };
+  const INVERSE = { acquaintance: 'acquaintance', parent: 'child', child: 'parent', grandparent: 'grandchild', grandchild: 'grandparent', spouse: 'spouse', sibling: 'sibling', swornSibling: 'swornSibling', fellowDisciple: 'fellowDisciple', tangCousin: 'tangCousin', biaoCousin: 'biaoCousin', uncleAunt: 'nephewNiece', nephewNiece: 'uncleAunt', teacher: 'student', student: 'teacher' };
   function create(config) {
   if (config?.schemaVersion !== 1 || !Array.isArray(config.rules) || !config.labels || !config.direct || !config.notes || !config.display || !config.numerals || !Array.isArray(config.familyTypes) || !Array.isArray(config.familyKinds)) throw new Error('稱謂設定檔格式不正確');
   for (const key of ['self', 'fallbackTerm', 'chainSeparator', 'nonBiologicalPrefix', 'nonBiologicalSeparator', 'nonBiologicalSuffix']) if (typeof config.display[key] !== 'string') throw new Error('稱謂設定缺少顯示文字：' + key);

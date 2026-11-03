@@ -11,7 +11,7 @@ export function captureScene(canvas,{bands = []} = {}) {
     ...(element.localName === 'text' ? {text:element.textContent,inferred:element.dataset.inferred === 'true'} : {}),
     ...(element.children.length ? {children:[...element.children].map(shape)} : {})});
   const nodes = [...canvas.querySelectorAll('.person')].map(element => ({
-    id:element.dataset.personId,...relative(element),archived:element.dataset.archived === 'true',
+    id:element.dataset.personId,...relative(element),archived:element.dataset.archived === 'true',nonFamily:element.dataset.nonFamily === 'true',
     lines:[...element.children].filter(child => child.textContent).map(child => ({text:child.textContent,
       size:child.classList.contains('person__name') ? 20 : 16,
       bold:child.classList.contains('person__name'),color:child.classList.contains('person__name') ? '#302c27' : '#655f57'}))
@@ -75,7 +75,7 @@ export function buildSourceAppendix(graph,{hideNames = false} = {}) {
     const category = ({child:'parent',grandchild:'grandparent',student:'teacher',nephewNiece:'uncleAunt'})[r.type] || r.type;
     const key = JSON.stringify([[p.id,r.personId].sort(),category,r.kind || '',r.source || '',r.note || '']);
     if (seen.has(key)) continue; seen.add(key);
-    const typeLabel = {parent:'父母',child:'子女',spouse:'配偶',sibling:'手足',swornSibling:'契手足',grandparent:'祖父母',grandchild:'孫子女',uncleAunt:'叔伯舅姑姨',nephewNiece:'姪甥子女',teacher:'師父',student:'徒弟',fellowDisciple:'師兄弟姊妹',tangCousin:'堂親',biaoCousin:'表親'}[r.type] || '關係';
+    const typeLabel = {acquaintance:'認識的人',parent:'父母',child:'子女',spouse:'配偶',sibling:'手足',swornSibling:'契手足',grandparent:'祖父母',grandchild:'孫子女',uncleAunt:'叔伯舅姑姨',nephewNiece:'姪甥子女',teacher:'師父',student:'徒弟',fellowDisciple:'師兄弟姊妹',tangCousin:'堂親',biaoCousin:'表親'}[r.type] || '關係';
     records.push({label:`${names.get(r.personId)}是${p.name}的${typeLabel}${r.kind ? `（${r.kind}）` : ''}`,source:r.source || '未填寫',note:r.note || ''});
   }
   return records;

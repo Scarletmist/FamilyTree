@@ -31,7 +31,7 @@ export function diagramMarkup(scene,tile = {x:0,y:0,width:scene.width,height:sce
       const out = `<text x="${round(n.x + 12)}" y="${round(y)}" font-size="${line.size}" font-weight="${line.bold ? 600 : 400}" fill="${line.color}">${escapeText(value)}</text>`;
       y += line.size * 1.4; return out;
     }).join('')).join('');
-    return `<rect x="${round(n.x)}" y="${round(n.y)}" width="${round(n.width)}" height="${round(n.height)}" rx="10" fill="#fffdf9" stroke="${n.archived ? '#a38b70' : '#c9bba6'}" stroke-width="1.5"/>${text}`;
+    return `<rect x="${round(n.x)}" y="${round(n.y)}" width="${round(n.width)}" height="${round(n.height)}" rx="10" fill="#fffdf9" stroke="${n.archived ? '#a38b70' : '#c9bba6'}" stroke-width="1.5"${n.nonFamily ? ' stroke-dasharray="6 4"' : ''}/>${text}`;
   }).join('');
   const placeholders = scene.placeholders.filter(n => intersects(n,tile)).map(n => `<rect x="${round(n.x)}" y="${round(n.y)}" width="${round(n.width)}" height="${round(n.height)}" rx="6" fill="#fffaf0" stroke="#aa9376" stroke-dasharray="4 3"/><text x="${round(n.x + 4)}" y="${round(n.y + n.height / 2 + 6)}" font-size="16">待補</text>`).join('');
   return `<g font-family="'Microsoft JhengHei','Noto Sans CJK TC',sans-serif">${backgrounds}${scene.shapes.filter(s => !s.bounds || intersects(s.bounds,tile)).map(shapeMarkup).join('')}${cards}${placeholders}</g>`;
@@ -39,7 +39,7 @@ export function diagramMarkup(scene,tile = {x:0,y:0,width:scene.width,height:sce
 export function legendMarkup(x,y) {
   const kinds = ['spouse','親生','養子女','過繼','手足','堂親','表親','師徒'];
   return kinds.map((kind,i) => {const s = STYLES[kind],left = x + i % 4 * 180,top = y + Math.floor(i / 4) * 30;
-    return `<path d="M ${left} ${top} h 30" fill="none" stroke="${s.color}" stroke-width="${s.width}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/><text x="${left + 40}" y="${top + 6}" font-size="16">${kind === 'spouse' ? '婚姻' : kind}</text>`;}).join('') + `<text x="${x}" y="${y + 70}" font-size="16">推導：由既有關係辨別 · 已封存／銜接人物會標示在卡片</text>`;
+    return `<path d="M ${left} ${top} h 30" fill="none" stroke="${s.color}" stroke-width="${s.width}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/><text x="${left + 40}" y="${top + 6}" font-size="16">${kind === 'spouse' ? '婚姻' : kind}</text>`;}).join('') + `<text x="${x}" y="${y + 70}" font-size="16">虛線卡片：非家族成員 · 推導：由既有關係辨別 · 已封存／銜接人物會標示在卡片</text>`;
 }
 export function svgHeaderHeight(scene,title) {
   return 184 + Math.max(0,wrapText(title,Math.max(760,scene.width) - 48,24).length - 1) * 34;

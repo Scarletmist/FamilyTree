@@ -1,0 +1,4 @@
+interface:
+  display_name: "Debug Workflow"
+  short_description: "Evidence and handoffs for debug-workflow"
+  default_prompt: "Use $debug-workflow for this task, following the project instructions and stage contract."

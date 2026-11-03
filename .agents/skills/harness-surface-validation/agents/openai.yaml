@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Surface Validation"
+  short_description: "Evidence and handoffs for harness-surface-validation"
+  default_prompt: "Use $harness-surface-validation for this task, following the project instructions and stage contract."

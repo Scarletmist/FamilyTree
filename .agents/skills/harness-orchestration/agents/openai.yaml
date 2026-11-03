@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Orchestration"
+  short_description: "Evidence and handoffs for harness-orchestration"
+  default_prompt: "Use $harness-orchestration for this task, following the project instructions and stage contract."

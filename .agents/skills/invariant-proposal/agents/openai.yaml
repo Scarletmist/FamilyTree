@@ -1,0 +1,4 @@
+interface:
+  display_name: "Invariant Proposal"
+  short_description: "Evidence and handoffs for invariant-proposal"
+  default_prompt: "Use $invariant-proposal for this task, following the project instructions and stage contract."

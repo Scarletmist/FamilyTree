@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experiment Comparison"
+  short_description: "Evidence and handoffs for experiment-comparison"
+  default_prompt: "Use $experiment-comparison for this task, following the project instructions and stage contract."

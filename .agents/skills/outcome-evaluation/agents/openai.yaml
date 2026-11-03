@@ -1,0 +1,4 @@
+interface:
+  display_name: "Outcome Evaluation"
+  short_description: "Evidence and handoffs for outcome-evaluation"
+  default_prompt: "Use $outcome-evaluation for this task, following the project instructions and stage contract."

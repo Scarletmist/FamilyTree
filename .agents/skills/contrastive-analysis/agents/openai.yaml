@@ -1,0 +1,4 @@
+interface:
+  display_name: "Contrastive Analysis"
+  short_description: "Evidence and handoffs for contrastive-analysis"
+  default_prompt: "Use $contrastive-analysis for this task, following the project instructions and stage contract."

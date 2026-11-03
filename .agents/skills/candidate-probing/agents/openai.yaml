@@ -1,0 +1,4 @@
+interface:
+  display_name: "Candidate Probing"
+  short_description: "Evidence and handoffs for candidate-probing"
+  default_prompt: "Use $candidate-probing for this task, following the project instructions and stage contract."

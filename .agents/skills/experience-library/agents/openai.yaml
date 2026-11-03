@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experience Library"
+  short_description: "Evidence and handoffs for experience-library"
+  default_prompt: "Use $experience-library for this task, following the project instructions and stage contract."

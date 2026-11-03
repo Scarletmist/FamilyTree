@@ -1,0 +1,4 @@
+interface:
+  display_name: "Regression Validation"
+  short_description: "Evidence and handoffs for regression-validation"
+  default_prompt: "Use $regression-validation for this task, following the project instructions and stage contract."

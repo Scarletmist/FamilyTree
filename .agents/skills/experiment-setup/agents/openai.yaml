@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experiment Setup"
+  short_description: "Evidence and handoffs for experiment-setup"
+  default_prompt: "Use $experiment-setup for this task, following the project instructions and stage contract."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Domain Proposal"
+  short_description: "Evidence and handoffs for domain-proposal"
+  default_prompt: "Use $domain-proposal for this task, following the project instructions and stage contract."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Evidence Context"
+  short_description: "Evidence and handoffs for evidence-context"
+  default_prompt: "Use $evidence-context for this task, following the project instructions and stage contract."

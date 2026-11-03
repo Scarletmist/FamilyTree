@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Recovery Reporting"
+  short_description: "Evidence and handoffs for run-recovery-reporting"
+  default_prompt: "Use $run-recovery-reporting for this task, following the project instructions and stage contract."

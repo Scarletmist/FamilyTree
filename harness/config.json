@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "project_ready": false,
+  "data_id": "UNCONFIGURED",
+  "environment_id": "UNCONFIGURED",
+  "input_files": [],
+  "evaluator_files": [
+    "scripts/harness.py",
+    "scripts/harness_workflow.py",
+    "scripts/harness_self_check.py",
+    "tests/harness/test_harness.py",
+    "tests/harness/test_workflow.py",
+    "harness/skills.json"
+  ],
+  "metrics": {},
+  "suites": [
+    {
+      "id": "harness-self-tests",
+      "group": "harness",
+      "command": ["{python}", "scripts/harness_self_check.py"],
+      "cwd": ".",
+      "timeout_seconds": 120
+    }
+  ]
+}

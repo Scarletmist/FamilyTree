@@ -1,0 +1,4 @@
+interface:
+  display_name: "Executor Adaptation"
+  short_description: "Evidence and handoffs for executor-adaptation"
+  default_prompt: "Use $executor-adaptation for this task, following the project instructions and stage contract."

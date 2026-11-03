@@ -1,0 +1,4 @@
+interface:
+  display_name: "Candidate Selection"
+  short_description: "Evidence and handoffs for candidate-selection"
+  default_prompt: "Use $candidate-selection for this task, following the project instructions and stage contract."

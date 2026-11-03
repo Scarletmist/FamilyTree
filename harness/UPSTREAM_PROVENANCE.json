@@ -1,0 +1,26 @@
+{
+  "repository": "https://github.com/google-research/harness2",
+  "commit": "6868817518876de8fd170c6a8354daca273b6191",
+  "commit_time": "2026-11-01T18:17:27-08:00",
+  "analysis_date": "2026-11-03",
+  "upstream_license": "Apache-2.0",
+  "files": {
+    "README.md": "17639ac4194bb5c042cbf645430a772ae9be81baee95ab41eaea73cafa138f23",
+    "docs/SETUP.md": "0ad8a233386f00e315a2738752790c2718eb4d5d71b5b035b335ba73fc1323e3",
+    "docs/EXPERIMENTS.md": "ce168deb03d4607c70e00e092701d2f6d5987db04e09779b0e3cad48b7fca558",
+    "harness2/core/spec.py": "f245ec9e314778e2a1a51594b906584255b9eed8340c073b864a8a6f2c8dc400",
+    "harness2/core/recursion.py": "8d689c4142d274479152951f16805561eb3bc0e144bca127e40a0a955c746105",
+    "harness2/core/context.py": "63dd482e5d9467d7e659d186a11289fc7861d08c8aed603244ff0cee92de91f3",
+    "harness2/core/tree.py": "c2a15690b1b6b02156e922c5e0b1a215c5065d7bea5a3bae2e56b47309197552",
+    "harness2/core/selection.py": "2cb3353b2fd4ec72e6322f2c1f35db1ff2cdab88b0b50c8809d1841d235cb92f",
+    "harness2/core/library.py": "00219fda201a030f43b35b49c4e73ccf336aedc81164144c435b4b06a1256dd3",
+    "harness2/core/runmark.py": "fd759eb3f43c76d1a658e4cdfbc539ff732fac938c6ed790f35832ea837bed72",
+    "harness2/core/ledger.py": "7059de5d90fc9fb8d4b3b799ff075f09d34f182ba0fdb56eb9d8b8383d0bbf55",
+    "harness2/core/schedule.py": "5a9a619772201ff62ffc6528409d536501b90e8c00015054e00c8721d648d963",
+    "harness2/core/prompts.py": "d1f4f8db4ab4cb4addcbca175b548db2270375499fda727ac95d271c63cc2504",
+    "harness2/substrate/codex.py": "816656df24736ce123a49afb9660ab203bf986efc84d43c4e1bb52d9cc7ad012",
+    "harness2/config.py": "9875d7b057f29967f96b1b108a9bf8bed17c649a051100977fc714372cebbf0a",
+    "harness2/install.py": "a75eaa452d405020a268864e1f047346ec10cb64b81c4045f6bda0f72bd152c4"
+  },
+  "method": "Read pinned source locally; new project-level implementation, no upstream benchmark data included."
+}

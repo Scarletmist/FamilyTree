@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adoption Reflection"
+  short_description: "Evidence and handoffs for adoption-reflection"
+  default_prompt: "Use $adoption-reflection for this task, following the project instructions and stage contract."

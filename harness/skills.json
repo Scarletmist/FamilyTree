@@ -1,0 +1,395 @@
+{
+  "schema_version": 1,
+  "template_version": "2.0.0",
+  "skills": [
+    {
+      "name": "harness-orchestration",
+      "upstream": [
+        "core/schedule.py",
+        "core/recursion.py"
+      ],
+      "inputs": [
+        "user task",
+        "current project",
+        "existing experience",
+        "budget"
+      ],
+      "outputs": [
+        "experiment plan",
+        "stage schedule",
+        "adopted or retained harness",
+        "linked report"
+      ],
+      "next": [
+        "experiment-setup",
+        "evidence-context",
+        "run-recovery-reporting"
+      ]
+    },
+    {
+      "name": "experiment-setup",
+      "upstream": [
+        "core/spec.py",
+        "core/schedule.py",
+        "core/ledger.py"
+      ],
+      "inputs": [
+        "task request",
+        "project sources",
+        "environment capabilities"
+      ],
+      "outputs": [
+        "task.md",
+        "controls.json",
+        "plan.md",
+        "workflow.json"
+      ],
+      "next": [
+        "executor-adaptation",
+        "experience-library",
+        "candidate-probing"
+      ]
+    },
+    {
+      "name": "executor-adaptation",
+      "upstream": [
+        "substrate/base.py",
+        "substrate/codex.py",
+        "core/tree.py"
+      ],
+      "inputs": [
+        "requested harness components",
+        "actual runtime capabilities",
+        "project environment"
+      ],
+      "outputs": [
+        "executor capability record",
+        "isolated execution handoff",
+        "supported integration files"
+      ],
+      "next": [
+        "harness-surface-validation",
+        "candidate-probing"
+      ]
+    },
+    {
+      "name": "evidence-context",
+      "upstream": [
+        "core/context.py",
+        "core/prompts.py"
+      ],
+      "inputs": [
+        "frozen task",
+        "selected runs",
+        "task-local traces and notes",
+        "earlier experience"
+      ],
+      "outputs": [
+        "context INDEX.md",
+        "context MANIFEST.json",
+        "copied raw evidence"
+      ],
+      "next": [
+        "invariant-proposal",
+        "domain-proposal",
+        "contrastive-analysis",
+        "harness-composition"
+      ]
+    },
+    {
+      "name": "invariant-proposal",
+      "upstream": [
+        "core/prompts.py INV template",
+        "core/recursion.py _run_stage"
+      ],
+      "inputs": [
+        "current harness",
+        "base evidence context",
+        "earlier applicable experience"
+      ],
+      "outputs": [
+        "candidate harness tree",
+        "proposal.md with evidence and mechanism"
+      ],
+      "next": [
+        "harness-surface-validation",
+        "candidate-probing"
+      ]
+    },
+    {
+      "name": "domain-proposal",
+      "upstream": [
+        "core/prompts.py DOM template",
+        "core/recursion.py _run_stage"
+      ],
+      "inputs": [
+        "task domain and sources",
+        "current harness",
+        "base evidence context"
+      ],
+      "outputs": [
+        "candidate harness tree",
+        "domain proposal.md and source-backed checks"
+      ],
+      "next": [
+        "harness-surface-validation",
+        "candidate-probing"
+      ]
+    },
+    {
+      "name": "harness-surface-validation",
+      "upstream": [
+        "core/tree.py",
+        "core/recursion.py _accept_tree"
+      ],
+      "inputs": [
+        "candidate tree and diff",
+        "frozen evaluator list",
+        "executor capability record"
+      ],
+      "outputs": [
+        "validation findings",
+        "valid candidate or rejected-proposal record"
+      ],
+      "next": [
+        "candidate-probing",
+        "invariant-proposal",
+        "domain-proposal",
+        "harness-composition"
+      ]
+    },
+    {
+      "name": "candidate-probing",
+      "upstream": [
+        "core/recursion.py _roll and _roll_many",
+        "substrate/base.py"
+      ],
+      "inputs": [
+        "validated harness",
+        "fixed task and application start",
+        "executor capability record"
+      ],
+      "outputs": [
+        "task output artifacts",
+        "action and error trace",
+        "regression run ID",
+        "probe.md"
+      ],
+      "next": [
+        "evidence-context",
+        "contrastive-analysis",
+        "candidate-selection"
+      ]
+    },
+    {
+      "name": "contrastive-analysis",
+      "upstream": [
+        "core/prompts.py aggregate and compose_round",
+        "core/context.py"
+      ],
+      "inputs": [
+        "baseline set",
+        "candidate edits",
+        "probe traces and actual artifacts"
+      ],
+      "outputs": [
+        "contrast.md",
+        "supported and rejected edit inventory"
+      ],
+      "next": [
+        "harness-composition",
+        "candidate-probing"
+      ]
+    },
+    {
+      "name": "harness-composition",
+      "upstream": [
+        "core/recursion.py run_parallel and run_sequential",
+        "core/prompts.py aggregate and compose_round"
+      ],
+      "inputs": [
+        "current parent",
+        "full allowed probe pool",
+        "contrast analysis",
+        "prior checkpoints"
+      ],
+      "outputs": [
+        "composed candidate tree",
+        "composition.md",
+        "fresh composed probe"
+      ],
+      "next": [
+        "harness-surface-validation",
+        "candidate-probing",
+        "candidate-selection"
+      ]
+    },
+    {
+      "name": "candidate-selection",
+      "upstream": [
+        "core/selection.py selection_pool and run_selection",
+        "core/schedule.py _run_one_mode"
+      ],
+      "inputs": [
+        "final candidates",
+        "baseline evidence",
+        "fixed acceptance",
+        "selection policy"
+      ],
+      "outputs": [
+        "selection.md",
+        "decision.md",
+        "chosen run and artifact identity"
+      ],
+      "next": [
+        "adoption-reflection",
+        "outcome-evaluation"
+      ]
+    },
+    {
+      "name": "adoption-reflection",
+      "upstream": [
+        "core/selection.py reflect_adoption and _distil",
+        "core/prompts.py experience"
+      ],
+      "inputs": [
+        "committed selection",
+        "base and chosen harness",
+        "all task-local contrasts",
+        "decision notes"
+      ],
+      "outputs": [
+        "reflection.md",
+        "cue lesson evidence confidence and limits",
+        "edit-to-effect record"
+      ],
+      "next": [
+        "experience-library",
+        "run-recovery-reporting"
+      ]
+    },
+    {
+      "name": "experience-library",
+      "upstream": [
+        "core/library.py",
+        "core/schedule.py domain sequencing"
+      ],
+      "inputs": [
+        "domain and chronological task order",
+        "experience index",
+        "adopted tree and reflection"
+      ],
+      "outputs": [
+        "applicable prior experience",
+        "domain INDEX.md",
+        "retained harness and scoped lesson"
+      ],
+      "next": [
+        "experiment-setup",
+        "evidence-context",
+        "harness-orchestration"
+      ]
+    },
+    {
+      "name": "run-recovery-reporting",
+      "upstream": [
+        "core/runmark.py",
+        "core/ledger.py",
+        "core/report.py",
+        "core/schedule.py resume"
+      ],
+      "inputs": [
+        "experiment records",
+        "dependency plan",
+        "run evidence",
+        "selection and evaluation"
+      ],
+      "outputs": [
+        "recovery decision",
+        "status output",
+        "linked experiment report"
+      ],
+      "next": [
+        "harness-orchestration",
+        "candidate-probing"
+      ]
+    },
+    {
+      "name": "outcome-evaluation",
+      "upstream": [
+        "core/judge.py",
+        "core/report.py",
+        "core/spec.py score"
+      ],
+      "inputs": [
+        "committed selected artifact",
+        "separate approved evaluator",
+        "held-out inputs when available"
+      ],
+      "outputs": [
+        "evaluation record",
+        "measured score or explicit unscored error",
+        "transfer limits"
+      ],
+      "next": [
+        "run-recovery-reporting",
+        "experience-library"
+      ]
+    },
+    {
+      "name": "debug-workflow",
+      "upstream": [
+        "project debugging extension"
+      ],
+      "inputs": [
+        "observed defect",
+        "current project"
+      ],
+      "outputs": [
+        "reproduction",
+        "bounded fix",
+        "verification"
+      ],
+      "next": [
+        "regression-validation",
+        "experiment-comparison"
+      ]
+    },
+    {
+      "name": "regression-validation",
+      "upstream": [
+        "substrate execution adapter",
+        "project acceptance extension"
+      ],
+      "inputs": [
+        "implementation",
+        "fixed evaluator"
+      ],
+      "outputs": [
+        "project result.json",
+        "run evidence"
+      ],
+      "next": [
+        "candidate-probing",
+        "candidate-selection"
+      ]
+    },
+    {
+      "name": "experiment-comparison",
+      "upstream": [
+        "core/recursion.py",
+        "project comparison entry"
+      ],
+      "inputs": [
+        "alternative approaches",
+        "fixed task"
+      ],
+      "outputs": [
+        "linked comparison experiment"
+      ],
+      "next": [
+        "harness-orchestration"
+      ]
+    }
+  ]
+}

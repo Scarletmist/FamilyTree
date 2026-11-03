@@ -55,7 +55,7 @@ const choices = [
     assert(!(await page.locator('#location-search-query').evaluate(el=>el===document.activeElement)),'opening correction does not summon the mobile keyboard');
     await page.click('#location-mode-search');
     assert(await page.locator('#location-apply-related').isChecked(),'same-location correction defaults to applying to the group');
-    assert.match(await page.locator('#location-apply-label').textContent(),/其他 2 位/);
+    assert.match(await page.locator('#location-apply-label').textContent(),/其他 2 人/);
     assert.match(await page.locator('#location-correction-current').textContent(), /臺北市/);
     await page.fill('#location-search-query', '新竹市關帝廟');
     await page.clock.runFor(100); assert.deepEqual(requests, [], 'typing never triggers autocomplete requests');
@@ -174,7 +174,9 @@ const choices = [
       for(const button of await correction.locator('.member-map-layers > button').all()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
       for (const id of ['location-mode-search','location-mode-map','location-search-submit','location-more-button','member-map-back','save-location-correction']) {
         const button=page.locator('#'+id);
-        assert.equal(await button.locator('svg').count(),1);assert.equal(await button.textContent(),'');
+        assert.equal(await button.locator('svg').count(),1);
+        const labels={'location-mode-search':'搜尋地點','location-mode-map':'地圖指定','save-location-correction':'使用此位置'};
+        assert.equal((await button.textContent()).trim(),labels[id]||'');
         assert(await button.getAttribute('aria-label'));
         if(await button.isVisible()){const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);}
       }

@@ -57,7 +57,8 @@ html[data-motion-input] dialog.member-map-dialog { transform:none; transition-pr
 .location-scope-controls #location-apply-scope{margin-bottom:0;font-size:13px}.location-scope-controls #location-apply-scope summary{min-height:44px;padding:8px 0}
 .member-map-dialog button,.member-map-dialog summary { touch-action:manipulation; -webkit-tap-highlight-color:transparent; user-select:none; }
 .member-map-dialog button:active,.member-map-dialog summary:active { filter:brightness(.91); }
-.member-map-dialog button:focus-visible,.member-map-dialog summary:focus-visible,.member-map-dialog input:focus-visible { outline:3px solid #286854; outline-offset:2px; }
+.member-map-dialog button:focus-visible,.member-map-dialog summary:focus-visible,.member-map-dialog input:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
+.member-map-dialog .primary-button:focus-visible { outline-color:#fff; outline-offset:-5px; }
 .member-map-dialog button:disabled { opacity:.45; cursor:default; }
 .member-map-marker { width:44px; height:44px; border:2px solid white; background:#2f6755; color:white; box-shadow:0 2px 6px #0004; border-radius:50% 50% 50% 0; transform:rotate(-45deg); font-size:16px; font-weight:700; touch-action:manipulation; cursor:pointer; }
 .member-map-marker span { display:block; transform:rotate(45deg); }
@@ -74,6 +75,8 @@ html[data-motion-input] dialog.member-map-dialog { transform:none; transition-pr
 .member-map-zoom { display:flex; flex-direction:column; width:44px; border:0; box-shadow:inset 0 0 0 1px #e3e7df,0 3px 14px #233c2920; overflow:hidden; }
 .member-map-zoom button { width:44px; height:44px; border:0; background:transparent; font-size:24px; cursor:pointer; }
 .member-map-zoom button + button { border-top:1px solid var(--map-line); }
+.member-map-zoom button:first-child { border-radius:13px 13px 0 0; }
+.member-map-zoom button:last-child { border-radius:0 0 13px 13px; }
 .member-map-layer-options,.member-map-cluster-popup,.member-map-person-summary,.location-more-menu { position:absolute; z-index:8; width:276px; max-width:calc(100% - 24px); padding:16px; background:#fffffff7; backdrop-filter:blur(18px); border:1px solid #e3e7df; border-radius:18px; box-shadow:0 8px 35px #24392e26; }
 .member-map-layer-options { top:16px; right:60px; max-height:calc(100% - 32px); overflow:auto; }
 .member-map-layer-options h3,.member-map-popup-heading h3 { margin:0 0 8px; font-size:.9375rem; font-weight:600; }

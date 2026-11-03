@@ -46,8 +46,9 @@
     const syncScope = () => { resetScope.hidden = !scope.value || scope.disabled; };
     resetScope.addEventListener('click', () => { scope.value = ''; scope.dispatchEvent(new Event('change',{bubbles:true})); });
     scope.addEventListener('change',syncScope); new MutationObserver(syncScope).observe(scope,{childList:true,attributes:true,attributeFilter:['disabled']}); syncScope();
-    // Move the actual map entry, preserving its module listener and unique ID.
-    document.querySelector('.workspace-toolbar').append(get('show-member-map'));
+    // Reuse the actual controls and their listeners. Mobile fit belongs in the
+    // toolbar so subsequent panning/focus can never put it on a person's border.
+    document.querySelector('.workspace-toolbar').append(get('show-member-map'),get('mobile-tree-fit'));
     const dialog = document.createElement('dialog'); dialog.id = 'landscape-more-sheet'; dialog.className = 'landscape-more-sheet';
     dialog.setAttribute('aria-labelledby','landscape-more-title');
     dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;

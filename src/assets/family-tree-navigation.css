@@ -2,8 +2,10 @@
 .tree-minimap[hidden] { display:none; }
 .tree-minimap__header { display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:13px;color:var(--color-ink-soft); }
 .tree-minimap__header .details-icon { width:44px;height:44px;font-size:22px; }
-.tree-minimap__surface { display:block;width:100%;height:128px;background:#f4efe7;border-radius:6px;touch-action:none;cursor:crosshair; }
-.tree-minimap__surface:focus-visible { outline:2px solid #286e86;outline-offset:2px; }
+.tree-minimap__surface { display:block;width:100%;height:128px;background:#f4efe7;border-radius:6px;touch-action:none;cursor:crosshair;overflow:visible; }
+.tree-minimap__viewport { fill:#3467471c;stroke:var(--color-accent); }
+.tree-minimap__selected { stroke:var(--color-focus); }
+.tree-minimap__surface:focus-visible { outline:2px solid var(--color-focus);outline-offset:-3px; }
 .tree-minimap__actions { display:flex;gap:4px;margin-top:4px; }
 .tree-minimap__actions button { flex:1;min-height:44px;padding:4px;font-size:13px;user-select:none;touch-action:manipulation; }
 .tree-output-dialog { width:min(1080px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--color-line);border-radius:16px;color:var(--color-ink);background:var(--color-paper); }

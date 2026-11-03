@@ -26,7 +26,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .tree::-webkit-scrollbar-track,.tree::-webkit-scrollbar-corner { background:#eee7dc; }
 .tree::-webkit-scrollbar-thumb { background:#a89782; border:3px solid #eee7dc; border-radius:8px; }
 .tree.is-dragging,.tree.is-dragging * { cursor:grabbing !important; user-select:none; }
-.tree:focus-visible { outline:2px solid #286e86; outline-offset:-3px; }
+.tree:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .tree__canvas {
   --person-width:176px; --person-min-height:108px; --person-padding-y:12px; --person-padding-x:16px;
   --generation-gap:48px; --couple-gap:24px; --intermediate-slot-width:176px; --intermediate-slot-height:124px;
@@ -76,7 +76,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .tree-zoom-controls.is-attentive, .tree-zoom-controls:hover, .tree-zoom-controls:focus-within { opacity:1; box-shadow:0 6px 22px #2b211938; }
 .tree-zoom-controls button { display:inline-flex; align-items:center; justify-content:center; height:36px; min-width:36px; padding:0 9px; border:0; border-radius:7px; background:transparent; color:var(--color-ink); cursor:pointer; font:600 .875rem/1 var(--font-sans); }
 .tree-zoom-controls button:hover { background:#f0e7da; }
-.tree-zoom-controls button:focus-visible { outline:2px solid #286e86; outline-offset:1px; }
+.tree-zoom-controls button:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .tree-zoom-controls button:disabled { opacity:.4; cursor:default; background:transparent; }
 .tree-zoom-controls svg { width:18px; height:18px; }
 #tree-zoom-value { min-width:112px; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -107,7 +107,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .intermediate-node::before { content:'補登親屬'; position:absolute; left:50%; top:calc(100% + 6px); transform:translateX(-50%); padding:4px 8px; border-radius:6px; background:#34452d; color:#fff; font:13px/1.4 var(--font-sans); white-space:nowrap; pointer-events:none; opacity:0; }
 .intermediate-node:focus-visible::before { opacity:1; }
 @media(hover:hover) and (pointer:fine) { .intermediate-node:hover { background:#e2f0e4; } .intermediate-node:hover::before { opacity:1; } }
-.intermediate-node:focus-visible { outline:3px solid #286e86; outline-offset:3px; }
+.intermediate-node:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
 .generation { display:flex; justify-content:center; align-items:stretch; gap:var(--generation-gap); }
 .generation:last-child { margin-bottom:0 !important; }
 .couple-group { display:flex; gap:var(--couple-gap); align-items:stretch; }
@@ -126,8 +126,8 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .tree__canvas[data-zoom-level="condensed"] .person__position,
 .tree__canvas[data-zoom-level="condensed"] .person__order,
 .tree__canvas[data-zoom-level="medium"] .person__order { display:none; }
-.person[aria-pressed="true"] { outline:3px solid var(--color-accent); outline-offset:3px; }
-.person:focus-visible { outline:3px solid #286e86; outline-offset:3px; }
+.person[aria-pressed="true"] { outline:3px solid var(--color-accent); outline-offset:-3px; }
+.person:focus-visible { outline:3px solid var(--color-focus); outline-offset:-3px; }
 .member-tooltip { --tooltip-arrow-x:50%; --tooltip-arrow-y:50%; position:fixed; z-index:20; width:max-content; max-width:min(320px,calc(100vw - 24px)); border:1px solid #d8cbb8; border-radius:12px; background:rgba(255,255,255,.98); box-shadow:0 10px 30px #2b211926,0 2px 8px #2b211914; pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .15s ease,transform .15s ease; filter:drop-shadow(0 1px 0 rgba(255,255,255,.35)); }
 .member-tooltip[hidden] { display:none; }
 @media (hover:none), (pointer:coarse) { .member-tooltip { display:none; } }
@@ -152,7 +152,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .relationship-details[data-collapsed="true"] { right:0; width:48px; max-width:48px; max-height:min(65%,360px); height:auto; padding:0; overflow:hidden; border-radius:10px 0 0 10px; }
 .relationship-details__tab { flex:none; display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; max-height:min(65dvh,360px); padding:12px 8px; border:0; background:#f6f2eb; color:var(--color-accent); cursor:pointer; font:600 .875rem/1.5 var(--font-sans); }
 .relationship-details__tab:hover { background:#eee4d6; }
-.relationship-details__tab:focus-visible { outline:2px solid #286e86; outline-offset:-3px; }
+.relationship-details__tab:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .relationship-details__tab-arrow { font:600 1.5rem/1 var(--font-sans); }
 .relationship-details__tab-text { writing-mode:vertical-rl; text-orientation:upright; max-height:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:.12em; }
 .relationship-details__tab-summary { display:none; }
@@ -163,7 +163,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 #relationship-details-title { max-height:3.1em; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .details-icon { display:flex; align-items:center; justify-content:center; width:36px; height:36px; padding:0; border:1px solid var(--color-line); border-radius:8px; background:#f6f2eb; cursor:pointer; transition:background .15s,border-color .15s; }
 .details-icon:hover { background:#eee4d6; border-color:#c5b8a6; }
-.details-icon:focus-visible,.relationship-group summary:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+.details-icon:focus-visible,.relationship-group summary:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .details-icon.details-collapse { color:var(--color-ink-soft); }
 .details-icon.details-back,.details-icon.edit-member,.details-icon.query-relationship,.details-icon.details-locate { color:var(--color-accent); }
 .details-action { width:auto; min-width:0; gap:4px; padding:0 6px; color:var(--color-accent); font:600 .8125rem/1.2 var(--font-sans); }
@@ -176,7 +176,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .relationship-details__profile p + p { margin-top:2px; }
 .relationship-details__location { max-width:100%; min-height:44px; padding:0 4px; border:0; border-radius:4px; background:none; color:var(--color-accent); font:inherit; text-align:left; overflow-wrap:anywhere; vertical-align:middle; text-decoration:underline; text-underline-offset:3px; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 .relationship-details__location:active { background:#eee4d6; }
-.relationship-details__location:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+.relationship-details__location:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .relationship-details__empty { margin-top:14px; font-size:.875rem; color:var(--color-ink-soft); }
 .relationship-groups { display:grid; gap:8px; margin-top:12px; }
 .relationship-group { min-width:0; border:1px solid var(--color-line); border-radius:8px; background:white; overflow:hidden; }
@@ -194,7 +194,7 @@ select { padding:6px 10px; border:1px solid var(--color-line); border-radius:6px
 .relationship-entry__name { font-weight:600; }
 .relationship-entry__person { padding:0; border:0; background:none; color:inherit; font:600 inherit; text-align:left; cursor:pointer; text-decoration:underline; text-decoration-color:transparent; text-underline-offset:3px; }
 .relationship-entry__person:hover { color:var(--color-accent); text-decoration-color:currentColor; }
-.relationship-entry__person:focus-visible { outline:2px solid #286e86; outline-offset:3px; border-radius:3px; }
+.relationship-entry__person:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; border-radius:3px; }
 .relationship-entry__role { color:var(--color-accent); font-size:.8125rem; }
 .relationship-entry__badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
 .relationship-entry__badge { display:inline-block; padding:1px 7px; border-radius:4px; background:#f1e9de; color:#715443; font-size:.75rem; }
@@ -252,7 +252,7 @@ dialog input,dialog select { width:100%; max-width:none; font:inherit; padding:8
 .relation-row__actions { display:flex; align-items:center; gap:6px; }
 .relation-row__action { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; white-space:nowrap; }
 .relation-row__action svg { flex:none; width:17px; height:17px; }
-.relation-row__action:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+.relation-row__action:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .relation-removal-status { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:8px 0; font-size:.875rem; }
 .relation-removal-status:empty { display:none; }
 .relation-removal-status button { min-height:44px; }
@@ -309,13 +309,13 @@ dialog > .form-actions,dialog form > .form-actions { flex:none; margin-top:0; pa
 .relationship-summary h2 { font-size:17px; margin:0 0 8px; }
 .relationship-summary p { margin:6px 0; }
 .relationship-summary select { width:100%; }
-.person.pair-a { outline:3px solid #b35425; }
-.person.pair-b { box-shadow:0 0 0 6px #326d9a; }
+.person.pair-a { outline:3px solid #b35425; outline-offset:-3px; }
+.person.pair-b { box-shadow:inset 0 0 0 3px var(--color-accent); }
 @media(max-width:600px) { .relationship-search {gap:5px;padding:6px;} .relationship-search select {max-width:145px;} }
   .searchable-select { position:relative; display:inline-flex; flex-direction:column; min-width:0; max-width:100%; }
 .select-native { position:absolute; width:1px!important; height:1px; opacity:0; pointer-events:none; clip-path:inset(50%); }
 .select-trigger { width:100%; min-height:38px; padding:8px 28px 8px 10px; text-align:left; font:inherit; color:inherit; border:1px solid #c5b8a6; border-radius:6px; background:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.select-trigger:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+.select-trigger:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .select-dropdown { position:fixed; inset:auto; margin:0; padding:8px; box-sizing:border-box; border:1px solid #c5b8a6; border-radius:8px; background:white; color:#342b23; box-shadow:0 6px 24px #0003; overflow:hidden; }
 .select-dropdown:popover-open { display:flex; flex-direction:column; gap:6px; }
 /* Keep search inputs at 16px or above to prevent iOS focus zoom in every popover. */
@@ -323,7 +323,7 @@ dialog > .form-actions,dialog form > .form-actions { flex:none; margin-top:0; pa
 /* Only the options scroll; keep the search field outside the gesture surface. */
 .select-options { flex:1 1 auto; min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
 .select-dropdown .select-search[hidden] { display:none; }
-.select-options:focus-visible { outline:2px solid #286e86; outline-offset:-2px; border-radius:4px; }
+.select-options:focus-visible { outline:2px solid var(--color-focus); outline-offset:-2px; border-radius:4px; }
 .management-toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px; }
 .family-management-dialog { width:min(680px,calc(100vw - 24px)); }
 .family-management-dialog .dialog-header h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
@@ -372,7 +372,7 @@ dialog > .form-actions,dialog form > .form-actions { flex:none; margin-top:0; pa
 .member-list-row { cursor:pointer; }
 .member-list-row:hover { background:#f8f2e9; }
 .member-list-row.member-list-unlinked:hover { background:#ffe7a7; }
-.member-list-row:focus-visible { outline:2px solid #286e86; outline-offset:-2px; }
+.member-list-row:focus-visible { outline:2px solid var(--color-focus); outline-offset:-2px; }
 .member-list-name-button { border:0; padding:0; background:none; color:inherit; font:600 inherit; text-align:left; cursor:pointer; }
 .member-list-name-button:hover { color:var(--color-accent); text-decoration:underline; text-underline-offset:3px; }
 .member-list-empty { padding:20px 8px; text-align:center; color:var(--color-ink-soft); }
@@ -469,7 +469,7 @@ dialog textarea { width:100%; box-sizing:border-box; font:inherit; padding:8px; 
     touch-action:manipulation;
   }
   .mobile-tree-fit svg { width:22px; height:22px; }
-  .mobile-tree-fit:focus-visible { outline:2px solid #286e86; outline-offset:2px; }
+  .mobile-tree-fit:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
   .relationship-details { z-index:8; }
   /* Treat the mobile page as a fixed app shell.  iOS Safari can otherwise
      hand a vertical gesture that starts on the horizontally scrollable toolbar
@@ -1219,7 +1219,7 @@ dialog textarea { width:100%; box-sizing:border-box; font:inherit; padding:8px; 
 .details-icon.details-action { width:auto; min-width:0; gap:6px; padding:0 10px; }
 .plain-button:not(:disabled):active,.details-icon:not(:disabled):active { background:#e9e4dc; }
 .primary-button:not(:disabled):active { background:#763024; }
-button:focus-visible,summary:focus-visible { outline:2px solid #286e86; outline-offset:3px; }
+button:focus-visible,summary:focus-visible { outline:2px solid var(--color-focus); outline-offset:-3px; }
 .dialog-header { grid-template-columns:minmax(0,1fr) var(--control-size); }
 .form-actions { align-items:center; }
 .form-actions button { min-height:var(--control-size); }

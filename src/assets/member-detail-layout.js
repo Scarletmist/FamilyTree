@@ -24,6 +24,19 @@
     const backgroundStates = new Map(), scrollPositions = new Map();
     let reading = false, frame = 0, drag = null;
 
+    function updateBrowseHeight() {
+      const workspace = document.querySelector('.workspace');
+      if (!workspace) return;
+      if (!mobile.matches || landscape.matches) {
+        panel.style.removeProperty('--member-browse-height'); return;
+      }
+      // Leave one complete selected card above the browsing sheet. Full reading
+      // and an active drag keep their own height, so neither loses its range.
+      const card = workspace.querySelector('.person[aria-pressed="true"]');
+      const clearance = Math.max(108, card?.getBoundingClientRect().height || 0) + 32;
+      panel.style.setProperty('--member-browse-height', Math.max(220, workspace.clientHeight - clearance) + 'px');
+    }
+
     function syncControls() {
       const collapse = panel.querySelector('.details-collapse');
       const navigation = panel.querySelector('.relationship-details__navigation');
@@ -103,6 +116,7 @@
 
     function afterRender() {
       syncControls();
+      updateBrowseHeight();
       setReading(reading);
       const body = panel.querySelector('.relationship-details__body');
       if (!body || panel.hidden) return;
@@ -184,9 +198,9 @@
         }
       }
     }, true);
-    addEventListener('resize', () => { cancelMotion(); setReading(reading); }, { passive: true });
+    addEventListener('resize', () => { cancelMotion(); updateBrowseHeight(); setReading(reading); }, { passive: true });
     reduced.addEventListener('change', () => { if (reduced.matches) cancelMotion(); });
-    mobile.addEventListener('change', () => { cancelMotion(); syncControls(); setReading(reading); });
+    mobile.addEventListener('change', () => { cancelMotion(); syncControls(); updateBrowseHeight(); setReading(reading); });
 
     return { beforeRender, afterRender, sync: () => setReading(reading),
       leaveReading: () => { if (!reading) return false; cancelMotion(); setReading(false, { focus: true }); return true; } };

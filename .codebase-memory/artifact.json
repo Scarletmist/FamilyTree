@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "c065195cf048265c03f735720851e9564b7d1e1a",
-    "indexed_at": "2026-11-03T09:07:06Z",
-    "project": "D-Work-0810_TEST",
-    "nodes": 3399,
-    "edges": 10762,
-    "original_size": 14024704,
-    "compressed_size": 2781521,
+    "commit": "f788bdb7291b152d7cfe340de9956c7c53945d88",
+    "indexed_at": "2026-11-03T23:31:47Z",
+    "project": "D-FamilyTree",
+    "nodes": 3431,
+    "edges": 10890,
+    "original_size": 13565952,
+    "compressed_size": 2818405,
     "compression_level": 3
 }

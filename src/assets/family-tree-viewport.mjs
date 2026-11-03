@@ -115,6 +115,10 @@ export function createViewportController({
       if (!node.isConnected) { cancelMemberFocus(); return; }
       const rect = view.getBoundingClientRect(), member = node.getBoundingClientRect();
       let top = rect.top + view.clientTop, bottom = top + view.clientHeight;
+      let left = rect.left + view.clientLeft, right = left + view.clientWidth;
+      // Generation labels are a painted, pointer-transparent strip. Hit testing
+      // cannot detect them, but they can still cover a selected card's border.
+      left += canvas()?.querySelector('.tree__generation-label')?.getBoundingClientRect().width || 0;
       if (isMobileLayout()) {
         const details = document.getElementById('relationship-details');
         if (details && !details.hidden) {
@@ -124,10 +128,28 @@ export function createViewportController({
         const summary = document.getElementById('relationship-summary');
         if (summary && !summary.hidden) top = Math.min(bottom, Math.max(top, summary.getBoundingClientRect().bottom + 12));
       }
+      // A floating fit control or minimap must not land on the card's border.
+      // Choose an unobstructed rectangle large enough for the entire card,
+      // without changing the user's zoom level.
+      for (const control of document.querySelectorAll('.mobile-tree-fit,#tree-minimap:not([hidden])')) {
+        const box = control.getBoundingClientRect();
+        if (!box.width || !box.height || control.closest('[inert]')) continue;
+        const x = (left + right) / 2, y = (top + bottom) / 2;
+        if (x + member.width / 2 < box.left - 8 || x - member.width / 2 > box.right + 8 ||
+            y + member.height / 2 < box.top - 8 || y - member.height / 2 > box.bottom + 8) continue;
+        const candidates = [
+          { left, right:Math.min(right,box.left - 8), top, bottom },
+          { left:Math.max(left,box.right + 8), right, top, bottom },
+          { left, right, top, bottom:Math.min(bottom,box.top - 8) },
+          { left, right, top:Math.max(top,box.bottom + 8), bottom }
+        ].filter(area => area.right - area.left >= member.width + 4 && area.bottom - area.top >= member.height + 8)
+          .sort((a,b) => (b.right-b.left)*(b.bottom-b.top) - (a.right-a.left)*(a.bottom-a.top));
+        if (candidates.length) ({ left, right, top, bottom } = candidates[0]);
+      }
       const start = { left:view.scrollLeft, top:view.scrollTop };
       focusTarget = {
         left:Math.max(0, Math.min(view.scrollWidth - view.clientWidth,
-          start.left + member.left + member.width / 2 - (rect.left + view.clientLeft + view.clientWidth / 2))),
+          start.left + member.left + member.width / 2 - (left + right) / 2)),
         top:Math.max(0, Math.min(view.scrollHeight - view.clientHeight,
           start.top + member.top + member.height / 2 - (top + bottom) / 2))
       };

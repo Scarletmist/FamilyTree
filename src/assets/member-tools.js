@@ -199,6 +199,14 @@
   document.querySelector('.workspace').append(dialog);
   const listCompact = matchMedia('(max-width:700px), (max-width:950px) and (max-height:520px)');
   const listScroll = dialog.querySelector('.member-list-scroll');
+  const listSticky = dialog.querySelector('.member-list-sticky');
+  // Native focus/scrollIntoView must account for the sticky search and filters,
+  // especially when a landscape viewport leaves only a few result rows.
+  if (listSticky && typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => {
+      listScroll.style.scrollPaddingTop = Math.ceil(listSticky.getBoundingClientRect().height + 8) + 'px';
+    }).observe(listSticky);
+  }
   let listScrollTop = 0;
   const searchMembers = document.getElementById('member-list-search');
   const body = document.getElementById('member-list-body');

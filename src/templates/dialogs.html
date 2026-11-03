@@ -3,7 +3,7 @@
     <div class="dialog-scroll member-list-scroll">
       <div class="member-list-sticky">
         <div class="member-list-toolbar">
-          <label class="member-list-search-label" for="member-list-search">搜尋成員<input id="member-list-search" type="search" autocomplete="off" placeholder="姓名、所在地、職位或代別" /></label>
+          <label class="member-list-search-label" for="member-list-search">搜尋成員<input id="member-list-search" type="search" autocomplete="off" enterkeyhint="search" placeholder="姓名、所在地、職位或代別" /></label>
           <button type="button" id="open-ignored-intermediates" class="plain-button member-list-secondary open-ignored-intermediates" data-ignored-count="0" aria-label="已忽略待補項目，共 0 項">已忽略待補項目 <span id="ignored-intermediate-count">（0）</span></button>
         </div>
         <div class="member-list-filters" role="group" aria-label="成員狀態篩選">
@@ -12,13 +12,14 @@
           <button type="button" class="member-list-filter" data-member-filter="unlinked" aria-pressed="false">未設定關係</button>
           <button type="button" class="member-list-filter" data-member-filter="archived" aria-pressed="false">已封存</button>
         </div>
-        <p id="member-list-count"></p>
+        <p id="member-list-count" role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
       <section id="member-list-recent" class="member-list-recent" aria-labelledby="member-list-recent-title" hidden>
         <strong id="member-list-recent-title" class="member-list-recent__title">最近查看</strong>
         <div id="member-list-recent-items" class="member-list-recent__items"></div>
       </section>
       <p id="member-list-empty" class="member-list-empty" hidden>找不到符合的成員。</p>
+      <button type="button" id="member-list-reset" class="plain-button member-list-reset" hidden>清除搜尋與篩選</button>
       <table class="member-list-table"><thead><tr><th scope="col">姓名</th><th scope="col">所在地</th><th scope="col">職位</th><th scope="col">代別</th></tr></thead><tbody id="member-list-body"></tbody></table>
     </div>
   </dialog>

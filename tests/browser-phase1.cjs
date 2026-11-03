@@ -138,6 +138,8 @@ const history = [{ data:previous,version:'prior-v2',label:'修改家族名稱',s
     const diff = page.locator('#import-dialog .family-differences');
     assert.match(await diff.textContent(),/更新的家族來源/); assert.match(await diff.textContent(),/母親是祖母的子女/);
     assert.equal(await diff.locator('.family-diff-group').filter({ hasText:'定位裝置' }).count(),0);
+    const filters = diff.locator('.family-diff-filters');
+    if (!await filters.evaluate(node => node.open)) await filters.locator('summary').click();
     await diff.getByLabel('搜尋差異').fill('教師'); assert.equal(await diff.locator('.family-diff-row').count(),1);
     await diff.getByLabel('搜尋差異').fill('');
     await diff.getByLabel('差異類別').selectOption('relationship'); assert.equal(await diff.locator('.family-diff-row').count(),1);

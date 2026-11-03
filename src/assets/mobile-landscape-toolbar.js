@@ -52,13 +52,18 @@
     dialog.setAttribute('aria-labelledby','landscape-more-title');
     dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;
     const sections = [
-      ['備份、同步與輸出',[['diagram-export','列印／下載向量圖','print'],['export','匯出族譜備份','export'],['import','匯入族譜','import'],['cloud','Google Drive 同步','cloud']]],
-      ['成員管理',[['workbench','待整理資料','workbench'],['archived','封存成員','archive'],['recycle','回收區','recycle'],['groups','排行群組','rank'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','eye-off'],['undo','復原','undo']]],
       ['檢視',[['relationship','查兩人關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','minimap'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','branches'],['legend','關係圖例','legend']]],
+      ['成員管理',[['workbench','待整理資料','workbench'],['archived','封存成員','archive'],['recycle','回收區','recycle'],['groups','排行群組','rank'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','eye-off'],['undo','復原','undo']]],
+      ['備份、同步與輸出',[['diagram-export','列印／下載向量圖','print'],['export','匯出族譜備份','export'],['import','匯入族譜','import'],['cloud','Google Drive 同步','cloud']]],
       ['族譜設定',[['family-name','編輯家族名稱','edit']]]
     ];
-    const menuSearch = document.createElement('input'); menuSearch.type = 'search'; menuSearch.className = 'workspace-menu-search'; menuSearch.placeholder = '搜尋功能'; menuSearch.setAttribute('aria-label','搜尋功能');
+    const menuSearch = document.createElement('input'); menuSearch.type = 'search'; menuSearch.className = 'workspace-menu-search'; menuSearch.placeholder = '搜尋功能'; menuSearch.enterKeyHint = 'search'; menuSearch.setAttribute('aria-label','搜尋功能');
     dialog.querySelector('.landscape-more-sheet__body').before(menuSearch);
+    const menuEmpty = document.createElement('div'); menuEmpty.className = 'workspace-menu-empty'; menuEmpty.hidden = true;
+    const menuStatus = document.createElement('p'); menuStatus.setAttribute('role','status'); menuStatus.setAttribute('aria-live','polite');
+    const clearMenuSearch = document.createElement('button'); clearMenuSearch.type = 'button'; clearMenuSearch.className = 'plain-button'; clearMenuSearch.textContent = '顯示全部功能';
+    menuEmpty.append(menuStatus,clearMenuSearch); dialog.querySelector('.landscape-more-sheet__body').append(menuEmpty);
+    const expandedGroups = new Map();
     for (const [title, items] of sections) {
       const section = document.createElement('details'); section.className = 'workspace-menu-group'; section.open = true;
       const heading = document.createElement('summary'); heading.textContent = title; section.append(heading);
@@ -77,23 +82,43 @@
         const hint = document.createElement('p'); hint.className = 'workspace-menu-hint';
         hint.textContent = window.FamilyRepository?.isStatic ? '資料儲存在此裝置；匯出備份可另存一份，連結雲端後可跨裝置同步。' : '資料已儲存至伺服器；匯出備份可另存一份。'; section.append(hint);
       }
-      dialog.querySelector('.landscape-more-sheet__body').append(section);
+      menuEmpty.before(section);
     }
     const legendPanel = document.createElement('div'); legendPanel.className = 'landscape-more-legend legend'; legendPanel.hidden = true;
     dialog.querySelector('[data-action=legend]').after(legendPanel); document.body.append(dialog);
     const action = name => dialog.querySelector(`[data-action="${name}"]`);
     function filterMenu() {
       const keyword = menuSearch.value.trim().normalize('NFKC').toLocaleLowerCase();
+      let total = 0;
       for (const section of dialog.querySelectorAll('.workspace-menu-group')) {
         let visible = 0;
         for (const item of section.querySelectorAll('[data-action]')) {
           const eligible = !((item.dataset.action === 'ignored' && !(window.getIgnoredIntermediateCount?.() || 0)) || (item.dataset.action === 'cloud' && get('cloud-sync').hidden));
           item.hidden = !eligible || !item.textContent.normalize('NFKC').toLocaleLowerCase().includes(keyword); if (!item.hidden) visible++;
         }
-        section.hidden = !visible; if (keyword) section.open = true;
+        total += visible; section.hidden = !visible;
+        if (keyword) {
+          if (!expandedGroups.has(section)) expandedGroups.set(section,section.open);
+          section.open = true;
+        } else if (expandedGroups.has(section)) {
+          section.open = expandedGroups.get(section); expandedGroups.delete(section);
+        }
       }
+      menuEmpty.hidden = total > 0;
+      menuStatus.textContent = total ? '' : '找不到符合的功能，請試試其他關鍵字。';
     }
     menuSearch.addEventListener('input',filterMenu);
+    clearMenuSearch.addEventListener('click',() => { menuSearch.value = ''; filterMenu(); menuSearch.focus(); });
+    dialog.addEventListener('keydown', event => {
+      if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || !['ArrowDown','ArrowUp'].includes(event.key)) return;
+      if (event.target !== menuSearch && !event.target.matches('.landscape-more-action')) return;
+      const buttons = [...dialog.querySelectorAll('.workspace-menu-group:not([hidden])[open] .landscape-more-action:not([hidden]):not(:disabled)')];
+      const index = buttons.indexOf(event.target);
+      if (index < 0 && (event.target !== menuSearch || event.key !== 'ArrowDown' || !buttons.length)) return;
+      event.preventDefault();
+      if (event.key === 'ArrowUp' && index === 0) menuSearch.focus();
+      else buttons[Math.max(0,Math.min(buttons.length - 1,index + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus();
+    });
     searchOpen.prepend(action('relationship').querySelector('svg').cloneNode(true));
     let opener;
     function syncState() {
@@ -130,7 +155,9 @@
       if (dialog.open) { closeMore(); return; }
       opener = button; menuSearch.value = ''; syncState(); filterMenu(); legendPanel.hidden = true;
       if (compact.matches) dialog.showModal(); else dialog.show();
-      button.setAttribute('aria-expanded','true'); position(); action('diagram-export').focus({preventScroll:true});
+      button.setAttribute('aria-expanded','true'); position();
+      // A sheet opens ready to browse; only desktop search receives the keyboard.
+      (compact.matches ? get('landscape-more-close') : menuSearch).focus({preventScroll:true});
     });
     get('landscape-more-close').addEventListener('click', () => closeMore());
     dialog.addEventListener('cancel', event => { event.preventDefault(); closeMore(); });

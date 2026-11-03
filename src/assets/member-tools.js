@@ -204,6 +204,7 @@
   const body = document.getElementById('member-list-body');
   const count = document.getElementById('member-list-count');
   const empty = document.getElementById('member-list-empty');
+  const resetSearch = document.getElementById('member-list-reset');
   const ignoredOpen = document.getElementById('open-ignored-intermediates');
   const ignoredCount = document.getElementById('ignored-intermediate-count');
   const filterButtons = [...document.querySelectorAll('[data-member-filter]')];
@@ -212,6 +213,7 @@
   const RECENT_KEY = 'family-tree:recent-members:v1:' + location.pathname;
   const RECENT_LIMIT = 6;
   let memberFilter = 'all';
+  let viewedMemberId = null;
 
   function readRecentMembers() {
     try {
@@ -304,6 +306,7 @@
     visible.forEach(person => {
       const row = document.createElement('tr'); const connected = linked.has(person.id);
       row.dataset.personId = person.id; row.className = 'member-list-row' + (!connected ? ' member-list-unlinked' : '');
+      if (person.id === viewedMemberId) row.setAttribute('aria-current', 'true');
       row.tabIndex = 0; row.setAttribute('aria-label', '查看' + window.familyPersonLabel(person) + '並定位到族譜圖');
       const values = [person.name, person.location, person.position, connected ? `第 ${person.gen + generationOffset} 代` : ''];
       const labels = ['姓名', '所在地', '職位', '代別'];
@@ -312,6 +315,8 @@
         if (!value && index > 0) cell.classList.add('is-empty');
         if (index === 0) {
           const button = document.createElement('button'); button.type = 'button'; button.className = 'member-list-name-button';
+          // The whole row is the keyboard target; avoid two Tab stops per member.
+          button.tabIndex = -1;
           button.textContent = value; button.setAttribute('aria-label', `查看${person.name}並定位到族譜圖`);
           button.addEventListener('click', event => { event.stopPropagation(); navigateToMember(person.id); });
           cell.appendChild(button);
@@ -328,6 +333,7 @@
       body.append(row);
     });
     empty.hidden = visible.length > 0;
+    resetSearch.hidden = visible.length > 0 || (!keyword && memberFilter === 'all');
     filterButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.memberFilter === memberFilter)));
     const unlinkedCount = people.filter(person => !linked.has(person.id)).length;
     const unlinkedButton = filterButtons.find(button => button.dataset.memberFilter === 'unlinked');
@@ -346,8 +352,37 @@
     searchMembers?.focus();
   }
   window.openFamilyMemberList = openMemberList;
+  const memberListOpener = document.getElementById('show-member-list');
+  memberListOpener.setAttribute('aria-keyshortcuts', 'Control+k Meta+k');
+  const shortcutLabel = memberListOpener.querySelector('.member-search-shortcut');
+  if (shortcutLabel && /Mac|iPhone|iPad/.test(navigator.platform)) shortcutLabel.textContent = '⌘ K';
+  memberListOpener.title = '所有成員 · Ctrl / ⌘ K 搜尋';
+  document.addEventListener('keydown', event => {
+    if (event.defaultPrevented || event.isComposing || event.repeat || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+    // Keep editing shortcuts and active tasks under the user's control.
+    if (event.target.closest('input,textarea,select,[contenteditable]') || document.querySelector('dialog:modal') || document.querySelector('.landscape-more-sheet[open]')) return;
+    event.preventDefault(); openMemberList({ restore: true }); searchMembers.select();
+  });
   document.getElementById('show-member-list').addEventListener('click', () => openMemberList());
   searchMembers?.addEventListener('input', () => { listScroll.scrollTop = 0; renderMemberList(); });
+  resetSearch.addEventListener('click', () => {
+    searchMembers.value = ''; memberFilter = 'all'; listScroll.scrollTop = 0;
+    renderMemberList(); searchMembers.focus();
+  });
+  dialog.addEventListener('keydown', event => {
+    if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+    const rows = [...body.querySelectorAll('.member-list-row')];
+    if (event.target === searchMembers && event.key === 'ArrowDown' && rows.length) {
+      event.preventDefault(); rows[0].focus(); return;
+    }
+    const row = event.target.closest('.member-list-row');
+    if (!row || !['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const index = rows.indexOf(row);
+    if (event.key === 'ArrowUp' && index === 0) { searchMembers.focus(); return; }
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? rows.length - 1 : Math.max(0, Math.min(rows.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
+    rows[next]?.focus();
+  });
   filterButtons.forEach(button => button.addEventListener('click', () => {
     memberFilter = button.dataset.memberFilter || 'all';
     listScroll.scrollTop = 0;
@@ -373,6 +408,9 @@
     if (dialog.open) renderMemberList();
   });
   window.addEventListener('familyrepositorychange', () => { queueMicrotask(() => { refreshIgnoredCount(); if (dialog.open) renderMemberList(); }); });
-  window.addEventListener('familymemberviewed', event => rememberRecentMember(event.detail?.id));
+  window.addEventListener('familymemberviewed', event => {
+    viewedMemberId = event.detail?.id || null;
+    rememberRecentMember(viewedMemberId);
+  });
   refreshIgnoredCount();
 })();

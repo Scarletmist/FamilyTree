@@ -123,8 +123,16 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
       await page.locator(selector).locator('..').locator('.select-trigger').click();
       const search = page.locator('.select-dropdown:popover-open input');
       if (await search.isVisible()) await search.fill(label);
-      const name = selector.startsWith('#relationship-') ? new RegExp('^'+label+' · 第 \\d+ 代$') : label;
+      // Person options now include context (generation/parents/unlinked state).
+      // Resolve the fixture's unique name to an ID, including newly added people,
+      // then assert identity instead of assuming a bare display name.
+      const personTarget = selector.includes('.relation-target') || /^#relationship-[ab]$/.test(selector);
+      const ids = personTarget ? await page.evaluate(name => FamilyApp.snapshot().data.people.filter(person => person.name === name).map(person => person.id),label) : [];
+      if (personTarget) assert.equal(ids.length,1,'Fixture has exactly one person named ' + label);
+      const name = personTarget ? await page.locator(selector).evaluate((select,id) => [...select.options].find(option => option.value === id)?.textContent,ids[0]) : label;
+      assert(name,'Expected option exists: ' + label);
       await page.locator('.select-dropdown:popover-open').getByRole('option', { name, exact: true }).click();
+      if (personTarget) assert.equal(await page.locator(selector).inputValue(),ids[0]);
     }
     async function relation(target, type) {
       await page.click('#add-relation');
@@ -162,7 +170,7 @@ const p = (id, relationships = [], notes = '') => ({ id, name: id, gender: 'U', 
     assert.equal(await page.locator('#family-filter').inputValue(), scopeChoice.value);
     assert.equal(await scopeTrigger.textContent(), scopeChoice.label);
     assert(await page.locator('.person').count() < 4, 'Selecting a family scopes the canvas');
-    await choose('#family-filter', '所有關係');
+    await choose('#family-filter', '全族譜');
     assert.equal(await page.locator('.person').count(), 4);
     assert.equal(await page.evaluate(() => JSON.stringify(FamilyApp.snapshot().data)), beforeScope);
     await page.setViewportSize({ width: 390, height: 844 });

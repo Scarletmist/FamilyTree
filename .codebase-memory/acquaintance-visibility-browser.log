@@ -1,0 +1,4 @@
+PASS api 1280: detail-only acquaintance paths/labels/sources, unrelated selection, close, query, reload, create, edit, generation, undo, SVG
+PASS api 390: detail-only acquaintance paths/labels/sources, unrelated selection, close, query, reload, create, edit, generation, undo, SVG
+PASS static 1280: detail-only acquaintance paths/labels/sources, unrelated selection, close, query, reload, create, edit, generation, undo, SVG
+PASS static 390: detail-only acquaintance paths/labels/sources, unrelated selection, close, query, reload, create, edit, generation, undo, SVG

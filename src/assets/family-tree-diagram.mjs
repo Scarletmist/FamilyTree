@@ -201,6 +201,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
     function label(x, y, text, kind, ids, inferred = false, proofs = [], detailsOnly = false) {
       const el = svgElement('text', { x, y, class: 'relation-label', fill: (STYLES[kind] || STYLES.unknown).color });
       el.textContent = text + (!interactive && inferred ? '（推導）' : '');
+      el.dataset.kind = kind;
       el.dataset.people = ids.join(' ');
       if (inferred) el.dataset.inferred = 'true';
       if (detailsOnly) el.dataset.detailsOnly = 'true';
@@ -381,6 +382,7 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
         const button = element('button','canvas-evidence','i'); button.type = 'button';
         button.dataset.evidenceKey = proofs.map(p => E.canonical(p.from,p.relation).key).sort().join(';');
         button.dataset.people = [...new Set(proofs.flatMap(p => [p.from,p.relation.personId]))].join(' ');
+        button.dataset.kind = el.dataset.kind;
         button.dataset.inferred = String(proofs.every(p => p.evidence.origin === 'inferred'));
         if (el.dataset.detailsOnly === 'true') button.dataset.detailsOnly = 'true';
         button.setAttribute('aria-label',`查看${proofs.length}筆關係來源與說明：` + proofs.map(p => E.text(p.evidence)).join('；'));

@@ -36,6 +36,8 @@ const initial = {schemaVersion:3,people:[p('G'),p('P',[parent('G')]),p('B',[pare
       await page.click('#add-relation');
       await page.locator('.relation-target').selectOption('B',{force:true});
       await page.locator('.relation-type').selectOption('acquaintance',{force:true});
+      await page.locator('.relation-advanced').evaluate(node => node.open = true);
+      await page.fill('.relation-note','活動認識');
       assert.match(await page.locator('.relation-preview').textContent(),/A認識B/);
       assert.equal(await page.locator('.relation-kind').isVisible(),false);
       assert.equal(await page.locator('.relation-cousin-seniority').isVisible(),false);
@@ -53,6 +55,26 @@ const initial = {schemaVersion:3,people:[p('G'),p('P',[parent('G')]),p('B',[pare
       await check(true,3);
       assert(await page.locator('.tree__connectors [data-kind="認識"]').count());
       assert.match(await page.locator('[data-group="acquaintances"]').textContent(),/B/);
+      async function select(id) {
+        await page.evaluate(id => dispatchEvent(new CustomEvent('familytreeselect',{detail:{id}})),id);
+      }
+      async function checkLinks(visible) {
+        const states = await page.locator('#tree-canvas [data-kind="認識"]').evaluateAll(nodes => nodes.map(node => ({tag:node.tagName,visible:getComputedStyle(node).display !== 'none'})));
+        assert(states.some(node => node.tag === 'path'),'acquaintance path exists');
+        assert(states.some(node => node.tag === 'text'),'acquaintance label exists');
+        assert(states.some(node => node.tag === 'BUTTON'),'acquaintance source marker exists');
+        assert(states.every(node => node.visible === visible),`${mode} ${width}: acquaintance paths, labels and evidence visibility`);
+      }
+      await checkLinks(true);
+      await page.locator('.details-close').evaluate(node => node.click());
+      await checkLinks(false);
+      await page.locator('#toggle-inferred-lines').evaluate(node => node.click());
+      await checkLinks(false);
+      await page.locator('#toggle-inferred-lines').evaluate(node => node.click());
+      await select('G'); await checkLinks(false);
+      await select('B'); await checkLinks(true);
+      await select('P'); await checkLinks(false);
+      await select('A'); await checkLinks(true);
       const svg = await page.evaluate(async () => {
         const {captureScene} = await import('/assets/family-tree-scene.mjs');
         const {serializeSVG} = await import('/assets/family-tree-output.mjs');
@@ -61,7 +83,17 @@ const initial = {schemaVersion:3,people:[p('G'),p('P',[parent('G')]),p('B',[pare
       assert.match(svg,/stroke-dasharray="6 4"/);
       await fs.writeFile(path.join(out,`${mode}-${width}.svg`),svg);
       await page.screenshot({path:path.join(out,`${mode}-${width}.png`)});
-      await page.reload(); await check(true,3);
+      await page.reload(); await check(true,3); await checkLinks(false);
+      await page.locator('#relationship-a').selectOption('A',{force:true});
+      await page.locator('#relationship-b').selectOption('B',{force:true});
+      await page.waitForFunction(() => !document.querySelector('#relationship-search [type=submit]').disabled);
+      await page.locator('#relationship-search').evaluate(form => form.requestSubmit());
+      await page.waitForFunction(() => document.querySelectorAll('.person').length === 2);
+      await checkLinks(false);
+      await select('B'); await checkLinks(true);
+      await page.locator('.details-close').evaluate(node => node.click());
+      await checkLinks(false);
+      await page.locator('#relationship-reset').evaluate(node => node.click());
       await page.evaluate(() => editFamilyMember('B'));
       assert.equal(await page.locator('.relation-type').filter({has:page.locator('option:checked[value="acquaintance"]')}).count(),1);
       await page.click('#save-member');
@@ -95,7 +127,7 @@ const initial = {schemaVersion:3,people:[p('G'),p('P',[parent('G')]),p('B',[pare
       assert.equal(await newCard.evaluate(node => +node.closest('.generation').dataset.gen),3);
       assert.equal(await newCard.evaluate(node => getComputedStyle(node).borderTopStyle),'dashed');
       assert.deepEqual(errors,[]);
-      console.log(`PASS ${mode} ${width}: create, edit, inverse edit, same row, dashed card, SVG, reload, family precedence, undo`);
+      console.log(`PASS ${mode} ${width}: detail-only acquaintance paths/labels/sources, unrelated selection, close, query, reload, create, edit, generation, undo, SVG`);
       await context.close();
     }
   } finally {

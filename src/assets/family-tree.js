@@ -273,7 +273,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
       scopeLabel:queryView.active ? '比較路徑' : focus ? '目前篩選範圍' : '全圖'};
     minimap.setScene(captureScene(canvas,{bands}),diagramContext.scopeLabel);
     const bridgeRecords = [...svg.querySelectorAll('path[data-points]')].map(el => ({
-      el, original: el.getAttribute('d'), group: el.dataset.group,
+      el, original: el.getAttribute('d'), group: el.dataset.group, kind: el.dataset.kind,
       people: el.dataset.people.split(' '),
       inferred: el.dataset.inferred === 'true',
       detailsOnly: el.dataset.detailsOnly === 'true',
@@ -287,23 +287,26 @@ let FAMILY = FamilyApp?.graph?.() || null;
       // changing the user's overview preference or rebuilding the canvas.
       const revealInferred = showInferredLines || !!visibleId || queryView.active;
       const revealDetails = !!visibleId || queryView.active;
-      const connectorVisible = (inferred, detailsOnly) => (!inferred || revealInferred) && (!detailsOnly || revealDetails);
+      // Acquaintances appear only while reading either endpoint's details.
+      // Queries and unrelated selections must not reveal these social links.
+      const connectorVisible = (inferred, detailsOnly, kind, ids) => (!inferred || revealInferred)
+        && (!detailsOnly || revealDetails) && (kind !== '認識' || !!visibleId && ids.includes(visibleId));
       nodes.forEach((node, id) => node.setAttribute('aria-pressed', String(id === visibleId)));
       svg.querySelectorAll('[data-people]').forEach(line => {
-        line.style.display = connectorVisible(line.dataset.inferred === 'true', line.dataset.detailsOnly === 'true') ? '' : 'none';
+        line.style.display = connectorVisible(line.dataset.inferred === 'true', line.dataset.detailsOnly === 'true', line.dataset.kind, line.dataset.people.split(' ')) ? '' : 'none';
         line.style.opacity = visibleId && !line.dataset.people.split(' ').includes(visibleId) ? '0.12' : '1';
       });
       canvasEvidence.forEach(button => {
         const related = Boolean(visibleId && button.dataset.people.split(' ').includes(visibleId));
         button.dataset.selected = String(related);
-        button.style.display = connectorVisible(button.dataset.inferred === 'true', button.dataset.detailsOnly === 'true') ? '' : 'none';
+        button.style.display = connectorVisible(button.dataset.inferred === 'true', button.dataset.detailsOnly === 'true', button.dataset.kind, button.dataset.people.split(' ')) ? '' : 'none';
         button.style.opacity = visibleId ? related ? '1' : '0.25' : queryView.active ? '1' : '0.65';
       });
-      const visibleSegments = bridgeRecords.filter(r => connectorVisible(r.inferred, r.detailsOnly) && (!visibleId || r.people.includes(visibleId)))
+      const visibleSegments = bridgeRecords.filter(r => connectorVisible(r.inferred, r.detailsOnly, r.kind, r.people) && (!visibleId || r.people.includes(visibleId)))
         .flatMap(r => FamilyConnectorRouting.segments(r.points, { group: r.group }));
       bridgeRecords.forEach(record => {
         let d = record.original;
-        if ((visibleId || !revealInferred || !revealDetails) && connectorVisible(record.inferred, record.detailsOnly) && (!visibleId || record.people.includes(visibleId)) && record.bridges.length) {
+        if ((visibleId || !revealInferred || !revealDetails) && connectorVisible(record.inferred, record.detailsOnly, record.kind, record.people) && (!visibleId || record.people.includes(visibleId)) && record.bridges.length) {
           const crossings = FamilyConnectorRouting.crossings(record.points, visibleSegments.filter(s => s.group !== record.group), 2.5);
           const bridges = record.bridges.filter(p => crossings.some(c => Math.abs(c.x - p.x) < .1 && Math.abs(c.y - p.y) < .1));
           d = FamilyConnectorRouting.bridgePath(record.points, bridges, 7);

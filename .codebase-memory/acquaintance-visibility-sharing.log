@@ -1,0 +1,6 @@
+PASS: mixed relationship sharing chromium api 1440 (9 cases)
+PASS: mixed relationship sharing chromium api 390 (9 cases)
+PASS: mixed relationship sharing chromium api 844 (9 cases)
+PASS: mixed relationship sharing chromium static 1440 (9 cases)
+PASS: mixed relationship sharing chromium static 390 (9 cases)
+PASS: mixed relationship sharing chromium static 844 (9 cases)

@@ -30,7 +30,8 @@
       import:'<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
       export:'<path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/>',
       edit:'<path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-4-4L5 15z"/>',
-      legend:'<path d="M9 6h12M9 12h8M9 18h12M3 6h1M3 12h1M3 18h1"/>'
+      legend:'<path d="M9 6h12M9 12h8M9 18h12M3 6h1M3 12h1M3 18h1"/>',
+      help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1.1-1.5 2M12 16h.01"/>'
     };
     const openers = ['desktop','portrait','landscape'].map(mode => {
       const button = document.createElement('button'); button.type = 'button'; button.id = mode + '-more-open';
@@ -53,7 +54,7 @@
     dialog.setAttribute('aria-labelledby','landscape-more-title');
     dialog.innerHTML = `<div class="landscape-more-sheet__header"><h2 id="landscape-more-title">更多功能</h2><button type="button" class="details-icon" id="landscape-more-close" aria-label="關閉更多功能">${svg('<path d="m6 6 12 12M18 6 6 18"/>')}</button></div><div class="landscape-more-sheet__body"></div>`;
     const sections = [
-      ['檢視',[['relationship','查兩人關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','minimap'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','branches'],['legend','關係圖例','legend']]],
+      ['檢視',[['relationship','查兩人關係','query'],['map','成員地圖','map'],['minimap','全圖導覽','minimap'],['canvas-names','隱藏姓名','eye'],['inferred-lines','顯示自動辨別線段','branches'],['legend','關係圖例','legend'],['guide','圖譜操作說明','help']]],
       ['成員管理',[['workbench','待整理資料','workbench'],['archived','封存成員','archive'],['recycle','回收區','recycle'],['groups','排行群組','rank'],['merge','合併重複成員','merge'],['ignored','已忽略待補項目','eye-off'],['undo','復原','undo']]],
       ['備份、同步與輸出',[['diagram-export','列印／下載向量圖','print'],['export','匯出族譜備份','export'],['import','匯入族譜','import'],['cloud','Google Drive 同步','cloud']]],
       ['族譜設定',[['family-name','編輯家族名稱','edit']]]
@@ -177,6 +178,7 @@
     run('undo', () => window.FamilyEditor?.undo()); run('cloud', () => get('cloud-sync').click());
     run('import', () => get('import-json').click()); run('export', () => get('export-json').click());
     run('minimap',() => get('toggle-tree-minimap').click());run('diagram-export',() => get('export-diagram').click());
+    run('guide',() => { const guide = get('canvas-guide-dialog'); if (guide && !guide.open) guide.showModal(); });
     action('canvas-names').addEventListener('click', () => { get('toggle-canvas-names').click(); syncState(); });
     action('legend').addEventListener('click', () => {
       legendPanel.replaceChildren(...[...get('relationship-legend').children].map(node => node.cloneNode(true))); legendPanel.hidden = !legendPanel.hidden;

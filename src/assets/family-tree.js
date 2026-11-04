@@ -128,15 +128,16 @@ let FAMILY = FamilyApp?.graph?.() || null;
 
   minimap = createMinimap({camera:treeZoom,getSelectedId:() => selectedId});
   createExportController({getContext:() => diagramContext,getGraph:() => FAMILY});
-  const guide = element('details','canvas-guide');
-  guide.append(element('summary','','圖譜操作說明'),element('p','','拖曳空白處移動畫面；手機可用雙指縮放。從成員詳情或查詢路徑查看關係依據，＋補登缺少的親屬。'));
-  const guideActions = element('div','canvas-guide-actions');
-  for (const [label,action] of [['看全圖',() => treeZoom.fitView()],['定位人物',() => document.getElementById('show-member-list').click()],['知道了',() => { guide.open = false; }]]) {
-    const button = element('button','plain-button',label); button.type = 'button'; button.addEventListener('click',action); guideActions.append(button);
+  const guide = element('dialog','canvas-guide-dialog'); guide.id = 'canvas-guide-dialog';
+  guide.setAttribute('aria-labelledby','canvas-guide-title');
+  guide.innerHTML = '<header class="dialog-header"><h2 id="canvas-guide-title">圖譜操作說明</h2><button type="button" class="details-icon" aria-label="關閉圖譜操作說明"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header><div class="dialog-scroll"><dl><dt>移動畫面</dt><dd>拖曳畫布空白處，或使用捲軸與方向鍵。</dd><dt>縮放圖譜</dt><dd>桌面使用 Ctrl／⌘＋滾輪；手機可雙指縮放。「看全圖」可重新取景。</dd><dt>查看與補登關係</dt><dd>點選人物查看詳情；從成員詳情或查詢路徑查看關係依據，＋可補登缺少的親屬。</dd></dl></div>';
+  guide.querySelector('.details-icon').addEventListener('click',() => guide.close());
+  const guideActions = element('div','form-actions');
+  for (const [label,action] of [['看全圖',() => treeZoom.fitView()],['定位人物',() => document.getElementById('show-member-list').click()],['知道了',() => {}]]) {
+    const button = element('button',label === '知道了' ? 'primary-button' : 'plain-button',label); button.type = 'button';
+    button.addEventListener('click',() => { guide.close(); action(); }); guideActions.append(button);
   }
-  guide.append(guideActions); document.querySelector('.workspace').append(guide);
-  try { guide.open = !localStorage.getItem('family-tree:canvas-guide:v1'); } catch { guide.open = true; }
-  guide.addEventListener('toggle', () => { if (!guide.open) try { localStorage.setItem('family-tree:canvas-guide:v1','seen'); } catch {} });
+  guide.append(guideActions); document.body.append(guide);
   function applyResponsiveDefaults() {
     const legend = document.querySelector('.legend-panel');
     if (!legend || legend.dataset.responsiveDefaultApplied) return;
@@ -144,6 +145,13 @@ let FAMILY = FamilyApp?.graph?.() || null;
     if (typeof initialViewState?.legendOpen === 'boolean') legend.open = initialViewState.legendOpen;
     else if (window.matchMedia?.('(max-width:700px), (max-width:950px) and (max-height:520px)').matches) legend.open = false;
     legend.addEventListener('toggle', scheduleCanvasViewStateSave);
+    const constrainLegend = () => {
+      const content = legend.querySelector('.legend');
+      if (legend.open && content) content.style.maxHeight = Math.max(44, innerHeight - content.getBoundingClientRect().top - 12) + 'px';
+    };
+    legend.addEventListener('toggle',constrainLegend);
+    window.addEventListener('resize',constrainLegend,{passive:true});
+    constrainLegend();
   }
   function closeSelectedDetails({ focusCanvas = false } = {}) {
     if (!selectedId) return false;

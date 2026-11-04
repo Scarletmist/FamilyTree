@@ -347,7 +347,9 @@ export function renderDiagram({canvas,layout,graph,FAMILY,intermediatePlans,disp
       for (const { point, neighbor, marker, people, inferred, detailsOnly } of markers.values()) {
         const dx = point[0] - neighbor[0], dy = point[1] - neighbor[1], length = Math.hypot(dx, dy);
         if (!length) continue;
-        const el = svgElement('path', { d: `M ${point[0] - dx / length * .1} ${point[1] - dy / length * .1} L ${point[0]} ${point[1]}`, stroke: STYLES[kind].color, 'marker-end': marker, 'vector-effect': 'non-scaling-stroke' });
+        // Markers use strokeWidth units, so detached carriers must retain the
+        // relationship's width just like the original, unsplit connector.
+        const el = svgElement('path', { d: `M ${point[0] - dx / length * .1} ${point[1] - dy / length * .1} L ${point[0]} ${point[1]}`, stroke: STYLES[kind].color, 'stroke-width': STYLES[kind].width, 'marker-end': marker, 'vector-effect': 'non-scaling-stroke' });
         el.dataset.people = people.join(' '); el.dataset.group = group;
         if (inferred) el.dataset.inferred = 'true';
         if (detailsOnly) el.dataset.detailsOnly = 'true';

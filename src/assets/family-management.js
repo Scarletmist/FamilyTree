@@ -75,7 +75,7 @@
       selectedNames.textContent = selected.length ? selected.map(m => m.name + '：' + (m.order.value || '排行未知')).join('、') : '勾選下方成員，已選成員會優先顯示。';
       if (reorder) {
         const active = document.activeElement;
-        [...memberInputs].sort((a,b) => Number(b.check.checked) - Number(a.check.checked)).forEach(m => members.append(m.row));
+        memberInputs.toSorted((a,b) => Number(b.check.checked) - Number(a.check.checked)).forEach(m => members.append(m.row));
         if (active?.isConnected) active.focus({preventScroll:true});
       }
       filterMembers();

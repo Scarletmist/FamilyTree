@@ -101,7 +101,7 @@
 
     const aligned = new Set();
     const componentOrder = familyComponents.map((ids, index) => ({ ids, index }))
-      .sort((a, b) => b.ids.length - a.ids.length || [...a.ids].sort()[0].localeCompare([...b.ids].sort()[0]));
+      .sort((a, b) => b.ids.length - a.ids.length || a.ids.toSorted()[0].localeCompare(b.ids.toSorted()[0]));
     for (const { index } of componentOrder) {
       if (aligned.has(index)) continue;
       const queue = [index];
@@ -214,7 +214,7 @@
     const peerOrder = placementComponents.map((ids, index) => ({ ids, index }))
       .sort((a, b) => Number(peerTargets.has(peerRoot(a.index))) - Number(peerTargets.has(peerRoot(b.index)))
         || (peerSources.get(a.index) ?? Infinity) - (peerSources.get(b.index) ?? Infinity)
-        || b.ids.length - a.ids.length || [...a.ids].sort()[0].localeCompare([...b.ids].sort()[0]));
+        || b.ids.length - a.ids.length || a.ids.toSorted()[0].localeCompare(b.ids.toSorted()[0]));
     const peerPlaced = new Set();
     for (const { index } of peerOrder) {
       if (peerPlaced.has(index)) continue;
@@ -252,7 +252,7 @@
     function placeAcquaintances() {
       for (let cursor = 0; cursor < acquaintanceQueue.length; cursor++) {
         const id = acquaintanceQueue[cursor];
-        for (const next of acquaintanceLinks.get(id).slice().sort()) {
+        for (const next of acquaintanceLinks.get(id).toSorted()) {
           if (acquaintancePlaced.has(next)) continue;
           byId.get(next).gen = byId.get(id).gen;
           acquaintancePlaced.add(next);

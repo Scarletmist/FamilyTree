@@ -165,7 +165,7 @@ def controls(root):
 def git_state(root):
     def run(*args):
         try:
-            p = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=10)
+            p = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
             return p.stdout.strip() if p.returncode == 0 else None
         except (OSError, subprocess.TimeoutExpired):
             return None
@@ -206,7 +206,7 @@ def new_experiment(root, args):
         exp.mkdir(parents=True, exist_ok=False)
     except FileExistsError:
         fail(f"Experiment already exists: {args.task}")
-    (exp / "task.md").write_text(task, encoding="utf-8")
+    (exp / "task.md").write_bytes(task.encode("utf-8"))
     write_json(exp / "controls.json", c)
     write_json(exp / "experiment.json", meta)
     for name in ("plan.md", "decision.md", "reflection.md"):

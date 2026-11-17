@@ -31,3 +31,15 @@
 ## D-008：腳本驗證範圍必須明確
 
 workflow helper 可產生依賴計畫並檢查證據，但不會因此建立模型執行、獨立對話或完成所有專業判斷。status/report 的退出碼只表達資料完整性檢查結果；是否真正做完 agent 工作，須另讀原始 trace、產物與階段紀錄。
+
+## D-009：縮減重複建圖，保留提交驗證
+
+靜態新增移除重複的 UI 預檢、私有命令 helper 中間建圖與遷移入口的既有資料完整建圖。Commands 邊界及 repository transaction 中的完整候選驗證仍保留，版本衝突、防重試重複、undo 與 dirty 必須通過固定測試。禁止以可變 snapshot 參照做跨操作快取；新增效能以 P-09 的真實載入人數及完整建圖入口量測。
+
+## D-010：明定支援政策與三引擎關卡
+
+採用 docs/browser-support.md 的最低目標，Playwright 1.62.1 鎖定開發依賴。PR／push 與 Pages 共用 Node、建置／發布包及 Chromium／Firefox／WebKit 關卡；引擎模擬不冒充最低版本或真機驗收。
+
+## D-011：Harness 對接實際應用套件
+
+project_ready 只表示 Node、browser smoke 與命令效能套件已配置；adapter 解析真實測試數，拒絕空跑、缺樣本與資料人數不符，harness 自測獨立報告。Windows 任務檔以 UTF-8 bytes 寫入，確保凍結雜湊與實際檔案一致。

@@ -105,7 +105,7 @@
     build(next);
     return next;
   }
-  const intermediateKey = (kind, members) => [kind, ...members.slice().sort()].join('|');
+  const intermediateKey = (kind, members) => [kind, ...members.toSorted()].join('|');
   function ignoredIntermediatePlanIds(data) {
     const value = data?.ignoredIntermediatePlans;
     if (value === undefined) return [];
@@ -366,7 +366,7 @@
     }
     const groups = new Map();
     function family(ids) {
-      const partners = ids.slice().sort(), key = partners.join('|');
+      const partners = ids.toSorted(), key = partners.join('|');
       if (!groups.has(key)) groups.set(key, { id: `u${groups.size + 1}`, partners, married: spouses.has(key) });
       return groups.get(key);
     }
@@ -470,13 +470,13 @@
         });
         const cohorts = new Map();
         const cohort = ids => {
-          const sorted = ids.slice().sort(compare);
+          const sorted = ids.toSorted(compare);
           cohorts.set(JSON.stringify(sorted),sorted);
         };
         [...neighbors.keys()].sort(compare).forEach(id => {
           cohort([id]);
           // Neighborhood subsets also cover partially recorded cousin networks.
-          const leaves = neighbors.get(id).slice().sort(compare);
+          const leaves = neighbors.get(id).toSorted(compare);
           for (const seed of leaves) {
             const members = [seed];
             for (const leaf of leaves) if (leaf !== seed && members.every(m => siblings(m,leaf))) members.push(leaf);
@@ -649,7 +649,7 @@
       if (sign && ['sibling','swornSibling'].includes(r.type)) constrain(r.type, sign < 0 ? q.id : p.id, sign < 0 ? p.id : q.id);
     }
     for (const g of data.rankGroups || []) {
-      const ranked = g.members.filter(m => m.order !== null).slice().sort((a,b) => a.order - b.order);
+      const ranked = g.members.filter(m => m.order !== null).toSorted((a,b) => a.order - b.order);
       for (let i = 1; i < ranked.length; i++) constrain(g.type === 'fellowDisciple' ? g.type + ':' + g.id : g.type, ranked[i-1].personId, ranked[i].personId);
     }
     for (const map of constraints.values()) {

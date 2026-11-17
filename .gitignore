@@ -5,3 +5,9 @@ dist/
 .codebase-memory/phase5-python/
 .codebase-memory/phase5-results/
 tests/__pycache__/
+
+node_modules/
+__pycache__/
+
+modern-web-guidance/
+harness/

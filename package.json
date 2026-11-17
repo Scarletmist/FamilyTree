@@ -12,6 +12,7 @@
     "test:phase3:browser": "node tests/browser-phase3.cjs",
     "test:phase4:browser": "node tests/browser-phase4.cjs",
     "test:ui:browser": "node tests/browser-ui-improvements.cjs",
+    "test:p1:browser": "node tests/browser-p1-accessibility.cjs",
     "test:buttons:browser": "node tests/browser-button-layout.cjs",
     "test:relationships:browser": "node tests/browser-relationship-policy.cjs && node tests/browser-family-inference.cjs && node tests/browser-seniority-inference.cjs",
     "test:generations:browser": "node tests/browser-peer-generations.cjs && node tests/browser-grandparents.cjs",
@@ -21,9 +22,15 @@
     "test:storage:browser": "node tests/browser-static.cjs && node tests/browser-static-storage-errors.cjs && node tests/browser-device-reset.cjs",
     "test:browser": "python tests/family-ui.py && python tests/ux-form-query.py && python tests/ux-canvas-dismiss.py && python tests/ux-member-list-toolbar.py && python tests/ux-compact-history-toast-draft.py && python tests/ux-peek-back-filter-empty.py && python tests/ux-recent-undo-viewstate.py && python tests/ux-unlinked-query-filter.py && python tests/ux-mobile-viewport-shell.py && python tests/ux-mobile-gesture-policy.py && python tests/ux-p0-mobile.py && python tests/ux-p1.py && python tests/ux-p2.py && python tests/ux-p2-mobile-regressions.py && python tests/ux-semantic-zoom.py && python tests/ux-google-auth-opportunistic.py",
     "build": "node dev/build.cjs",
-    "test:locations:browser": "node tests/browser-locations.cjs && node tests/browser-location-corrections.cjs && node tests/browser-map-workspace.cjs"
+    "test:locations:browser": "node tests/browser-locations.cjs && node tests/browser-location-corrections.cjs && node tests/browser-map-workspace.cjs",
+    "validate:unit": "node scripts/project-validation.cjs unit",
+    "test:smoke:browser": "node scripts/project-validation.cjs browser-smoke",
+    "test:performance": "node scripts/project-validation.cjs performance"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
   }
 }

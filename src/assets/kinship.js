@@ -173,7 +173,7 @@
       if (item.id === start) {
         paths.push({ nodes: [start, ...item.edges.map(e => e.to)], edges: item.edges, familyRoute: familyOnly });
       } else {
-        for (const edge of (previous.get(item.id) || []).slice().reverse()) stack.push({ id: edge.from, edges: [edge, ...item.edges] });
+        for (const edge of (previous.get(item.id) || []).toReversed()) stack.push({ id: edge.from, edges: [edge, ...item.edges] });
       }
     }
     return { paths, truncated: stack.length > 0 };

@@ -52,11 +52,12 @@ class WorkflowTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / "project"
-        shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns("experiments", "__pycache__", "*.pyc"))
+        shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns("experiments", "__pycache__", "*.pyc", ".git", "node_modules", ".codebase-memory", "dist"))
         c = wf.h.read_json(self.root / "harness/config.json")
         result = {"schema_version": 1, "checks_run": 1, "checks_failed": 0, "metrics": {}}
         code = "import os; from pathlib import Path; " + f"Path(os.environ['HARNESS_RUN_DIR'],'result.json').write_text({json.dumps(result)!r})"
-        c.update(project_ready=True, data_id="fixture", environment_id="test",
+        c.update(project_ready=True, data_id="fixture", environment_id="test", metrics={}, input_files=[],
+                 evaluator_files=["scripts/harness.py", "scripts/harness_workflow.py", "harness/skills.json"],
                  suites=[{"id": "fixture", "group": "project", "command": ["{python}", "-c", code], "timeout_seconds": 10}])
         wf.h.write_json(self.root / "harness/config.json", c)
         with contextlib.redirect_stdout(io.StringIO()):

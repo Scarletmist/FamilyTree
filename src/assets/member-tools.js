@@ -173,11 +173,18 @@
         select.addEventListener('invalid', event => { event.preventDefault(); open(control); });
       }
       const title = select.getAttribute('aria-label') || select.closest('label')?.firstChild?.textContent?.trim() || '選項';
-      for (const [node, label] of [[control.trigger, title], [control.panel, title], [control.list, title], [control.search, '搜尋' + title]]) {
+      for (const [node, label] of [[control.panel, title], [control.list, title], [control.search, '搜尋' + title]]) {
         if (node.getAttribute('aria-label') !== label) node.setAttribute('aria-label', label);
       }
       const text = select.selectedOptions[0]?.textContent || '請選擇';
       if (control.trigger.textContent !== text) control.trigger.textContent = text;
+      const accessibleName = title + '：' + text;
+      if (control.trigger.getAttribute('aria-label') !== accessibleName) control.trigger.setAttribute('aria-label', accessibleName);
+      // Validation belongs on the control users focus, including native hints.
+      control.trigger.setAttribute('aria-invalid', select.getAttribute('aria-invalid') || 'false');
+      const description = select.getAttribute('aria-describedby');
+      if (description) control.trigger.setAttribute('aria-describedby', description);
+      else control.trigger.removeAttribute('aria-describedby');
       const disabled = select.matches(':disabled');
       if (control.trigger.disabled !== disabled) control.trigger.disabled = disabled;
     });

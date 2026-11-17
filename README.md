@@ -1,5 +1,13 @@
 # 族譜網站
 
+## 架構、支援與必要驗收
+
+實際模組邊界見 [架構文件](docs/architecture.md)，驗收條件見 [P-01～P-09](docs/acceptance_criteria.md)，最低瀏覽器目標與實機限制見 [瀏覽器支援政策](docs/browser-support.md)。
+
+開發測試先執行 `npm ci --ignore-scripts` 與 `npx playwright install chromium firefox webkit`；`npm run validate:unit` 執行 Node 回歸，`npm run test:smoke:browser` 執行跨引擎 UI 關卡，`npm run test:performance` 驗證確定性的建圖次數並記錄 lab 時間。以 `PLAYWRIGHT_ENGINE` 選擇 chromium／firefox／webkit；Windows 預設沿用 Edge，`PLAYWRIGHT_CHANNEL=bundled` 使用 Playwright Chromium。
+
+PR／push 與手動 Pages 發布共用 `.github/workflows/validate.yml`，發布先等待驗收。新增與既有測試皆使用合成資料，沒有真實 Google 授權。 P2 的前後量測、最終驗證與限制見 [P2／P3 實作紀錄](docs/performance-p2.md)。
+
 新增／編輯成員時可選擇「認識」關係。尚無親屬關係的人會安排在認識對象的同一代，並以虛線卡片表示非家族成員；補上親屬關係後依親屬代別排列、恢復實線。詳情與查詢可查看認識的人，SVG／列印保留虛線邊框。規則與測試見 [認識關係](design/acquaintances-20261103.md)。
 
 ## 第五階段整合驗收

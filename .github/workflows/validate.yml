@@ -1,0 +1,47 @@
+name: Validate FamilyTree
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run validate:unit
+      - run: npm run build
+      - run: npm run check:release
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox, webkit]
+    env:
+      PLAYWRIGHT_ENGINE: ${{ matrix.engine }}
+      PLAYWRIGHT_CHANNEL: bundled
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - run: npm run test:smoke:browser
+      - if: matrix.engine == 'chromium'
+        run: npm run test:performance

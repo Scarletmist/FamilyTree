@@ -96,8 +96,13 @@
   function repositoryError(message, status = 400, code = 'STORE_ERROR') {
     return Object.assign(new Error(message), { status, code });
   }
+  function assertPayloadEnvelope(payload) {
+    if (!payload || typeof payload !== 'object' || typeof payload.version !== 'string'
+      || !payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) throw new Error('瀏覽器族譜資料格式不正確。');
+    return payload;
+  }
   function assertPayload(payload) {
-    if (!payload || typeof payload !== 'object' || typeof payload.version !== 'string') throw new Error('瀏覽器族譜資料格式不正確。');
+    assertPayloadEnvelope(payload);
     FamilyModel.build(payload.data);
     return payload;
   }
@@ -165,7 +170,8 @@
   }
   async function migrateLegacy() {
     const existing = await recordGet('current');
-    if (existing) return assertPayload(existing);
+    // Reads validate below; mutations validate the latest transaction data in Commands.
+    if (existing) return assertPayloadEnvelope(existing);
     let legacy = null;
     try {
       const text = localStorage.getItem(legacyKey);

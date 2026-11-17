@@ -400,8 +400,6 @@
     document.getElementById('intermediate-context')?.remove();
     document.getElementById('member-dialog-title').textContent = editingId ? '編輯' + snapshot.data.people.find(p => p.id === editingId)?.name : '新增成員';
     document.getElementById('refresh-family').textContent = '檢視最新資料';
-    form.querySelectorAll('[aria-invalid]').forEach(control => control.removeAttribute('aria-invalid'));
-    form.querySelectorAll('.field-error').forEach(hint => { hint.textContent = ''; });
     if (editingId) populateMember();
     if (plan) {
       document.getElementById('member-dialog-title').textContent = plan.title;
@@ -647,44 +645,87 @@
   function validateName() {
     const input = document.getElementById('member-name');
     const message = input.value.trim() ? '' : '請填寫姓名。';
-    document.getElementById('member-name-error').textContent = message;
-    input.setAttribute('aria-invalid', String(Boolean(message)));
+    showFieldError(input, message);
     return !message;
   }
   const inlineErrors = new WeakMap();
-  let nextInlineError = 0;
+  const fieldErrorListeners = new WeakSet();
+  let validatedFields = new WeakSet(), nextInlineError = 0, fieldErrorTimer = 0, announcedField = null;
+  const nameFieldError = document.getElementById('member-name-error');
+  nameFieldError.removeAttribute('aria-live');
+  // Keep the announcer inside the modal, since the rest of the page is inert.
+  const fieldErrorAnnouncer = document.createElement('span');
+  fieldErrorAnnouncer.className = 'member-field-announcer';
+  fieldErrorAnnouncer.setAttribute('aria-live', 'polite');
+  form.append(fieldErrorAnnouncer);
+  function linkFieldError(control, hint, invalid) {
+    const trigger = control.closest('.searchable-select')?.querySelector('.select-trigger');
+    for (const node of [control, trigger].filter(Boolean)) {
+      const ids = (node.getAttribute('aria-describedby') || '').split(/\s+/).filter(id => id && id !== hint.id);
+      if (invalid) ids.push(hint.id);
+      if (ids.length) node.setAttribute('aria-describedby', ids.join(' '));
+      else node.removeAttribute('aria-describedby');
+      node.setAttribute('aria-invalid', String(invalid));
+    }
+  }
   function showFieldError(control, message) {
     let hint = inlineErrors.get(control);
     if (!hint) {
-      hint = document.createElement('span'); hint.className = 'field-error';
-      hint.id = 'member-field-error-' + ++nextInlineError; hint.setAttribute('aria-live', 'polite');
-      (control.closest('.searchable-select') || control).after(hint);
+      hint = control.id === 'member-name' ? nameFieldError : document.createElement('span');
+      if (hint !== nameFieldError) {
+        hint.className = 'field-error'; hint.id = 'member-field-error-' + ++nextInlineError;
+        (control.closest('.searchable-select') || control).after(hint);
+      }
       inlineErrors.set(control, hint);
-      control.setAttribute('aria-describedby', [control.getAttribute('aria-describedby'), hint.id].filter(Boolean).join(' '));
-      for (const event of ['input', 'change']) control.addEventListener(event, () => showFieldError(control, ''));
     }
+    if (!fieldErrorListeners.has(control)) {
+      for (const event of ['input', 'change']) control.addEventListener(event, e => {
+        if (validatedFields.has(control)) nativeFieldError(control, { announce:e.type === 'change' });
+      });
+      fieldErrorListeners.add(control);
+    }
+    validatedFields.add(control);
     hint.textContent = message;
-    control.setAttribute('aria-invalid', String(Boolean(message)));
-    const trigger = control.closest('.searchable-select')?.querySelector('.select-trigger');
-    if (trigger) { trigger.setAttribute('aria-invalid', String(Boolean(message))); trigger.setAttribute('aria-describedby', hint.id); }
+    linkFieldError(control, hint, Boolean(message));
+    if (!message && announcedField === control) {
+      clearTimeout(fieldErrorTimer); fieldErrorAnnouncer.textContent = ''; announcedField = null;
+    }
   }
-  function nativeFieldError(control) {
-    if (control.id === 'member-name') { validateName(); return; }
-    const message = control.validity.valid ? '' : control.type === 'number' ? '請填寫 1–999 的整數，或留空。' : control.matches('select') ? '請選擇此欄位的選項。' : control.validationMessage;
-    showFieldError(control, message);
+  function nativeFieldError(control, { announce = false } = {}) {
+    if (control.id === 'member-name') validateName();
+    else {
+      const message = control.validity.valid ? '' : control.type === 'number' ? '請填寫 1–999 的整數，或留空。' : control.matches('select') ? '請選擇此欄位的選項。' : control.validationMessage;
+      showFieldError(control, message);
+    }
+    const message = inlineErrors.get(control)?.textContent;
+    if (announce && message) {
+      clearTimeout(fieldErrorTimer); fieldErrorAnnouncer.textContent = ''; announcedField = control;
+      fieldErrorTimer = setTimeout(() => {
+        if (dialog.open && inlineErrors.get(control)?.textContent === message) {
+          const label = control.getAttribute('aria-label') || control.labels?.[0]?.firstChild?.textContent?.trim() || '';
+          fieldErrorAnnouncer.textContent = (label ? label + '：' : '') + message;
+        }
+      }, 500);
+    }
   }
+  function resetFieldErrors() {
+    validatedFields = new WeakSet();
+    clearTimeout(fieldErrorTimer); fieldErrorAnnouncer.textContent = ''; announcedField = null;
+    for (const control of form.querySelectorAll('input, select, textarea')) {
+      const hint = inlineErrors.get(control) || (control.id === 'member-name' ? nameFieldError : null);
+      if (hint) { hint.textContent = ''; linkFieldError(control, hint, false); }
+      control.setAttribute('aria-invalid', 'false');
+    }
+  }
+  form.addEventListener('reset', resetFieldErrors);
+  resetFieldErrors();
   form.addEventListener('invalid', event => {
     event.target.closest('.relation-row')?.expandEditor();
     for (let parent = event.target.parentElement; parent && parent !== form; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
     nativeFieldError(event.target);
   }, true);
   form.addEventListener('focusout', event => {
-    if (event.target.matches('input[type=number],select[required]')) nativeFieldError(event.target);
-  });
-  document.getElementById('member-name').addEventListener('blur', validateName);
-  document.getElementById('member-name').addEventListener('input', () => {
-    document.getElementById('member-name-error').textContent = '';
-    document.getElementById('member-name').removeAttribute('aria-invalid');
+    if (event.target.matches('#member-name,input[type=number],select[required]')) nativeFieldError(event.target, { announce:true });
   });
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (saving) return;
@@ -717,9 +758,13 @@
     else if (editingId && snapshot.data.people.find(p => p.id === editingId)?.mapHidden !== undefined) member.mapHidden = false;
     setSaving(true);
     try {
-      const candidate = { ...member, id: editingId || 'p-' + requestId };
-      if (editingId) FamilyModel.replaceMember(snapshot.data, candidate);
-      else FamilyModel.build({ ...snapshot.data, people: [...snapshot.data.people, candidate] });
+      // Static commands return structured domain errors, so another complete UI
+      // build is redundant. The legacy HTTP adapter still needs its field context.
+      if (!FamilyRepository.isStatic) {
+        const candidate = { ...member, id: editingId || 'p-' + requestId };
+        if (editingId) FamilyModel.replaceMember(snapshot.data, candidate);
+        else FamilyModel.build({ ...snapshot.data, people: [...snapshot.data.people, candidate] });
+      }
       const payload = editingId
         ? await FamilyApp.updateMember(editingId, { member, version: snapshot.version })
         : await FamilyApp.addMember({ member, requestId, version: snapshot.version });

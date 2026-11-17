@@ -41,6 +41,7 @@ class HarnessTests(unittest.TestCase):
         self.c = h.read_json(self.root / "harness/config.json")
         # This unit fixture evaluates the core runner in isolation from the full workflow package.
         self.c["evaluator_files"] = ["scripts/harness.py"]
+        self.c["input_files"] = []
         self.c.update(project_ready=True, data_id="fixture-v1", environment_id="unit-test", metrics=RULE)
         self.set_command("import json, os; from pathlib import Path; "
                          + f"Path(os.environ['HARNESS_RUN_DIR'],'result.json').write_text({json.dumps(GOOD)!r})")
@@ -61,6 +62,15 @@ class HarnessTests(unittest.TestCase):
         self.assertIn(self.cli("run", "--experiment", "test", "--label", label), (0, 1))
         run_dir = next((self.root / "harness/experiments/test/runs").glob(label + "-*"))
         return h.read_json(run_dir / "report.json"), run_dir
+
+    def test_new_task_bytes_match_the_frozen_hash(self):
+        self.new()
+        folder = self.root / "harness/experiments/test"
+        metadata = h.read_json(folder / "experiment.json")
+        task = (folder / "task.md").read_bytes()
+        self.assertNotIn(b"\r\n", task)
+        self.assertEqual(h.digest(task), metadata["task_sha256"])
+        h.frozen(self.root, "test")
 
     def test_real_suite_emits_evidence(self):
         self.new()

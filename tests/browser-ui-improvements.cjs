@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const {chromium,webkit} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const {launchBrowser} = require('./helpers/browser-runtime.cjs');
 const {createFamilyServer} = require('../dev/server.cjs');
 const {renderFamilyTreeHtml} = require('../dev/site-source.cjs');
 const person = (id,name,relationships=[],extra={}) => ({id,name,gender:'M',location:'',position:'',siblingOrder:null,relationships,...extra});
@@ -36,8 +36,7 @@ async function openGroups(page) { await page.evaluate(() => FamilyManagement.ope
   try {
     await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
     const base = `http://127.0.0.1:${server.address().port}`,html = await renderFamilyTreeHtml({browserStorage:true});
-    const useWebKit = process.env.PLAYWRIGHT_ENGINE === 'webkit';
-    browser = await (useWebKit ? webkit : chromium).launch({headless:true,...(useWebKit ? {} : {channel:process.env.PLAYWRIGHT_CHANNEL || 'msedge'})});
+    browser = await launchBrowser();
     for (const mode of ['api','static']) for (const viewport of [{width:1440,height:1000},{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
       await fs.writeFile(file,JSON.stringify(fixture));
       const context = await browser.newContext({viewport,hasTouch:viewport.width<950,reducedMotion:'reduce'}),page = await context.newPage(),errors=[];

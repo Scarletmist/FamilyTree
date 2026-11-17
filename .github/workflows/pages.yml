@@ -9,7 +9,12 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
+  validate:
+    uses: ./.github/workflows/validate.yml
+    permissions:
+      contents: read
   deploy:
+    needs: validate
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -19,7 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm test
+          cache: npm
+      - run: npm ci --ignore-scripts
       - run: npm run build
         env:
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}

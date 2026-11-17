@@ -11,7 +11,7 @@
   const flip = edge => ({ ...edge, from: edge.to, to: edge.from, type: inverse[edge.type],
     ...(edge.seniority && !['uncleAunt','nephewNiece'].includes(edge.type) ? { seniority: edge.seniority === 'older' ? 'younger' : edge.seniority === 'younger' ? 'older' : 'unknown' } : {}),
     ...(edge.rankOrder ? { rankOrder:{ ...edge.rankOrder, fromOrder:edge.rankOrder.toOrder, toOrder:edge.rankOrder.fromOrder } } : {}) });
-  const reverse = path => path.slice().reverse().map(flip);
+  const reverse = path => path.toReversed().map(flip);
   const pairKey = (a, b) => [a, b].sort().join('|');
   const edgeKey = edge => [edge.from, edge.to, edge.type, edge.kind || ''].join('|');
   const pathKey = path => path.map(edgeKey).join(';');
@@ -91,7 +91,7 @@
       for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) addPeer(ids[i],ids[j],type);
     }
     for (const group of groups) {
-      const ranked = group.members.filter(member => member.order !== null).slice().sort((a,b) => a.order - b.order);
+      const ranked = group.members.filter(member => member.order !== null).toSorted((a,b) => a.order - b.order);
       for (let i = 1; i < ranked.length; i++) add({ from:ranked[i-1].personId,to:ranked[i].personId,type:group.type,groupId:group.id,rankGroup:true },1);
       if (group.type === 'sibling' && ranked[0]?.order === 1) {
         for (const member of group.members.filter(member => member.order === null)) add({ from:ranked[0].personId,to:member.personId,type:group.type,groupId:group.id,rankGroup:true },1);

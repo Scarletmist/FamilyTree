@@ -67,15 +67,15 @@
       for (const id of new Set([...oldItems.keys(),...newItems.keys()])) {
         const a = oldItems.get(id), b = newItems.get(id), value = b || a;
         // Rank-group member ordering is presentation, not a change in ranks.
-        const normalize = g => entity === 'group' && g ? { ...g,members:g.members.slice().sort((x,y) => x.personId.localeCompare(y.personId)) } : g;
+        const normalize = g => entity === 'group' && g ? { ...g,members:g.members.toSorted((x,y) => x.personId.localeCompare(y.personId)) } : g;
         if (!Evidence.same(normalize(a),normalize(b))) add(entity,id,value.name || value.person?.name || id,entity === 'group' ? '排行群組' : '回收紀錄',a,b,
           entity === 'group' ? [...new Set([...(a?.members || []),...(b?.members || [])].map(m => m.personId))] : [value.person.id],!a ? 'added' : !b ? 'removed' : 'changed');
       }
     }
     for (const key of new Set([...Object.keys(before),...Object.keys(after)])) {
       if (['people','rankGroups','recycleBin'].includes(key)) continue;
-      const a = key === 'familyName' ? before[key] ?? '陳氏家族' : key === 'ignoredIntermediatePlans' ? [...(before[key] || [])].sort() : before[key];
-      const b = key === 'familyName' ? after[key] ?? '陳氏家族' : key === 'ignoredIntermediatePlans' ? [...(after[key] || [])].sort() : after[key];
+      const a = key === 'familyName' ? before[key] ?? '陳氏家族' : key === 'ignoredIntermediatePlans' ? (before[key] || []).toSorted() : before[key];
+      const b = key === 'familyName' ? after[key] ?? '陳氏家族' : key === 'ignoredIntermediatePlans' ? (after[key] || []).toSorted() : after[key];
       if (!Evidence.same(a ?? null,b ?? null)) add('family','family',labels[key] || key,key,a,b);
     }
     const priority = item => item.kind === 'removed' || item.field === 'archive' ? 0 : item.entity === 'relationship' ? 1 : item.system ? 3 : 2;

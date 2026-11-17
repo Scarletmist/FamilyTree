@@ -50,7 +50,7 @@
       throw commandError('此筆新增已儲存，請重新開啟新增表單。', 409, 'ALREADY_SAVED');
     }
     const next = { ...data, people: data.people.concat(person) };
-    Model.build(next);
+    // apply() validates the completed candidate before returning to persistence.
     return { data: next, memberId: person.id, label: `新增成員「${person.name}」` };
   }
 

@@ -376,6 +376,7 @@ let FAMILY = FamilyApp?.graph?.() || null;
   }
   function render() {
     const view = document.querySelector('.tree');
+    const focusedNode = document.getElementById('tree-canvas')?.contains(document.activeElement) ? document.activeElement : null;
     renderView = { scale: treeZoom.getScale(), scrollLeft: view.scrollLeft, scrollTop: view.scrollTop,
       filter: document.getElementById('family-filter').value };
     treeZoom.beforeRender({ scene:FAMILY, scope:document.getElementById('family-filter').value });
@@ -399,6 +400,15 @@ let FAMILY = FamilyApp?.graph?.() || null;
         beforeQueryView = null;
       }
       restoreCanvasViewStateOnce();
+      // Restore a removed button's identity without overriding a deliberate
+      // focus move, an open modal, or controls outside the canvas.
+      if (focusedNode && !focusedNode.isConnected && !document.querySelector('dialog:modal')
+        && (document.activeElement === document.body || document.activeElement === view)) {
+        const key = ['personId','planId','evidenceKey'].find(key => focusedNode.dataset[key]);
+        const replacement = key && [...view.querySelectorAll('button')].find(node =>
+          node.dataset[key] === focusedNode.dataset[key] && !node.disabled && node.getClientRects().length && !node.closest('[hidden],[inert]'));
+        (replacement || view).focus({ preventScroll:true });
+      }
     }
   }
   function selectFamilyMember(id, { preserveDetailsState = false } = {}) {

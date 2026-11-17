@@ -52,6 +52,8 @@ const fixture = () => ({schemaVersion:2,familyName:'驗證家族',people:[person
       await page.evaluate(id=>editFamilyMember(id),b); await page.fill('#member-order','3'); await page.click('#save-member'); await page.waitForFunction(()=>!document.getElementById('member-dialog').open);
       assert.match(await page.locator('[data-group=siblings]').textContent(),/二兄/);
       await page.evaluate(id=>editFamilyMember(id),b); await page.fill('#member-order','1'); await page.click('#save-member');
+      // Static validation returns after the IndexedDB command rejects.
+      await page.waitForFunction(() => document.getElementById('member-error').textContent.includes('矛盾'));
       assert.match(await page.locator('#member-error').textContent(),/矛盾/);
       assert.equal(await page.locator('.relation-row').getAttribute('data-expanded'),'true');
       assert.equal(await page.evaluate(()=>document.activeElement.closest('.relation-row')!==null),true);
